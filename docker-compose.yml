@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: fleet_db
+    environment:
+      POSTGRES_DB: fleet_management
+      POSTGRES_USER: fleet_user
+      POSTGRES_PASSWORD: fleet_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./backend/db/create_tables.sql:/docker-entrypoint-initdb.d/01_create_tables.sql
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/02_init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fleet_user -d fleet_management"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fleet_backend
+    environment:
+      DATABASE_URL: postgresql://fleet_user:fleet_password@postgres:5432/fleet_management
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      S3_BUCKET: ${S3_BUCKET:-fleet-uploads}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend Web Admin (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fleet_frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8001/api
+    ports:
+      - "3010:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    command: npm run dev
+
+  # MinIO (S3-compatible storage for development)
+  minio:
+    image: minio/minio:latest
+    container_name: fleet_minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+
+volumes:
+  postgres-data:
+  minio-data:
