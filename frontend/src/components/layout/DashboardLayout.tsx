@@ -20,7 +20,7 @@ import {
   X,
   Globe,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const navigation = [
   { name: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -45,6 +45,11 @@ export default function DashboardLayout({
   const { user, logout } = useAuth()
   const { t, language, setLanguage } = useI18n()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleLogout = () => {
     logout()
@@ -53,6 +58,15 @@ export default function DashboardLayout({
 
   const toggleLanguage = () => {
     setLanguage(language === 'he' ? 'en' : 'he')
+  }
+
+  // Prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+      </div>
+    )
   }
 
   return (
