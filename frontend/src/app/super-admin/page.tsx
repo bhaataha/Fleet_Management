@@ -76,9 +76,8 @@ export default function SuperAdminPage() {
       if (activeTab === 'organizations') {
         const response = await superAdminApi.listOrganizations(filters)
         console.log('Organizations API response:', response)
-        // Handle both array and object responses
-        const orgs = Array.isArray(response.data) ? response.data : 
-                     (response.data?.organizations || response.data?.data || [])
+        // API returns { total, skip, limit, items: [...] }
+        const orgs = response.data?.items || response.data?.organizations || response.data?.data || []
         console.log('Parsed organizations:', orgs)
         setOrganizations(orgs)
       } else {

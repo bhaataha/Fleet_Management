@@ -114,3 +114,98 @@ async def tenant_middleware(request: Request, call_next):
         )
     
     return await call_next(request)
+
+
+def get_current_org_id(request: Request) -> UUID:
+    """
+    Extract org_id from request state (set by tenant_middleware)
+    
+    Usage in endpoints:
+        org_id = get_current_org_id(request)
+        customers = db.query(Customer).filter(Customer.org_id == org_id).all()
+    
+    Returns:
+        UUID: Current organization ID
+        
+    Raises:
+        HTTPException 403: If org_id not found in request state
+    """
+    org_id = getattr(request.state, "org_id", None)
+    if not org_id:
+        logger.error("get_current_org_id called but org_id not in request.state")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Organization context not available - please login again"
+        )
+    return org_id
+
+
+def get_current_user_id(request: Request) -> int:
+    """
+    Extract user_id from request state
+    
+    Returns:
+        int: Current user ID
+        
+    Raises:
+        HTTPException 403: If user_id not found
+    """
+    user_id = getattr(request.state, "user_id", None)
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User context not available - please login again"
+        )
+    return user_id
+
+
+def is_super_admin(request: Request) -> bool:
+    """
+    Check if current user is Super Admin
+    
+    Returns:
+        bool: True if user is Super Admin
+    """
+    return getattr(request.state, "is_super_admin", False)
+
+
+def get_org_role(request: Request) -> str:
+    """
+    Get current user's role in organization
+    
+    Returns:
+        str: One of: owner, admin, dispatcher, accounting, driver
+    """
+    return getattr(request.state, "org_role", "user")
+
+
+def get_current_user_info(request: Request) -> dict:
+    """
+    Get complete current user info from request state
+    
+    Returns:
+        dict: {
+            "org_id": str (UUID as string),
+            "user_id": int,
+            "is_super_admin": bool,
+            "org_role": str
+        }
+        
+    Raises:
+        HTTPException 403: If user context not available
+    """
+    org_id = getattr(request.state, "org_id", None)
+    user_id = getattr(request.state, "user_id", None)
+    
+    if not org_id or not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User context not available - please login again"
+        )
+    
+    return {
+        "org_id": str(org_id),
+        "user_id": user_id,
+        "is_super_admin": getattr(request.state, "is_super_admin", False),
+        "org_role": getattr(request.state, "org_role", "user")
+    }

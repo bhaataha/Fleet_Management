@@ -1,11 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from decimal import Decimal
 from app.core.database import get_db
 from app.models import Site
+from app.middleware.tenant import get_current_org_id
 from pydantic import BaseModel
 from datetime import datetime
+from uuid import UUID
 
 router = APIRouter()
 
@@ -18,6 +20,8 @@ class SiteBase(BaseModel):
     lng: Optional[Decimal] = None
     opening_hours: Optional[str] = None
     access_notes: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
 
 
 class SiteCreate(SiteBase):
@@ -31,12 +35,14 @@ class SiteUpdate(BaseModel):
     lng: Optional[Decimal] = None
     opening_hours: Optional[str] = None
     access_notes: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
     is_active: Optional[bool] = None
 
 
 class SiteResponse(SiteBase):
     id: int
-    org_id: int
+    org_id: UUID
     is_active: bool
     created_at: datetime
     updated_at: Optional[datetime]
@@ -47,6 +53,7 @@ class SiteResponse(SiteBase):
 
 @router.get("", response_model=List[SiteResponse])
 async def list_sites(
+    request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     customer_id: Optional[int] = None,
@@ -54,9 +61,11 @@ async def list_sites(
     db: Session = Depends(get_db)
 ):
     """
-    List all sites with pagination and filters
+    List all sites with pagination and filters (filtered by org_id from JWT)
     """
-    query = db.query(Site)
+    org_id = get_current_org_id(request)
+    
+    query = db.query(Site).filter(Site.org_id == org_id)
     
     if customer_id:
         query = query.filter(Site.customer_id == customer_id)
@@ -68,22 +77,39 @@ async def list_sites(
 
 
 @router.get("/{site_id}", response_model=SiteResponse)
-async def get_site(site_id: int, db: Session = Depends(get_db)):
+async def get_site(
+    site_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
     """
-    Get site by ID
+    Get site by ID (filtered by org_id from JWT)
     """
-    site = db.query(Site).filter(Site.id == site_id).first()
+    org_id = get_current_org_id(request)
+    
+    site = db.query(Site).filter(
+        Site.id == site_id,
+        Site.org_id == org_id
+    ).first()
+    
     if not site:
         raise HTTPException(status_code=404, detail="Site not found")
+    
     return site
 
 
 @router.post("", response_model=SiteResponse, status_code=201)
-async def create_site(site: SiteCreate, db: Session = Depends(get_db)):
+async def create_site(
+    site: SiteCreate,
+    request: Request,
+    db: Session = Depends(get_db)
+):
     """
-    Create new site
+    Create new site (auto-assigned to current org from JWT)
     """
-    db_site = Site(org_id=1, **site.dict())  # TODO: Get org_id from JWT
+    org_id = get_current_org_id(request)
+    
+    db_site = Site(org_id=org_id, **site.dict())
     db.add(db_site)
     db.commit()
     db.refresh(db_site)
@@ -94,12 +120,19 @@ async def create_site(site: SiteCreate, db: Session = Depends(get_db)):
 async def update_site(
     site_id: int,
     site_update: SiteUpdate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
-    Update site
+    Update site (filtered by org_id from JWT)
     """
-    db_site = db.query(Site).filter(Site.id == site_id).first()
+    org_id = get_current_org_id(request)
+    
+    db_site = db.query(Site).filter(
+        Site.id == site_id,
+        Site.org_id == org_id
+    ).first()
+    
     if not db_site:
         raise HTTPException(status_code=404, detail="Site not found")
     
@@ -113,11 +146,21 @@ async def update_site(
 
 
 @router.delete("/{site_id}", status_code=204)
-async def delete_site(site_id: int, db: Session = Depends(get_db)):
+async def delete_site(
+    site_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
     """
-    Delete site (soft delete)
+    Delete site (soft delete - filtered by org_id from JWT)
     """
-    db_site = db.query(Site).filter(Site.id == site_id).first()
+    org_id = get_current_org_id(request)
+    
+    db_site = db.query(Site).filter(
+        Site.id == site_id,
+        Site.org_id == org_id
+    ).first()
+    
     if not db_site:
         raise HTTPException(status_code=404, detail="Site not found")
     

@@ -38,6 +38,10 @@ export default function EditOrganizationPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [org, setOrg] = useState<OrganizationData | null>(null)
+  const [showPasswordReset, setShowPasswordReset] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [resetting, setResetting] = useState(false)
   
   const [formData, setFormData] = useState({
     name: '',
@@ -148,6 +152,42 @@ export default function EditOrganizationPage() {
       alert('שגיאה בעדכון הארגון: ' + (error.response?.data?.detail || error.message))
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!resetEmail || !newPassword) {
+      alert('יש למלא את כל השדות')
+      return
+    }
+    
+    if (newPassword.length < 6) {
+      alert('הסיסמה חייבת להכיל לפחות 6 תווים')
+      return
+    }
+    
+    if (!confirm(`האם אתה בטוח שברצונך לאפס את הסיסמה עבור ${resetEmail}?`)) {
+      return
+    }
+    
+    setResetting(true)
+    
+    try {
+      await superAdminApi.resetOrganizationPassword(params.id as string, {
+        email: resetEmail,
+        new_password: newPassword
+      })
+      alert('הסיסמה אופסה בהצלחה!')
+      setShowPasswordReset(false)
+      setResetEmail('')
+      setNewPassword('')
+    } catch (error: any) {
+      console.error('Failed to reset password:', error)
+      alert('שגיאה באיפוס סיסמה: ' + (error.response?.data?.detail || error.message))
+    } finally {
+      setResetting(false)
     }
   }
 
@@ -374,6 +414,101 @@ export default function EditOrganizationPage() {
               </div>
             </div>
           )}
+
+          {/* Password Reset Section */}
+          <div className="border-t pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">איפוס סיסמה למשתמש</h2>
+              {!showPasswordReset && (
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordReset(true)}
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                >
+                  איפוס סיסמה
+                </button>
+              )}
+            </div>
+            
+            {showPasswordReset && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        אימייל משתמש *
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        placeholder={org?.contact_email || 'user@example.com'}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-yellow-500 focus:border-yellow-500"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        הכנס את האימייל של המשתמש בארגון זה
+                      </p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        סיסמה חדשה *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        placeholder="לפחות 6 תווים"
+                        minLength={6}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-yellow-500 focus:border-yellow-500"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        הסיסמה תשונה מיידית
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPasswordReset(false)
+                        setResetEmail('')
+                        setNewPassword('')
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                    >
+                      ביטול
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={resetting}
+                      className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {resetting ? 'מאפס...' : 'אפס סיסמה'}
+                    </button>
+                  </div>
+                  
+                  <div className="bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded">
+                    <div className="flex">
+                      <div className="flex-shrink-0">
+                        <svg className="h-5 w-5 text-yellow-700" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div className="mr-3">
+                        <p className="text-sm text-yellow-700">
+                          <strong>אזהרה:</strong> פעולה זו תאפס את הסיסמה מיידית. המשתמש יצטרך להשתמש בסיסמה החדשה בכניסה הבאה.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            )}
+          </div>
 
           {/* Actions */}
           <div className="border-t pt-6 flex justify-end gap-4">

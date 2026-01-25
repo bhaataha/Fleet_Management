@@ -69,7 +69,9 @@ export default function DispatchPage() {
   const [trucks, setTrucks] = useState<Truck[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
+  const now = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const [selectedDate, setSelectedDate] = useState(today)
   const [loading, setLoading] = useState(true)
   const [draggedJob, setDraggedJob] = useState<Job | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -78,6 +80,13 @@ export default function DispatchPage() {
 
   useEffect(() => {
     loadData()
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      loadData()
+    }, 30000)
+    
+    return () => clearInterval(interval)
   }, [selectedDate])
 
   // Convert vertical scroll to horizontal scroll
@@ -153,7 +162,7 @@ export default function DispatchPage() {
       // Filter jobs by selected date on client side
       const filteredJobs = jobsRes.data.filter((job: Job) => {
         if (!job.scheduled_date) return false
-        const jobDate = new Date(job.scheduled_date).toISOString().split('T')[0]
+        const jobDate = job.scheduled_date.split('T')[0]
         return jobDate === selectedDate
       })
       
@@ -255,6 +264,15 @@ export default function DispatchPage() {
           
           {/* Date Selector & View Mode Toggle */}
           <div className="flex items-center gap-4">
+            {/* Refresh Button */}
+            <button
+              onClick={() => loadData()}
+              className="px-4 py-2 bg-white rounded-lg shadow hover:bg-gray-50 transition-colors flex items-center gap-2"
+              title="רענן נתונים"
+            >
+              🔄 רענן
+            </button>
+            
             {/* View Mode Toggle */}
             <div className="bg-white rounded-lg shadow p-1 flex gap-1">
               <button

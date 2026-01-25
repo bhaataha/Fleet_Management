@@ -193,6 +193,8 @@ class Site(Base):
     lng = Column(Numeric(10, 7))
     opening_hours = Column(String(255))
     access_notes = Column(Text)  # הערות גישה/אישורים
+    contact_name = Column(String(255))
+    contact_phone = Column(String(50))
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

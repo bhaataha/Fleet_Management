@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.core.database import get_db
 from app.models import Customer
+from app.middleware.tenant import get_current_org_id
 from pydantic import BaseModel
 from datetime import datetime
+from uuid import UUID
 
 router = APIRouter()
 
@@ -36,7 +38,7 @@ class CustomerUpdate(BaseModel):
 
 class CustomerResponse(CustomerBase):
     id: int
-    org_id: int
+    org_id: UUID
     is_active: bool
     created_at: datetime
     updated_at: Optional[datetime]
@@ -47,15 +49,18 @@ class CustomerResponse(CustomerBase):
 
 @router.get("", response_model=List[CustomerResponse])
 async def list_customers(
+    request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     is_active: Optional[bool] = None,
     db: Session = Depends(get_db)
 ):
     """
-    List all customers with pagination
+    List all customers with pagination (filtered by org_id from JWT)
     """
-    query = db.query(Customer)
+    org_id = get_current_org_id(request)
+    
+    query = db.query(Customer).filter(Customer.org_id == org_id)
     
     if is_active is not None:
         query = query.filter(Customer.is_active == is_active)
@@ -65,32 +70,46 @@ async def list_customers(
 
 
 @router.get("/{customer_id}", response_model=CustomerResponse)
-async def get_customer(customer_id: int, db: Session = Depends(get_db)):
+async def get_customer(
+    customer_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
     """
-    Get customer by ID
+    Get customer by ID (filtered by org_id from JWT)
     """
-    customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    org_id = get_current_org_id(request)
+    
+    customer = db.query(Customer).filter(
+        Customer.id == customer_id,
+        Customer.org_id == org_id
+    ).first()
+    
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
+    
     return customer
 
 
 @router.post("", response_model=CustomerResponse, status_code=201)
 async def create_customer(
     customer: CustomerCreate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
-    Create new customer
+    Create new customer (auto-assigned to current org from JWT)
     """
-    # TODO: Get org_id from JWT token
+    org_id = get_current_org_id(request)
+    
     db_customer = Customer(
-        org_id=1,  # Hardcoded for now
+        org_id=org_id,
         **customer.dict()
     )
     db.add(db_customer)
     db.commit()
     db.refresh(db_customer)
+    
     return db_customer
 
 
@@ -98,12 +117,19 @@ async def create_customer(
 async def update_customer(
     customer_id: int,
     customer_update: CustomerUpdate,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
-    Update customer
+    Update customer (filtered by org_id from JWT)
     """
-    db_customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    org_id = get_current_org_id(request)
+    
+    db_customer = db.query(Customer).filter(
+        Customer.id == customer_id,
+        Customer.org_id == org_id
+    ).first()
+    
     if not db_customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     
@@ -113,18 +139,30 @@ async def update_customer(
     
     db.commit()
     db.refresh(db_customer)
+    
     return db_customer
 
 
 @router.delete("/{customer_id}", status_code=204)
-async def delete_customer(customer_id: int, db: Session = Depends(get_db)):
+async def delete_customer(
+    customer_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
     """
-    Delete customer (soft delete - set is_active=False)
+    Delete customer (soft delete - filtered by org_id from JWT)
     """
-    db_customer = db.query(Customer).filter(Customer.id == customer_id).first()
+    org_id = get_current_org_id(request)
+    
+    db_customer = db.query(Customer).filter(
+        Customer.id == customer_id,
+        Customer.org_id == org_id
+    ).first()
+    
     if not db_customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     
     db_customer.is_active = False
     db.commit()
+    
     return None

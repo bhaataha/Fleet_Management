@@ -175,7 +175,8 @@ export const materialsApi = {
 
 // Jobs API
 export const jobsApi = {
-  getAll: () => api.get<Job[]>('/jobs'),
+  getAll: (params?: { limit?: number }) => 
+    api.get<Job[]>('/jobs', { params: { limit: params?.limit || 200 } }),
   
   list: (params?: { 
     skip?: number
@@ -270,6 +271,10 @@ export const superAdminApi = {
   // Organization Users
   getOrganizationUsers: (orgId: string) =>
     api.get<any[]>(`/super-admin/organizations/${orgId}/users`),
+  
+  // Password Reset
+  resetOrganizationPassword: (orgId: string, data: { email: string; new_password: string }) =>
+    api.post(`/super-admin/organizations/${orgId}/reset-password`, data),
   
   // System Stats
   getSystemStats: () => api.get<any>("/super-admin/stats"),

@@ -51,10 +51,11 @@ export default function DashboardPage() {
     try {
       const response = await jobsApi.getAll()
       // Filter for today's jobs on the client side
-      const today = new Date().toISOString().split('T')[0]
+      const now = new Date()
+      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
       const todayJobs = response.data.filter((job: Job) => {
         if (!job.scheduled_date) return false
-        const jobDate = new Date(job.scheduled_date).toISOString().split('T')[0]
+        const jobDate = job.scheduled_date.split('T')[0]
         return jobDate === today
       })
       setJobs(todayJobs)

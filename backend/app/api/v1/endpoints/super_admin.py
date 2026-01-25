@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models import Organization, User
 from app.core.tenant import require_super_admin, get_org_stats, is_super_admin
+from app.core.security import get_password_hash
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 from uuid import UUID, uuid4
@@ -90,6 +91,11 @@ class OrganizationDetail(OrganizationResponse):
 
 class SuspendRequest(BaseModel):
     reason: str
+
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    new_password: str
 
 
 # Endpoints
@@ -475,4 +481,54 @@ def get_system_stats(
             "completed": completed_jobs,
             "completion_rate": round(completed_jobs / total_jobs * 100, 2) if total_jobs > 0 else 0
         }
+    }
+
+
+@router.post("/organizations/{org_id}/reset-password", response_model=dict)
+def reset_organization_user_password(
+    org_id: UUID,
+    request: Request,
+    reset_data: ResetPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Reset password for a user in an organization (Super Admin only)
+    
+    This allows Super Admin to reset the password of any user in any organization,
+    typically the admin/owner user for that organization.
+    """
+    require_super_admin(request)
+    
+    # Verify organization exists
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+    
+    # Find user by email in that organization
+    user = db.query(User).filter(
+        User.org_id == org_id,
+        User.email == reset_data.email
+    ).first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with email '{reset_data.email}' not found in organization '{org.name}'"
+        )
+    
+    # Hash and update password
+    user.password_hash = get_password_hash(reset_data.new_password)
+    user.updated_at = datetime.utcnow()
+    
+    db.commit()
+    
+    return {
+        "success": True,
+        "message": f"Password reset successfully for user '{user.email}' in organization '{org.name}'",
+        "user_id": user.id,
+        "user_email": user.email,
+        "user_name": user.name
     }
