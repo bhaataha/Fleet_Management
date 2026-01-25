@@ -1,201 +1,204 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Form, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import List
-import uuid
-import os
+from datetime import datetime
 
 from app.core.database import get_db
-from app.core.security import get_current_user
-from app.models import (
-    File as FileModel,
-    JobFile as JobFileModel,
-    Job,
-    User,
-)
+from app.core.security import decode_access_token
+from app.models import User, File as FileModel, JobFile, Job
+from app.services.storage import get_storage_service
 from pydantic import BaseModel
 
 router = APIRouter()
-
-# MinIO/S3 configuration (placeholder - would use boto3 in production)
-UPLOAD_DIR = "/tmp/fleet_uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+security = HTTPBearer()
 
 
 class FileResponse(BaseModel):
     id: int
     filename: str
-    storage_key: str
-    mime_type: str
+    file_type: str
     size: int
+    uploaded_at: datetime
+    uploaded_by_name: str
+    url: str
 
     class Config:
         from_attributes = True
 
 
-@router.post("/files/upload", response_model=FileResponse)
-async def upload_file(
-    file: UploadFile = File(...),
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Upload a file to storage (photos, PDFs, signatures)
-    In production, this would upload to MinIO/S3
-    """
-    # Generate unique filename
-    file_ext = os.path.splitext(file.filename)[1]
-    storage_key = f"{uuid.uuid4()}{file_ext}"
-    file_path = os.path.join(UPLOAD_DIR, storage_key)
-
-    # Save file (in production: upload to S3)
-    contents = await file.read()
-    with open(file_path, "wb") as f:
-        f.write(contents)
-
-    # Create database record
-    db_file = FileModel(
-        org_id=current_user.org_id,
-        storage_key=storage_key,
-        filename=file.filename,
-        mime_type=file.content_type or "application/octet-stream",
-        size=len(contents),
-        uploaded_by=current_user.id,
-    )
-    db.add(db_file)
-    db.commit()
-    db.refresh(db_file)
-
-    return db_file
+class JobFilesResponse(BaseModel):
+    job_id: int
+    files: List[FileResponse]
+    total: int
 
 
-@router.post("/jobs/{job_id}/files")
-def attach_file_to_job(
-    job_id: int,
-    file_id: int,
-    file_type: str,  # PHOTO, WEIGH_TICKET, DELIVERY_NOTE, OTHER
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Attach an uploaded file to a job
-    """
-    job = (
-        db.query(Job)
-        .filter(Job.id == job_id, Job.org_id == current_user.org_id)
-        .first()
-    )
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    file = (
-        db.query(FileModel)
-        .filter(
-            FileModel.id == file_id, FileModel.org_id == current_user.org_id
-        )
-        .first()
-    )
-    if not file:
-        raise HTTPException(status_code=404, detail="File not found")
-
-    job_file = JobFileModel(job_id=job_id, file_id=file_id, type=file_type)
-    db.add(job_file)
-    db.commit()
-
-    return {"message": "File attached to job", "job_file_id": job_file.id}
-
-
-@router.get("/jobs/{job_id}/files", response_model=List[FileResponse])
-def list_job_files(
-    job_id: int,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    List all files attached to a job
-    """
-    job = (
-        db.query(Job)
-        .filter(Job.id == job_id, Job.org_id == current_user.org_id)
-        .first()
-    )
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    job_files = (
-        db.query(JobFileModel)
-        .filter(JobFileModel.job_id == job_id)
-        .all()
-    )
-
-    file_ids = [jf.file_id for jf in job_files]
-    files = db.query(FileModel).filter(FileModel.id.in_(file_ids)).all()
-
-    return files
-
-
-class DeliveryNoteCreate(BaseModel):
-    receiver_name: str
-    receiver_signature_file_id: int
-    note: str = ""
-
-
-@router.post("/jobs/{job_id}/delivery-note")
-def create_delivery_note(
-    job_id: int,
-    delivery_note: DeliveryNoteCreate,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    """
-    Create delivery note with signature
-    Required before marking job as DELIVERED
-    """
-    from app.models import DeliveryNote
-    from datetime import datetime
-
-    job = (
-        db.query(Job)
-        .filter(Job.id == job_id, Job.org_id == current_user.org_id)
-        .first()
-    )
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    # Check if delivery note already exists
-    existing = (
-        db.query(DeliveryNote).filter(DeliveryNote.job_id == job_id).first()
-    )
-    if existing:
+def get_current_user_from_token(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+) -> User:
+    """Get current authenticated user"""
+    token = credentials.credentials
+    payload = decode_access_token(token)
+    
+    if not payload:
         raise HTTPException(
-            status_code=400, detail="Delivery note already exists"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
         )
-
-    # Verify signature file exists
-    signature_file = (
-        db.query(FileModel)
-        .filter(
-            FileModel.id == delivery_note.receiver_signature_file_id,
-            FileModel.org_id == current_user.org_id,
+    
+    user_id = int(payload.get("sub"))
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive"
         )
-        .first()
-    )
-    if not signature_file:
-        raise HTTPException(status_code=404, detail="Signature file not found")
+    
+    return user
 
-    # Create delivery note
-    db_note = DeliveryNote(
+
+@router.post("/jobs/{job_id}/files/upload", response_model=FileResponse)
+async def upload_job_file(
+    job_id: int,
+    file: UploadFile = File(...),
+    file_type: str = Form("PHOTO"),
+    current_user: User = Depends(get_current_user_from_token),
+    db: Session = Depends(get_db)
+):
+    """Upload a file (photo, PDF, etc.) for a job"""
+    job = db.query(Job).filter(
+        Job.id == job_id,
+        Job.org_id == current_user.org_id
+    ).first()
+    
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Validate file type
+    valid_types = ["PHOTO", "WEIGH_TICKET", "DELIVERY_NOTE", "OTHER"]
+    file_type_upper = file_type.upper()
+    if file_type_upper not in valid_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Must be one of: {', '.join(valid_types)}"
+        )
+    
+    storage = get_storage_service()
+    
+    try:
+        storage_key = storage.upload_file(
+            file=file.file,
+            filename=file.filename,
+            folder=f"jobs/{job_id}",
+            content_type=file.content_type
+        )
+        
+        file_record = FileModel(
+            org_id=current_user.org_id,
+            storage_key=storage_key,
+            filename=file.filename,
+            mime_type=file.content_type,
+            size=file.size or 0,
+            uploaded_by=current_user.id
+        )
+        db.add(file_record)
+        db.flush()
+        
+        job_file = JobFile(
+            job_id=job_id,
+            file_id=file_record.id,
+            file_type=file_type_upper
+        )
+        db.add(job_file)
+        db.commit()
+        db.refresh(file_record)
+        
+        url = storage.get_presigned_url(storage_key, expiration=3600)
+        
+        return FileResponse(
+            id=file_record.id,
+            filename=file_record.filename,
+            file_type=file_type,
+            size=file_record.size,
+            uploaded_at=file_record.uploaded_at,
+            uploaded_by_name=current_user.name,
+            url=url
+        )
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.get("/jobs/{job_id}/files", response_model=JobFilesResponse)
+async def get_job_files(
+    job_id: int,
+    current_user: User = Depends(get_current_user_from_token),
+    db: Session = Depends(get_db)
+):
+    """Get all files for a job"""
+    job = db.query(Job).filter(
+        Job.id == job_id,
+        Job.org_id == current_user.org_id
+    ).first()
+    
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    job_files = db.query(JobFile).filter(JobFile.job_id == job_id).all()
+    
+    storage = get_storage_service()
+    files_response = []
+    
+    for jf in job_files:
+        file_record = db.query(FileModel).filter(FileModel.id == jf.file_id).first()
+        if file_record:
+            uploader = db.query(User).filter(User.id == file_record.uploaded_by).first()
+            url = storage.get_presigned_url(file_record.storage_key, expiration=3600)
+            
+            files_response.append(FileResponse(
+                id=file_record.id,
+                filename=file_record.filename,
+                file_type=jf.file_type or "OTHER",
+                size=file_record.size,
+                uploaded_at=file_record.uploaded_at,
+                uploaded_by_name=uploader.name if uploader else "Unknown",
+                url=url
+            ))
+    
+    return JobFilesResponse(
         job_id=job_id,
-        note_number=f"DN-{job_id:06d}",
-        receiver_name=delivery_note.receiver_name,
-        receiver_signature_file_id=delivery_note.receiver_signature_file_id,
-        delivered_at=datetime.utcnow(),
+        files=files_response,
+        total=len(files_response)
     )
-    db.add(db_note)
-    db.commit()
-    db.refresh(db_note)
 
-    return {
-        "message": "Delivery note created",
-        "delivery_note_id": db_note.id,
-        "can_mark_delivered": True,
-    }
+
+@router.delete("/files/{file_id}")
+async def delete_file(
+    file_id: int,
+    current_user: User = Depends(get_current_user_from_token),
+    db: Session = Depends(get_db)
+):
+    """Delete a file (admin only)"""
+    roles = [role.role.value for role in current_user.roles]
+    if "ADMIN" not in roles:
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    file_record = db.query(FileModel).filter(
+        FileModel.id == file_id,
+        FileModel.org_id == current_user.org_id
+    ).first()
+    
+    if not file_record:
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    storage = get_storage_service()
+    storage.delete_file(file_record.storage_key)
+    
+    db.query(JobFile).filter(JobFile.file_id == file_id).delete()
+    db.delete(file_record)
+    db.commit()
+    
+    return {"message": "File deleted", "file_id": file_id}

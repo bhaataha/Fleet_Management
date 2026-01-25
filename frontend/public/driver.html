@@ -449,15 +449,52 @@
       }
     }
 
-    function takePhoto(jobId) {
+    async function takePhoto(jobId) {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = 'image/*';
       input.capture = 'environment';
-      input.onchange = (e) => {
+      input.onchange = async (e) => {
         const file = e.target.files[0];
-        if (file) {
-          alert('תמונה נשמרה בהצלחה! (TODO: העלאה לשרת)');
+        if (!file) return;
+        
+        try {
+          // Show uploading message
+          const uploadMsg = document.createElement('div');
+          uploadMsg.textContent = 'מעלה תמונה...';
+          uploadMsg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#333;color:white;padding:20px;border-radius:8px;z-index:9999;';
+          document.body.appendChild(uploadMsg);
+          
+          // Create form data
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('file_type', 'PHOTO');
+          
+          // Upload to server
+          const res = await fetch(`${API_URL}/jobs/${jobId}/files/upload`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+          
+          document.body.removeChild(uploadMsg);
+          
+          if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.detail || 'העלאה נכשלה');
+          }
+          
+          const result = await res.json();
+          alert('תמונה הועלתה בהצלחה! ✓');
+          
+          // Reload jobs to show updated file count
+          await loadJobs();
+          
+        } catch (err) {
+          console.error('Photo upload error:', err);
+          alert('שגיאה בהעלאת תמונה: ' + err.message);
         }
       };
       input.click();

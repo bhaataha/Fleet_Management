@@ -24,6 +24,8 @@ import {
   Printer
 } from 'lucide-react'
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:8001'
+
 const STATUS_COLORS: Record<string, string> = {
   PLANNED: 'bg-gray-100 text-gray-800',
   ASSIGNED: 'bg-blue-100 text-blue-800',
@@ -168,6 +170,7 @@ export default function JobDetailPage() {
   const [statusEvents, setStatusEvents] = useState<any[]>([])
   const [pricingPreview, setPricingPreview] = useState<any>(null)
   const [loadingPricing, setLoadingPricing] = useState(false)
+  const [jobFiles, setJobFiles] = useState<any[]>([])
   
   // Reference data
   const [customer, setCustomer] = useState<any>(null)
@@ -254,6 +257,15 @@ export default function JobDetailPage() {
         setStatusEvents(eventsResponse.data)
       } catch (err) {
         console.log('No status events endpoint')
+      }
+      
+      // Load job files
+      try {
+        const filesResponse = await api.get(`/jobs/${params.id}/files`)
+        console.log('📸 Files loaded:', filesResponse.data)
+        setJobFiles(filesResponse.data.files || [])
+      } catch (err) {
+        console.error('❌ Failed to load files:', err)
       }
     } catch (error) {
       console.error('Failed to load job:', error)
@@ -692,6 +704,62 @@ export default function JobDetailPage() {
                   </button>
                 )}
               </div>
+            </div>
+
+            {/* Files/Photos Section */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <ImageIcon className="w-5 h-5 text-purple-600" />
+                קבצים ותמונות ({jobFiles.length})
+              </h3>
+              {jobFiles.length > 0 ? (
+                <div className="space-y-3">
+                  {jobFiles.map((file: any) => (
+                    <div key={file.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                      {file.file_type === 'PHOTO' && (
+                        <div className="relative group">
+                          <img 
+                            src={`${API_BASE_URL}${file.url}`}
+                            alt={file.filename}
+                            className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => window.open(`${API_BASE_URL}${file.url}`, '_blank')}
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2 text-xs">
+                            <p className="truncate">{file.filename}</p>
+                            <p className="text-gray-300 text-[10px]">
+                              {new Date(file.uploaded_at).toLocaleString('he-IL')} • {file.uploaded_by_name}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      {file.file_type !== 'PHOTO' && (
+                        <a 
+                          href={`${API_BASE_URL}${file.url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block p-3 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-5 h-5 text-blue-600" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm truncate">{file.filename}</p>
+                              <p className="text-xs text-gray-500">
+                                {file.file_type} • {(file.size / 1024).toFixed(1)} KB
+                              </p>
+                            </div>
+                          </div>
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">אין קבצים מצורפים</p>
+                  <p className="text-xs mt-1">הנהג יכול להעלות תמונות דרך האפליקציה</p>
+                </div>
+              )}
             </div>
 
             {/* Info */}

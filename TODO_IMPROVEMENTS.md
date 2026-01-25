@@ -1,5 +1,15 @@
 # 📋 משימות ושיפורים נדרשים - Fleet Management
 
+## 🎯 Completed Tasks
+
+### ✅ Task #2: Photo Upload and File Management (COMPLETE - Jan 25, 2026)
+- **Time**: 2 hours (estimated 4-6h)
+- **Status**: 🟢 Working in production
+- **Storage**: Local filesystem (MVP), S3-ready
+- **Details**: See `TASK_2_PHOTO_UPLOAD_COMPLETE.md`
+
+---
+
 ## ⚠️ פונקציות חלקיות שצריכות השלמה
 
 המערכת פועלת, אבל יש פיצ'רים שמוזכרים באפליקציית הנהג ועדיין לא מוטמעים במלואם ב-backend ובממשק הניהול.
