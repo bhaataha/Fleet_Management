@@ -56,8 +56,9 @@ export default function TruckProfitabilityReportPage() {
         const truckJobs = filteredJobs.filter((job: Job) => job.truck_id === truck.id)
         const totalRevenue = truckJobs.reduce((sum: number, job: Job) => {
           // Use actual pricing_total if available, otherwise calculate estimate
-          const jobRevenue = job.pricing_total || 0
-          return sum + jobRevenue
+          const jobRevenue = job.pricing_total
+          const numRevenue = typeof jobRevenue === 'string' ? parseFloat(jobRevenue) : Number(jobRevenue)
+          return sum + (isNaN(numRevenue) ? 0 : numRevenue)
         }, 0)
 
         // TODO: Calculate real expenses from expenses table filtered by truck_id
@@ -89,9 +90,18 @@ export default function TruckProfitabilityReportPage() {
   }
 
   const totalStats = {
-    revenue: stats.reduce((sum, s) => sum + s.total_revenue, 0),
-    expenses: stats.reduce((sum, s) => sum + s.total_expenses, 0),
-    profit: stats.reduce((sum, s) => sum + s.profit, 0),
+    revenue: stats.reduce((sum, s) => {
+      const rev = typeof s.total_revenue === 'string' ? parseFloat(s.total_revenue) : Number(s.total_revenue)
+      return sum + (isNaN(rev) ? 0 : rev)
+    }, 0),
+    expenses: stats.reduce((sum, s) => {
+      const exp = typeof s.total_expenses === 'string' ? parseFloat(s.total_expenses) : Number(s.total_expenses)
+      return sum + (isNaN(exp) ? 0 : exp)
+    }, 0),
+    profit: stats.reduce((sum, s) => {
+      const prof = typeof s.profit === 'string' ? parseFloat(s.profit) : Number(s.profit)
+      return sum + (isNaN(prof) ? 0 : prof)
+    }, 0),
     jobs: stats.reduce((sum, s) => sum + s.total_jobs, 0)
   }
 
@@ -191,7 +201,7 @@ export default function TruckProfitabilityReportPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">הכנסות</p>
-                <p className="text-2xl font-bold text-blue-600">₪{totalStats.revenue.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-blue-600">₪{totalStats.revenue.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>
@@ -203,7 +213,7 @@ export default function TruckProfitabilityReportPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">הוצאות</p>
-                <p className="text-2xl font-bold text-red-600">₪{totalStats.expenses.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-red-600">₪{totalStats.expenses.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>
@@ -215,7 +225,7 @@ export default function TruckProfitabilityReportPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">רווח</p>
-                <p className="text-2xl font-bold text-green-600">₪{totalStats.profit.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-green-600">₪{totalStats.profit.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               </div>
             </div>
           </div>
@@ -266,14 +276,23 @@ export default function TruckProfitabilityReportPage() {
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{stat.truck_name}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{stat.total_jobs}</td>
                       <td className="px-4 py-3 text-sm text-blue-600 font-medium">
-                        ₪{stat.total_revenue.toLocaleString()}
+                        ₪{(() => {
+                          const rev = typeof stat.total_revenue === 'string' ? parseFloat(stat.total_revenue) : Number(stat.total_revenue)
+                          return (isNaN(rev) ? 0 : rev).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-sm text-red-600 font-medium">
-                        ₪{stat.total_expenses.toLocaleString()}
+                        ₪{(() => {
+                          const exp = typeof stat.total_expenses === 'string' ? parseFloat(stat.total_expenses) : Number(stat.total_expenses)
+                          return (isNaN(exp) ? 0 : exp).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-sm font-bold">
                         <span className={stat.profit >= 0 ? 'text-green-600' : 'text-red-600'}>
-                          ₪{stat.profit.toLocaleString()}
+                          ₪{(() => {
+                            const prof = typeof stat.profit === 'string' ? parseFloat(stat.profit) : Number(stat.profit)
+                            return (isNaN(prof) ? 0 : prof).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          })()}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm">
@@ -282,7 +301,10 @@ export default function TruckProfitabilityReportPage() {
                           stat.profit_margin >= 10 ? 'bg-yellow-100 text-yellow-800' :
                           'bg-red-100 text-red-800'
                         }`}>
-                          {stat.profit_margin.toFixed(1)}%
+                          {(() => {
+                            const margin = typeof stat.profit_margin === 'string' ? parseFloat(stat.profit_margin) : Number(stat.profit_margin)
+                            return (isNaN(margin) ? 0 : margin).toFixed(1)
+                          })()}%
                         </span>
                       </td>
                     </tr>

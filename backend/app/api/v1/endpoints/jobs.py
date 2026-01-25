@@ -18,7 +18,7 @@ class JobBase(BaseModel):
     to_site_id: int
     material_id: int
     scheduled_date: datetime
-    planned_qty: Decimal
+    planned_qty: float
     unit: BillingUnit
     priority: int = 0
     notes: Optional[str] = None
@@ -34,13 +34,13 @@ class JobUpdate(BaseModel):
     to_site_id: Optional[int] = None
     material_id: Optional[int] = None
     scheduled_date: Optional[datetime] = None
-    planned_qty: Optional[Decimal] = None
+    planned_qty: Optional[float] = None
     unit: Optional[BillingUnit] = None
     priority: Optional[int] = None
     driver_id: Optional[int] = None
     truck_id: Optional[int] = None
     trailer_id: Optional[int] = None
-    actual_qty: Optional[Decimal] = None
+    actual_qty: Optional[float] = None
     status: Optional[JobStatus] = None
     notes: Optional[str] = None
 
@@ -51,21 +51,24 @@ class JobResponse(JobBase):
     driver_id: Optional[int]
     truck_id: Optional[int]
     trailer_id: Optional[int]
-    actual_qty: Optional[Decimal]
+    actual_qty: Optional[float]
     status: JobStatus
-    pricing_total: Optional[Decimal]
+    pricing_total: Optional[float]
     is_billable: bool
     created_at: datetime
     
     class Config:
         from_attributes = True
+        json_encoders = {
+            Decimal: lambda v: float(v) if v else None
+        }
 
 
 class JobStatusUpdate(BaseModel):
     status: JobStatus
     note: Optional[str] = None
-    lat: Optional[Decimal] = None
-    lng: Optional[Decimal] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 
 @router.get("", response_model=List[JobResponse])

@@ -70,12 +70,17 @@ class PricingQuoteRequest(BaseModel):
 
 
 class PricingBreakdown(BaseModel):
-    base_amount: Decimal
-    min_charge_adjustment: Decimal
-    wait_fee: Decimal
-    night_surcharge: Decimal
-    total: Decimal
+    base_amount: float
+    min_charge_adjustment: float
+    wait_fee: float
+    night_surcharge: float
+    total: float
     details: dict
+    
+    class Config:
+        json_encoders = {
+            Decimal: lambda v: float(v) if v else 0.0
+        }
 
 
 @router.get("/price-lists", response_model=List[PriceListResponse])
@@ -341,14 +346,15 @@ def get_pricing_quote(
     total = base_amount + wait_fee + night_surcharge
 
     return PricingBreakdown(
-        base_amount=base_amount,
-        min_charge_adjustment=min_charge_adjustment,
-        wait_fee=wait_fee,
-        night_surcharge=night_surcharge,
-        total=total,
+        base_amount=float(base_amount),
+        min_charge_adjustment=float(min_charge_adjustment),
+        wait_fee=float(wait_fee),
+        night_surcharge=float(night_surcharge),
+        total=float(total),
         details={
             "price_list_id": price_list.id,
             "unit_price": float(price_list.base_price),
+            "base_amount": float(base_amount),
             "unit": request.unit,
             "quantity": float(request.quantity),
             "wait_hours": float(request.wait_hours or 0),
