@@ -9,14 +9,19 @@ It should be run once during initial setup.
 
 import os
 import sys
-from uuid import uuid4
 from datetime import datetime
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from passlib.context import CryptContext
+import bcrypt
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(password: str) -> str:
+    """Hash password using bcrypt directly."""
+    # Encode to bytes and hash
+    password_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 
 def get_env_or_exit(var_name: str) -> str:
@@ -85,10 +90,9 @@ def create_super_admin():
         
         print(f"✅ Organization created: {org_name} (ID: {org_id})")
         
-        # Hash password (truncate to 72 bytes for bcrypt)
+        # Hash password using bcrypt
         print("🔐 Hashing password...")
-        password_to_hash = admin_password[:72]  # Bcrypt limit
-        password_hash = pwd_context.hash(password_to_hash)
+        password_hash = hash_password(admin_password)
         
         print("👤 Creating Super Admin user...")
         
