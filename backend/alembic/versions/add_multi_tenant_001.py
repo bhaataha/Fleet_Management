@@ -109,14 +109,14 @@ def upgrade():
             sa.Column('created_by', postgresql.UUID(as_uuid=True)),
         )
         print("  ✓ Created organizations table")
+        
+        # Indexes for organizations (only if table was created)
+        op.create_index('idx_organizations_slug', 'organizations', ['slug'])
+        op.create_index('idx_organizations_status', 'organizations', ['status'])
+        op.create_index('idx_organizations_plan_type', 'organizations', ['plan_type'])
+        op.create_index('idx_organizations_contact_email', 'organizations', ['contact_email'])
     else:
         print("  ⊘ Organizations table already exists")
-    
-    # Indexes for organizations
-    op.create_index('idx_organizations_slug', 'organizations', ['slug'])
-    op.create_index('idx_organizations_status', 'organizations', ['status'])
-    op.create_index('idx_organizations_plan_type', 'organizations', ['plan_type'])
-    op.create_index('idx_organizations_contact_email', 'organizations', ['contact_email'])
     
     # Step 2: Add org_id column to all tables (nullable first)
     print("Adding org_id columns to existing tables (nullable)...")
