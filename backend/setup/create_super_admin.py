@@ -85,9 +85,10 @@ def create_super_admin():
         
         print(f"✅ Organization created: {org_name} (ID: {org_id})")
         
-        # Hash password
+        # Hash password (truncate to 72 bytes for bcrypt)
         print("🔐 Hashing password...")
-        password_hash = pwd_context.hash(admin_password)
+        password_to_hash = admin_password[:72]  # Bcrypt limit
+        password_hash = pwd_context.hash(password_to_hash)
         
         print("👤 Creating Super Admin user...")
         
