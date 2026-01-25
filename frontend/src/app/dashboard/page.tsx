@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import { jobsApi, sitesApi, materialsApi, driversApi } from '@/lib/api'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
+import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Clock, Plus, Truck, Calendar, Users, Package } from 'lucide-react'
 import type { Job } from '@/types'
 import { formatDate, jobStatusLabels, jobStatusColors } from '@/lib/utils'
+import Link from 'next/link'
 
 export default function DashboardPage() {
   const { t } = useI18n()
@@ -92,10 +94,37 @@ export default function DashboardPage() {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.title')}</h1>
-          <p className="text-gray-600 mt-2">{formatDate(new Date(), 'EEEE, dd MMMM yyyy')}</p>
+        {/* Header with Quick Actions */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">{t('dashboard.title')}</h1>
+            <p className="text-gray-600 mt-2">{formatDate(new Date(), 'EEEE, dd MMMM yyyy')}</p>
+          </div>
+          
+          {/* Quick Action Buttons */}
+          <div className="flex items-center gap-3">
+            <Link
+              href="/jobs/new"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
+            >
+              <Plus className="w-5 h-5" />
+              הוספת נסיעה
+            </Link>
+            <Link
+              href="/dispatch"
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-md hover:shadow-lg"
+            >
+              <Calendar className="w-5 h-5" />
+              לוח שיבוץ
+            </Link>
+            <Link
+              href="/customers/new"
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-md hover:shadow-lg"
+            >
+              <Users className="w-5 h-5" />
+              לקוח חדש
+            </Link>
+          </div>
         </div>
 
         {/* Stats Grid */}

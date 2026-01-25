@@ -55,13 +55,14 @@ export default function TruckProfitabilityReportPage() {
       const truckStats: TruckStats[] = trucksData.map((truck: Truck) => {
         const truckJobs = filteredJobs.filter((job: Job) => job.truck_id === truck.id)
         const totalRevenue = truckJobs.reduce((sum: number, job: Job) => {
-          // Placeholder: should get from pricing
-          const avgPrice = 100 * (job.planned_qty || 0)
-          return sum + avgPrice
+          // Use actual pricing_total if available, otherwise calculate estimate
+          const jobRevenue = job.pricing_total || 0
+          return sum + jobRevenue
         }, 0)
 
-        // Placeholder expenses (should come from expenses table)
-        const totalExpenses = totalRevenue * 0.3 // 30% expense ratio for demo
+        // TODO: Calculate real expenses from expenses table filtered by truck_id
+        // For now, show 0 until expense tracking is fully implemented
+        const totalExpenses = 0
 
         return {
           truck_id: truck.id,

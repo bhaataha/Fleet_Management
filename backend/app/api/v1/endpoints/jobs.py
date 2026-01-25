@@ -27,10 +27,19 @@ class JobCreate(JobBase):
 
 
 class JobUpdate(BaseModel):
+    customer_id: Optional[int] = None
+    from_site_id: Optional[int] = None
+    to_site_id: Optional[int] = None
+    material_id: Optional[int] = None
+    scheduled_date: Optional[datetime] = None
+    planned_qty: Optional[Decimal] = None
+    unit: Optional[BillingUnit] = None
+    priority: Optional[int] = None
     driver_id: Optional[int] = None
     truck_id: Optional[int] = None
     trailer_id: Optional[int] = None
     actual_qty: Optional[Decimal] = None
+    status: Optional[JobStatus] = None
     notes: Optional[str] = None
 
 
@@ -123,14 +132,18 @@ async def create_job(job: JobCreate, db: Session = Depends(get_db)):
 @router.patch("/{job_id}", response_model=JobResponse)
 async def update_job(job_id: int, job_update: JobUpdate, db: Session = Depends(get_db)):
     """
-    Update job (assign driver/truck, update quantities, etc.)
+    Update job (assign driver/truck, update quantities, status, etc.)
     """
     db_job = db.query(Job).filter(Job.id == job_id).first()
     if not db_job:
         raise HTTPException(status_code=404, detail="Job not found")
     
-    # If assigning driver/truck for first time, change status to ASSIGNED
-    if (job_update.driver_id or job_update.truck_id) and db_job.status == JobStatus.PLANNED:
+    # Track if status changed
+    old_status = db_job.status
+    
+    # Auto-assign status ONLY when assigning driver for FIRST time (was null before)
+    # Don't auto-change status if just updating existing driver or if user explicitly set status
+    if (job_update.driver_id and db_job.driver_id is None) and db_job.status == JobStatus.PLANNED and not job_update.status:
         db_job.status = JobStatus.ASSIGNED
         status_event = JobStatusEvent(
             job_id=db_job.id,
@@ -139,8 +152,18 @@ async def update_job(job_id: int, job_update: JobUpdate, db: Session = Depends(g
         )
         db.add(status_event)
     
+    # Update all provided fields
     for field, value in job_update.dict(exclude_unset=True).items():
         setattr(db_job, field, value)
+    
+    # If status was explicitly changed, create a status event
+    if job_update.status and job_update.status != old_status:
+        status_event = JobStatusEvent(
+            job_id=db_job.id,
+            status=job_update.status,
+            user_id=1  # TODO: From JWT
+        )
+        db.add(status_event)
     
     db.commit()
     db.refresh(db_job)
@@ -179,3 +202,36 @@ async def update_job_status(
     db.commit()
     db.refresh(db_job)
     return db_job
+
+
+class JobStatusEventResponse(BaseModel):
+    id: int
+    job_id: int
+    status: JobStatus
+    event_time: datetime
+    lat: Optional[float]
+    lng: Optional[float]
+    note: Optional[str]
+    
+    class Config:
+        from_attributes = True
+
+
+@router.get("/{job_id}/status-events", response_model=List[JobStatusEventResponse])
+async def get_job_status_events(
+    job_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get all status events for a job (for tracking/timeline)
+    """
+    db_job = db.query(Job).filter(Job.id == job_id).first()
+    if not db_job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    events = db.query(JobStatusEvent)\
+        .filter(JobStatusEvent.job_id == job_id)\
+        .order_by(JobStatusEvent.event_time.desc())\
+        .all()
+    
+    return events

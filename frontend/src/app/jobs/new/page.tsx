@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import Combobox from '@/components/ui/Combobox'
 import { useI18n } from '@/lib/i18n'
 import api from '@/lib/api'
 import { ArrowLeft, MapPin, Package, Truck, DollarSign } from 'lucide-react'
@@ -175,23 +176,23 @@ export default function NewJobPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  לקוח *
-                </label>
-                <select
-                  name="customer_id"
-                  value={formData.customer_id}
-                  onChange={handleChange}
+                <Combobox
+                  label="לקוח"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value="">בחר לקוח</option>
-                  {customers.map(customer => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="חפש לקוח..."
+                  options={customers.map(c => ({
+                    value: c.id,
+                    label: c.name,
+                    subLabel: c.vat_id || c.contact_name
+                  }))}
+                  value={formData.customer_id}
+                  onChange={(value) => setFormData(prev => ({ 
+                    ...prev, 
+                    customer_id: value.toString(),
+                    from_site_id: '', // Reset sites when customer changes
+                    to_site_id: ''
+                  }))}
+                />
               </div>
 
               <div>
@@ -209,48 +210,38 @@ export default function NewJobPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  מאתר *
-                </label>
-                <select
-                  name="from_site_id"
-                  value={formData.from_site_id}
-                  onChange={handleChange}
+                <Combobox
+                  label="מאתר"
                   required
+                  placeholder="חפש אתר מקור..."
                   disabled={!formData.customer_id}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100"
-                >
-                  <option value="">בחר אתר מקור</option>
-                  {availableSites.map(site => (
-                    <option key={site.id} value={site.id}>
-                      {site.name}
-                    </option>
-                  ))}
-                </select>
+                  options={availableSites.map(s => ({
+                    value: s.id,
+                    label: s.name,
+                    subLabel: s.address
+                  }))}
+                  value={formData.from_site_id}
+                  onChange={(value) => setFormData(prev => ({ ...prev, from_site_id: value.toString() }))}
+                />
                 {!formData.customer_id && (
                   <p className="text-xs text-gray-500 mt-1">תחילה בחר לקוח</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  לאתר *
-                </label>
-                <select
-                  name="to_site_id"
-                  value={formData.to_site_id}
-                  onChange={handleChange}
+                <Combobox
+                  label="לאתר"
                   required
+                  placeholder="חפש אתר יעד..."
                   disabled={!formData.customer_id}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white disabled:bg-gray-100"
-                >
-                  <option value="">בחר אתר יעד</option>
-                  {availableSites.map(site => (
-                    <option key={site.id} value={site.id}>
-                      {site.name}
-                    </option>
-                  ))}
-                </select>
+                  options={availableSites.map(s => ({
+                    value: s.id,
+                    label: s.name,
+                    subLabel: s.address
+                  }))}
+                  value={formData.to_site_id}
+                  onChange={(value) => setFormData(prev => ({ ...prev, to_site_id: value.toString() }))}
+                />
                 {!formData.customer_id && (
                   <p className="text-xs text-gray-500 mt-1">תחילה בחר לקוח</p>
                 )}
@@ -267,23 +258,18 @@ export default function NewJobPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  חומר *
-                </label>
-                <select
-                  name="material_id"
-                  value={formData.material_id}
-                  onChange={handleChange}
+                <Combobox
+                  label="חומר"
                   required
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value="">בחר חומר</option>
-                  {materials.map(material => (
-                    <option key={material.id} value={material.id}>
-                      {material.name_hebrew || material.name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="חפש חומר..."
+                  options={materials.map(m => ({
+                    value: m.id,
+                    label: m.name_hebrew || m.name,
+                    subLabel: m.billing_unit
+                  }))}
+                  value={formData.material_id}
+                  onChange={(value) => setFormData(prev => ({ ...prev, material_id: value.toString() }))}
+                />
               </div>
 
               <div>
@@ -423,41 +409,31 @@ export default function NewJobPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  נהג
-                </label>
-                <select
-                  name="driver_id"
+                <Combobox
+                  label="נהג"
+                  placeholder="חפש נהג..."
+                  options={drivers.map(d => ({
+                    value: d.id,
+                    label: d.name,
+                    subLabel: d.phone
+                  }))}
                   value={formData.driver_id}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value="">בחר נהג (אופציונלי)</option>
-                  {drivers.map(driver => (
-                    <option key={driver.id} value={driver.id}>
-                      {driver.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setFormData(prev => ({ ...prev, driver_id: value.toString() }))}
+                />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  משאית
-                </label>
-                <select
-                  name="truck_id"
+                <Combobox
+                  label="משאית"
+                  placeholder="חפש משאית..."
+                  options={trucks.map(t => ({
+                    value: t.id,
+                    label: t.plate_number,
+                    subLabel: t.model
+                  }))}
                   value={formData.truck_id}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value="">בחר משאית (אופציונלי)</option>
-                  {trucks.map(truck => (
-                    <option key={truck.id} value={truck.id}>
-                      {truck.plate_number} {truck.model && `- ${truck.model}`}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setFormData(prev => ({ ...prev, truck_id: value.toString() }))}
+                />
               </div>
             </div>
           </div>

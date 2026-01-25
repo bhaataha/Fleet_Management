@@ -21,7 +21,8 @@ import {
   Mail,
   Edit,
   DollarSign,
-  Printer
+  Printer,
+  MessageCircle
 } from 'lucide-react'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:8001'
@@ -44,37 +45,34 @@ if (typeof document !== 'undefined') {
     @media print {
       @page {
         size: A4;
-        margin: 10mm 12mm;
+        margin: 15mm;
       }
       
       body {
         print-color-adjust: exact;
         -webkit-print-color-adjust: exact;
-        font-size: 11px;
+        font-size: 10px;
+        line-height: 1.3;
       }
       
-      .print\\:hidden {
+      * {
+        box-shadow: none !important;
+      }
+      
+      .print\\:hidden, .no-print, nav, button:not(.print-only) {
         display: none !important;
-      }
-      
-      .print\\:border-2 {
-        border-width: 1px !important;
-      }
-      
-      .print\\:bg-white {
-        background-color: white !important;
-        background-image: none !important;
       }
       
       .print-header {
         display: block !important;
-        border-bottom: 2px solid #2563eb;
-        padding-bottom: 8px;
-        margin-bottom: 12px;
+        border-bottom: 3px solid #2563eb;
+        padding-bottom: 10px;
+        margin-bottom: 15px;
+        page-break-after: avoid;
       }
       
       .print-title {
-        font-size: 20px;
+        font-size: 24px;
         font-weight: bold;
         color: #1e40af;
         text-align: center;
@@ -82,76 +80,151 @@ if (typeof document !== 'undefined') {
       }
       
       .print-company {
-        font-size: 13px;
+        font-size: 14px;
         font-weight: 600;
         color: #374151;
         text-align: center;
-        margin-top: 4px;
+        margin-top: 5px;
       }
       
       .print-signature-area {
         display: block !important;
-        margin-top: 20px;
-        padding-top: 15px;
-        border-top: 1px dashed #9ca3af;
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 2px dashed #9ca3af;
+        page-break-inside: avoid;
       }
       
       .print-signature-line {
-        border-top: 1px solid #000;
-        margin: 15px 40px 3px 40px;
+        border-top: 2px solid #000;
+        margin-top: 45px;
+        padding-top: 8px;
+        text-align: center;
+        font-weight: 600;
+        min-height: 15px;
       }
       
-      /* Hide navigation and buttons */
-      nav, .no-print, button, .print\\:hidden {
-        display: none !important;
-      }
-      
-      /* Compact spacing */
+      /* Compact layout */
       .space-y-6 > * + * {
-        margin-top: 0.75rem !important;
+        margin-top: 6px !important;
       }
       
-      /* Reduce padding */
-      .rounded-lg, .rounded-xl {
-        padding: 8px !important;
+      .gap-6 {
+        gap: 6px !important;
       }
       
-      /* Smaller fonts */
-      h3, .text-lg {
-        font-size: 14px !important;
-      }
-      
-      .text-sm {
-        font-size: 10px !important;
-      }
-      
-      .text-xs {
-        font-size: 9px !important;
-      }
-      
-      /* Compact grid gaps */
       .gap-4 {
-        gap: 0.5rem !important;
+        gap: 6px !important;
       }
       
       .gap-3 {
-        gap: 0.4rem !important;
+        gap: 5px !important;
       }
       
-      /* Reduce icon sizes */
-      svg {
-        width: 12px !important;
-        height: 12px !important;
+      .rounded-lg, .rounded-xl {
+        padding: 6px !important;
+        border-radius: 4px !important;
       }
       
-      /* Compact pricing section */
+      /* Typography */
+      h1 {
+        font-size: 20px !important;
+      }
+      
+      h2 {
+        font-size: 16px !important;
+      }
+      
+      h3, .text-lg {
+        font-size: 13px !important;
+        font-weight: 700 !important;
+      }
+      
+      .text-sm {
+        font-size: 9px !important;
+      }
+      
+      .text-xs {
+        font-size: 8px !important;
+      }
+      
       .text-2xl {
-        font-size: 18px !important;
+        font-size: 16px !important;
       }
       
-      /* Single page fit */
+      /* Icons */
+      svg {
+        width: 11px !important;
+        height: 11px !important;
+      }
+      
+      /* Borders */
+      .border {
+        border-width: 1px !important;
+      }
+      
+      .border-2 {
+        border-width: 1.5px !important;
+      }
+      
+      /* Grid layout */
+      .lg\\:col-span-2 {
+        grid-column: span 2 !important;
+      }
+      
+      .lg\\:grid-cols-3 {
+        grid-template-columns: repeat(3, 1fr) !important;
+      }
+      
+      /* Padding adjustments */
+      .p-6 {
+        padding: 6px !important;
+      }
+      
+      .p-4 {
+        padding: 4px !important;
+      }
+      
+      .px-6 {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+      }
+      
+      .py-4 {
+        padding-top: 6px !important;
+        padding-bottom: 6px !important;
+      }
+      
+      /* Max width */
       .max-w-6xl {
         max-width: 100% !important;
+      }
+      
+      /* Photo grid compact */
+      .grid-cols-2 {
+        grid-template-columns: repeat(4, 1fr) !important;
+        gap: 3px !important;
+      }
+      
+      .grid-cols-3 {
+        grid-template-columns: repeat(5, 1fr) !important;
+        gap: 3px !important;
+      }
+      
+      /* Photo size */
+      .h-48 {
+        height: 80px !important;
+      }
+      
+      /* Hide less important sections on print if space is tight */
+      .status-events-section {
+        max-height: 80px;
+        overflow: hidden;
+      }
+      
+      /* Ensure single page */
+      .page-break-avoid {
+        page-break-inside: avoid;
       }
     }
   `
@@ -171,6 +244,8 @@ export default function JobDetailPage() {
   const [pricingPreview, setPricingPreview] = useState<any>(null)
   const [loadingPricing, setLoadingPricing] = useState(false)
   const [jobFiles, setJobFiles] = useState<any[]>([])
+  const [editingActualQty, setEditingActualQty] = useState(false)
+  const [actualQtyInput, setActualQtyInput] = useState('')
   
   // Reference data
   const [customer, setCustomer] = useState<any>(null)
@@ -301,6 +376,20 @@ export default function JobDetailPage() {
   const handlePrint = () => {
     window.print()
   }
+  
+  const handleSavePDF = () => {
+    // Update document title for PDF filename
+    const originalTitle = document.title
+    document.title = `תעודת_משלוח_${job.id}_${new Date(job.scheduled_date).toLocaleDateString('he-IL').replace(/\./g, '-')}`
+    
+    // Trigger print dialog (user can "Save as PDF")
+    window.print()
+    
+    // Restore original title
+    setTimeout(() => {
+      document.title = originalTitle
+    }, 100)
+  }
 
   const handleStatusChange = async (newStatus: string) => {
     if (!confirm(`האם לשנות סטטוס ל-${t(`jobs.status.${newStatus}`)}?`)) {
@@ -315,6 +404,71 @@ export default function JobDetailPage() {
       console.error('Failed to update status:', error)
       alert(error.response?.data?.detail || 'שגיאה בעדכון סטטוס')
     }
+  }
+
+  const handleActualQtyUpdate = async () => {
+    try {
+      const newQty = parseFloat(actualQtyInput)
+      if (isNaN(newQty) || newQty <= 0) {
+        alert('יש להזין כמות תקינה')
+        return
+      }
+
+      await api.patch(`/jobs/${params.id}`, { actual_qty: newQty })
+      alert('הכמות בפועל עודכנה בהצלחה!')
+      setEditingActualQty(false)
+      loadJobDetails()
+    } catch (error: any) {
+      console.error('Failed to update actual quantity:', error)
+      alert(error.response?.data?.detail || 'שגיאה בעדכון כמות')
+    }
+  }
+
+  const startEditingActualQty = () => {
+    setActualQtyInput(job?.actual_qty?.toString() || job?.planned_qty?.toString() || '')
+    setEditingActualQty(true)
+  }
+
+  const handleSendWhatsApp = () => {
+    // Build message with job details
+    const message = `
+🚛 *תעודת משלוח #${job.id}*
+
+📅 תאריך: ${new Date(job.scheduled_date).toLocaleDateString('he-IL')}
+
+👤 *לקוח:* ${customer?.name || `לקוח #${job.customer_id}`}
+
+📍 *מסלול:*
+מ: ${fromSite?.name || `אתר #${job.from_site_id}`}
+ל: ${toSite?.name || `אתר #${job.to_site_id}`}
+
+📦 *חומר וכמות:*
+${material?.name_hebrew || material?.name || `חומר #${job.material_id}`}
+כמות: ${job.planned_qty} ${job.unit}
+
+🚚 *פרטי הובלה:*
+נהג: ${driver?.name || 'לא משובץ'}
+משאית: ${truck?.plate_number || 'לא משובצה'}
+
+💰 *מחיר משוער:* ${pricingPreview?.total ? `₪${Number(pricingPreview.total).toFixed(2)}` : 'לא זמין'}
+
+📊 *סטטוס:* ${t(`jobs.status.${job.status}`)}
+
+${job.notes ? `📝 הערות: ${job.notes}` : ''}
+    `.trim()
+
+    // Encode message for URL
+    const encodedMessage = encodeURIComponent(message)
+    
+    // Get customer phone if available
+    const phone = customer?.phone?.replace(/[^0-9]/g, '') || ''
+    
+    // Open WhatsApp Web
+    const whatsappUrl = phone 
+      ? `https://wa.me/972${phone}?text=${encodedMessage}`  // With phone number (remove leading 0)
+      : `https://web.whatsapp.com/send?text=${encodedMessage}`  // Without phone (user selects contact)
+    
+    window.open(whatsappUrl, '_blank')
   }
 
   if (loading) {
@@ -362,18 +516,33 @@ export default function JobDetailPage() {
           
           <div className="flex items-center gap-3">
             <button
+              onClick={handleSendWhatsApp}
+              className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center gap-2 print:hidden"
+              title="שלח ב-WhatsApp"
+            >
+              <MessageCircle className="w-4 h-4" />
+              שלח ב-WhatsApp
+            </button>
+            <button
+              onClick={handleSavePDF}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2 print:hidden"
+            >
+              <FileText className="w-4 h-4" />
+              שמור כ-PDF
+            </button>
+            <button
               onClick={handlePrint}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2 print:hidden"
             >
               <Printer className="w-4 h-4" />
-              הדפס תעודת משלוח
+              הדפס
             </button>
             <button
               onClick={() => router.push(`/jobs/${job.id}/edit`)}
               className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-2 print:hidden"
             >
               <Edit className="w-4 h-4" />
-              ערוך נסיעה
+              ערוך
             </button>
             <span className={`px-4 py-2 text-sm font-medium rounded-full ${STATUS_COLORS[job.status]}`}>
               {t(`jobs.status.${job.status}`)}
@@ -438,9 +607,45 @@ export default function JobDetailPage() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">כמות בפועל</p>
-                  <p className="font-medium text-lg">
-                    {job.actual_qty ? `${job.actual_qty} ${t(`units.${job.unit}`)}` : '-'}
-                  </p>
+                  {editingActualQty ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        value={actualQtyInput}
+                        onChange={(e) => setActualQtyInput(e.target.value)}
+                        className="w-24 px-2 py-1 border border-blue-500 rounded focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleActualQtyUpdate()
+                          if (e.key === 'Escape') setEditingActualQty(false)
+                        }}
+                      />
+                      <button
+                        onClick={handleActualQtyUpdate}
+                        className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={() => setEditingActualQty(false)}
+                        className="px-2 py-1 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 text-xs"
+                      >
+                        ✗
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium text-lg">
+                        {job.actual_qty ? `${job.actual_qty} ${t(`units.${job.unit}`)}` : '-'}
+                      </p>
+                      <button
+                        onClick={startEditingActualQty}
+                        className="print:hidden px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                      >
+                        ערוך
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -622,37 +827,12 @@ export default function JobDetailPage() {
                 </div>
               </div>
             </div>
-
-            {/* Timeline */}
-            {statusEvents.length > 0 && (
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-purple-600" />
-                  ציר זמן
-                </h3>
-                <div className="space-y-4">
-                  {statusEvents.map((event, index) => (
-                    <div key={index} className="flex items-start gap-3">
-                      <div className="mt-1">
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium">{t(`jobs.status.${event.status}`)}</p>
-                        <p className="text-sm text-gray-600">
-                          {new Date(event.event_time).toLocaleString('he-IL')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Status Actions */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 print:hidden">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">פעולות</h3>
               <div className="space-y-2">
                 {job.status === 'PLANNED' && (
@@ -706,8 +886,33 @@ export default function JobDetailPage() {
               </div>
             </div>
 
+            {/* Timeline */}
+            {statusEvents.length > 0 && (
+              <div className="bg-white rounded-lg border border-gray-200 p-6 status-events-section">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-purple-600" />
+                  ציר זמן
+                </h3>
+                <div className="space-y-4">
+                  {statusEvents.map((event, index) => (
+                    <div key={index} className="flex items-start gap-3">
+                      <div className="mt-1">
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-medium">{t(`jobs.status.${event.status}`)}</p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(event.event_time).toLocaleString('he-IL')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Files/Photos Section */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 print:p-2">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <ImageIcon className="w-5 h-5 text-purple-600" />
                 קבצים ותמונות ({jobFiles.length})
@@ -763,7 +968,7 @@ export default function JobDetailPage() {
             </div>
 
             {/* Info */}
-            <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 print:hidden">
+            <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 print:hidden no-print">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div className="text-sm text-blue-900">
@@ -776,22 +981,38 @@ export default function JobDetailPage() {
         </div>
 
         {/* Signature Area - Only visible when printing */}
-        <div className="hidden print-signature-area">
+        <div className="hidden print-signature-area" style={{ display: 'none' }}>
+          <div className="text-xs text-gray-600 mb-3">
+            <p><strong>הערות נוספות:</strong></p>
+            <div className="border border-gray-300 rounded p-2 mt-1 min-h-[40px]"></div>
+          </div>
+          
           <div className="grid grid-cols-2 gap-12">
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">חתימת נהג:</p>
-              <div className="print-signature-line"></div>
-              <p className="text-xs text-gray-600 text-center mt-1">שם הנהג וחתימה</p>
+              <p className="text-sm font-semibold text-gray-800 mb-3">חתימת נהג:</p>
+              <div className="print-signature-line">
+                <span className="text-xs text-gray-600">{driver?.name || 'שם הנהג'}</span>
+              </div>
+              <p className="text-xs text-gray-500 text-center mt-1">שם וחתימה</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-700 mb-2">חתימת מקבל:</p>
-              <div className="print-signature-line"></div>
-              <p className="text-xs text-gray-600 text-center mt-1">שם המקבל וחתימה</p>
+              <p className="text-sm font-semibold text-gray-800 mb-3">חתימת מקבל באתר:</p>
+              <div className="print-signature-line">
+                <span className="text-xs text-gray-600">שם מלא</span>
+              </div>
+              <p className="text-xs text-gray-500 text-center mt-1">שם וחתימה + חותמת (אם יש)</p>
             </div>
           </div>
-          <div className="mt-8 text-center text-xs text-gray-500">
-            <p>תעודה זו הופקה באמצעות מערכת ניהול הובלות עפר</p>
-            <p className="mt-1">הודפס בתאריך: {new Date().toLocaleDateString('he-IL')} {new Date().toLocaleTimeString('he-IL')}</p>
+          
+          <div className="mt-6 pt-4 border-t border-gray-300 text-center text-xs text-gray-500">
+            <p className="font-medium">מסמך זה משמש כאישור קבלת חומרים באתר</p>
+            <p className="mt-1">הודפס מ: מערכת ניהול הובלות עפר | {new Date().toLocaleDateString('he-IL', { 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit'
+            })}</p>
           </div>
         </div>
       </div>

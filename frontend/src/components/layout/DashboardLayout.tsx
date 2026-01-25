@@ -26,6 +26,7 @@ const navigation = [
   { name: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'nav.dispatch', href: '/dispatch', icon: Calendar },
   { name: 'nav.jobs', href: '/jobs', icon: Truck },
+  { name: 'מעקב צי', href: '/fleet-tracking', icon: MapPin },
   { name: 'nav.customers', href: '/customers', icon: Users },
   { name: 'nav.sites', href: '/sites', icon: MapPin },
   { name: 'nav.fleet', href: '/fleet', icon: Truck },

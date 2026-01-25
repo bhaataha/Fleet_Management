@@ -35,30 +35,12 @@ export default function ARAgingReportPage() {
       const customersRes = await customersApi.list()
       const customersData = customersRes.data
 
-      // Mock aging data (should come from statements/invoices)
-      const mockAging: ARAgingData[] = customersData.map((customer: Customer) => {
-        // Demo: random amounts
-        const current = Math.random() * 50000
-        const days30 = Math.random() * 30000
-        const days60 = Math.random() * 20000
-        const days90 = Math.random() * 10000
-        
-        return {
-          customer_id: customer.id,
-          customer_name: customer.name,
-          current,
-          days_30: days30,
-          days_60: days60,
-          days_90: days90,
-          total: current + days30 + days60 + days90
-        }
-      }).filter(a => a.total > 0) // Only customers with balance
-
-      // Sort by total descending
-      mockAging.sort((a, b) => b.total - a.total)
+      // TODO: Calculate real aging from statements/invoices table
+      // For now, showing empty state until billing module is complete
+      const realAging: ARAgingData[] = []
 
       setCustomers(customersData)
-      setAgingData(mockAging)
+      setAgingData(realAging)
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {

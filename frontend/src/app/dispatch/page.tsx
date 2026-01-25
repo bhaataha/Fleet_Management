@@ -4,9 +4,10 @@ import { useEffect, useState, useRef } from 'react'
 import { useI18n } from '@/lib/i18n'
 import { jobsApi, driversApi, trucksApi, sitesApi, materialsApi } from '@/lib/api'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Calendar as CalendarIcon, Filter, Truck as TruckIcon, GripVertical, ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
+import { Calendar as CalendarIcon, Filter, Truck as TruckIcon, GripVertical, ChevronLeft, ChevronRight, MapPin, Eye } from 'lucide-react'
 import type { Job, Driver, Truck, Site, Material } from '@/types'
 import { formatDate, jobStatusLabels, jobStatusColors } from '@/lib/utils'
+import Link from 'next/link'
 
 // Compact Job Card Component for Grid View
 interface CompactJobCardProps {
@@ -27,12 +28,22 @@ function CompactJobCard({ job, onDragStart, onDragEnd, isDragging, getSiteName, 
       draggable
       onDragStart={() => onDragStart(job)}
       onDragEnd={onDragEnd}
-      className={`bg-white border rounded p-2 cursor-move transition-all ${
+      className={`bg-white border rounded p-2 transition-all ${
         isDragging ? 'opacity-30 scale-95' : 'hover:shadow-md'
       }`}
     >
       <div className="flex items-start justify-between mb-1">
-        <span className="text-xs font-medium text-gray-700">#{job.id}</span>
+        <div className="flex items-center gap-1">
+          <span className="text-xs font-medium text-gray-700">#{job.id}</span>
+          <Link
+            href={`/jobs/${job.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-blue-600 hover:text-blue-800"
+            title="צפה בתעודה"
+          >
+            <Eye className="w-3 h-3" />
+          </Link>
+        </div>
         <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium bg-${statusColor}-100 text-${statusColor}-800`}>
           {statusLabel}
         </span>
@@ -196,12 +207,11 @@ export default function DispatchPage() {
     if (!draggedJob) return
     
     try {
-      // When dropping to unassigned (driverId is null), clear driver and truck
+      // When dropping to unassigned (driverId is null), only clear driver and truck - keep existing status
       if (driverId === null) {
         await jobsApi.update(draggedJob.id, { 
-          driver_id: undefined,
-          truck_id: undefined,
-          status: 'PLANNED'
+          driver_id: null,
+          truck_id: null
         })
       } else {
         // When assigning to a driver, set status to ASSIGNED
@@ -570,6 +580,14 @@ function JobCard({ job, getSiteName, getMaterialName, onDragStart, onDragEnd, is
         <div className="flex items-center gap-2">
           <GripVertical className="w-4 h-4 text-gray-400" />
           <span className="text-sm font-semibold text-gray-900">#{job.id}</span>
+          <Link
+            href={`/jobs/${job.id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="text-blue-600 hover:text-blue-800"
+            title="צפה בתעודה"
+          >
+            <Eye className="w-3.5 h-3.5" />
+          </Link>
         </div>
         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${jobStatusColors[job.status]}`}>
           {t(`jobStatus.${job.status}`)}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import Combobox from '@/components/ui/Combobox'
 import { useI18n } from '@/lib/i18n'
 import { customersApi, jobsApi, sitesApi, materialsApi, driversApi, trucksApi } from '@/lib/api'
 import api from '@/lib/api'
@@ -199,21 +200,18 @@ export default function CustomerReportPage() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">מסננים</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                בחר לקוח <span className="text-red-500">*</span>
-              </label>
-              <select
+              <Combobox
+                label="בחר לקוח"
+                required
+                placeholder="חפש לקוח..."
+                options={customers.map(c => ({
+                  value: c.id,
+                  label: c.name,
+                  subLabel: c.vat_id || c.contact_name
+                }))}
                 value={selectedCustomerId}
-                onChange={(e) => setSelectedCustomerId(parseInt(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="0">בחר לקוח</option>
-                {customers.map(customer => (
-                  <option key={customer.id} value={customer.id}>
-                    {customer.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setSelectedCustomerId(Number(value))}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">מתאריך</label>

@@ -117,6 +117,16 @@
   </div>
 
   <div class="container">
+    <!-- Map Section -->
+    <div id="map-section" class="hidden">
+      <div class="location-info">
+        <div class="label">📍 המיקום שלי</div>
+        <div class="value" id="current-location">מאתר מיקום...</div>
+      </div>
+      <div class="map-container">
+        <div id="map"></div>
+      </div>
+    </div>  <div class="container">
     <div id="loading" class="empty-state">
       <div class="empty-icon">⏳</div>
       <p>טוען משימות...</p>
@@ -208,7 +218,8 @@
         ]);
         
         if (!sitesRes.ok || !materialsRes.ok) {
-          throw new Error('Failed to fetch reference data');
+          console.error('Failed to fetch reference data');
+          return;
         }
         
         sites = await sitesRes.json();
@@ -227,9 +238,12 @@
         });
         
         if (!res.ok) {
-          // Token expired or invalid - clear and reload
-          localStorage.removeItem('access_token');
-          location.reload();
+          if (res.status === 401) {
+            // Token expired or invalid - clear and reload
+            console.log('Token expired, redirecting to login');
+            localStorage.removeItem('access_token');
+            location.reload();
+          }
           return;
         }
         
@@ -383,11 +397,11 @@
           btn.addEventListener('click', () => updateStatus(job.id, btn.dataset.status));
         });
       });
+      
+      // Update map markers
+      addJobMarkers(jobs);
     }
 
-    function getStatusLabel(status) {
-      const labels = {
-        'ASSIGNED': 'משובץ',
         'ENROUTE_PICKUP': 'בדרך לטעינה',
         'LOADED': 'נטען',
         'ENROUTE_DROPOFF': 'בדרך לפריקה',
@@ -500,12 +514,6 @@
       input.click();
     }
 
-    // Register Service Worker for PWA
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(err => {
-        console.log('SW registration failed', err);
-      });
-    }
   </script>
 </body>
 </html>

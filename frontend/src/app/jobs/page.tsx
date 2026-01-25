@@ -28,6 +28,7 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [editingJobId, setEditingJobId] = useState<number | null>(null)
 
   useEffect(() => {
     loadData()
@@ -83,6 +84,17 @@ export default function JobsPage() {
     if (!customerId) return 'לא צוין'
     const customer = customers.find(c => c.id === customerId)
     return customer?.name || `לקוח #${customerId}`
+  }
+
+  const handleStatusChange = async (jobId: number, newStatus: string) => {
+    try {
+      await jobsApi.update(jobId, { status: newStatus })
+      await loadData()
+      setEditingJobId(null)
+    } catch (error) {
+      console.error('Failed to update status:', error)
+      alert('שגיאה בעדכון סטטוס')
+    }
   }
 
   const filteredJobs = jobs.filter(job => {
@@ -178,13 +190,13 @@ export default function JobsPage() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      לקוח
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {t('jobs.id')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {t('jobs.date')}
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      לקוח
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {t('jobs.route')}
@@ -255,10 +267,33 @@ export default function JobsPage() {
                           {getDriverName(job.driver_id)}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${STATUS_COLORS[job.status]}`}>
-                          {t(`jobs.status.${job.status}`)}
-                        </span>
+                      <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        {editingJobId === job.id ? (
+                          <select
+                            value={job.status}
+                            onChange={(e) => handleStatusChange(job.id, e.target.value)}
+                            onBlur={() => setEditingJobId(null)}
+                            autoFocus
+                            className="px-2 py-1 text-xs font-medium rounded-full border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="PLANNED">מתוכנן</option>
+                            <option value="ASSIGNED">משובץ</option>
+                            <option value="ENROUTE_PICKUP">בדרך לטעינה</option>
+                            <option value="LOADED">נטען</option>
+                            <option value="ENROUTE_DROPOFF">בדרך לפריקה</option>
+                            <option value="DELIVERED">נמסר</option>
+                            <option value="CLOSED">סגור</option>
+                            <option value="CANCELED">מבוטל</option>
+                          </select>
+                        ) : (
+                          <span 
+                            className={`px-2 py-1 text-xs font-medium rounded-full cursor-pointer hover:opacity-80 ${STATUS_COLORS[job.status]}`}
+                            onClick={() => setEditingJobId(job.id)}
+                            title="לחץ לעריכה"
+                          >
+                            {t(`jobs.status.${job.status}`)}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
