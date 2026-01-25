@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useI18n } from '@/lib/i18n'
-import { customersApi } from '@/lib/api'
+import { customersApi, jobsApi } from '@/lib/api'
 import { ArrowRight, Printer, Download, AlertCircle, Clock, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
-import type { Customer } from '@/types'
+import type { Customer, Job } from '@/types'
 
 interface ARAgingData {
   customer_id: number
@@ -32,12 +32,65 @@ export default function ARAgingReportPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const customersRes = await customersApi.list()
+      const [customersRes, jobsRes] = await Promise.all([
+        customersApi.list(),
+        jobsApi.getAll()
+      ])
       const customersData = customersRes.data
+      const jobsData: Job[] = jobsRes.data
 
-      // TODO: Calculate real aging from statements/invoices table
-      // For now, showing empty state until billing module is complete
-      const realAging: ARAgingData[] = []
+      // Calculate aging based on delivered jobs with pricing
+      // Group by customer and calculate aging buckets based on job date
+      const agingMap = new Map<number, ARAgingData>()
+      
+      jobsData.forEach((job: Job) => {
+        if (!job.customer_id || job.status !== 'DELIVERED' || !job.pricing_total) return
+        
+        const customer = customersData.find((c: Customer) => c.id === job.customer_id)
+        if (!customer) return
+
+        // Calculate days since delivery (simulate invoice date)
+        const jobDate = new Date(job.scheduled_date)
+        const asOf = new Date(asOfDate)
+        const daysSince = Math.floor((asOf.getTime() - jobDate.getTime()) / (1000 * 60 * 60 * 24))
+        
+        // Convert pricing_total to number
+        const amount = typeof job.pricing_total === 'string' 
+          ? parseFloat(job.pricing_total) 
+          : Number(job.pricing_total)
+        
+        if (isNaN(amount)) return
+
+        if (!agingMap.has(job.customer_id)) {
+          agingMap.set(job.customer_id, {
+            customer_id: job.customer_id,
+            customer_name: customer.name,
+            current: 0,
+            days_30: 0,
+            days_60: 0,
+            days_90: 0,
+            total: 0
+          })
+        }
+
+        const aging = agingMap.get(job.customer_id)!
+        
+        // Distribute to buckets
+        if (daysSince <= 30) {
+          aging.current += amount
+        } else if (daysSince <= 60) {
+          aging.days_30 += amount
+        } else if (daysSince <= 90) {
+          aging.days_60 += amount
+        } else {
+          aging.days_90 += amount
+        }
+        aging.total += amount
+      })
+
+      const realAging = Array.from(agingMap.values())
+        .filter(a => a.total > 0)
+        .sort((a, b) => b.total - a.total)
 
       setCustomers(customersData)
       setAgingData(realAging)
@@ -49,11 +102,26 @@ export default function ARAgingReportPage() {
   }
 
   const totals = {
-    current: agingData.reduce((sum, a) => sum + a.current, 0),
-    days_30: agingData.reduce((sum, a) => sum + a.days_30, 0),
-    days_60: agingData.reduce((sum, a) => sum + a.days_60, 0),
-    days_90: agingData.reduce((sum, a) => sum + a.days_90, 0),
-    total: agingData.reduce((sum, a) => sum + a.total, 0)
+    current: agingData.reduce((sum, a) => {
+      const val = typeof a.current === 'string' ? parseFloat(a.current) : Number(a.current)
+      return sum + (isNaN(val) ? 0 : val)
+    }, 0),
+    days_30: agingData.reduce((sum, a) => {
+      const val = typeof a.days_30 === 'string' ? parseFloat(a.days_30) : Number(a.days_30)
+      return sum + (isNaN(val) ? 0 : val)
+    }, 0),
+    days_60: agingData.reduce((sum, a) => {
+      const val = typeof a.days_60 === 'string' ? parseFloat(a.days_60) : Number(a.days_60)
+      return sum + (isNaN(val) ? 0 : val)
+    }, 0),
+    days_90: agingData.reduce((sum, a) => {
+      const val = typeof a.days_90 === 'string' ? parseFloat(a.days_90) : Number(a.days_90)
+      return sum + (isNaN(val) ? 0 : val)
+    }, 0),
+    total: agingData.reduce((sum, a) => {
+      const val = typeof a.total === 'string' ? parseFloat(a.total) : Number(a.total)
+      return sum + (isNaN(val) ? 0 : val)
+    }, 0)
   }
 
   const handlePrint = () => {
@@ -141,7 +209,7 @@ export default function ARAgingReportPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">שוטף (0-30)</p>
-                <p className="text-xl font-bold text-green-600">₪{totals.current.toLocaleString()}</p>
+                <p className="text-xl font-bold text-green-600">₪{totals.current.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
               </div>
             </div>
           </div>
@@ -153,7 +221,7 @@ export default function ARAgingReportPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">31-60 יום</p>
-                <p className="text-xl font-bold text-yellow-600">₪{totals.days_30.toLocaleString()}</p>
+                <p className="text-xl font-bold text-yellow-600">₪{totals.days_30.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
               </div>
             </div>
           </div>
@@ -165,7 +233,7 @@ export default function ARAgingReportPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">61-90 יום</p>
-                <p className="text-xl font-bold text-orange-600">₪{totals.days_60.toLocaleString()}</p>
+                <p className="text-xl font-bold text-orange-600">₪{totals.days_60.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
               </div>
             </div>
           </div>
@@ -177,7 +245,7 @@ export default function ARAgingReportPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">90+ יום</p>
-                <p className="text-xl font-bold text-red-600">₪{totals.days_90.toLocaleString()}</p>
+                <p className="text-xl font-bold text-red-600">₪{totals.days_90.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
               </div>
             </div>
           </div>
@@ -189,7 +257,7 @@ export default function ARAgingReportPage() {
               </div>
               <div>
                 <p className="text-sm text-gray-600">סה"כ</p>
-                <p className="text-xl font-bold text-blue-600">₪{totals.total.toLocaleString()}</p>
+                <p className="text-xl font-bold text-blue-600">₪{totals.total.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
               </div>
             </div>
           </div>
@@ -223,35 +291,42 @@ export default function ARAgingReportPage() {
                     </td>
                   </tr>
                 ) : (
-                  agingData.map((data) => (
+                  agingData.map((data) => {
+                    const current = typeof data.current === 'string' ? parseFloat(data.current) : Number(data.current)
+                    const days30 = typeof data.days_30 === 'string' ? parseFloat(data.days_30) : Number(data.days_30)
+                    const days60 = typeof data.days_60 === 'string' ? parseFloat(data.days_60) : Number(data.days_60)
+                    const days90 = typeof data.days_90 === 'string' ? parseFloat(data.days_90) : Number(data.days_90)
+                    const total = typeof data.total === 'string' ? parseFloat(data.total) : Number(data.total)
+                    
+                    return (
                     <tr key={data.customer_id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 text-sm font-medium text-gray-900">{data.customer_name}</td>
                       <td className="px-4 py-3 text-sm text-green-600">
-                        {data.current > 0 ? `₪${data.current.toLocaleString()}` : '-'}
+                        {current > 0 ? `₪${current.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-yellow-600">
-                        {data.days_30 > 0 ? `₪${data.days_30.toLocaleString()}` : '-'}
+                        {days30 > 0 ? `₪${days30.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-orange-600">
-                        {data.days_60 > 0 ? `₪${data.days_60.toLocaleString()}` : '-'}
+                        {days60 > 0 ? `₪${days60.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-red-600 font-medium">
-                        {data.days_90 > 0 ? `₪${data.days_90.toLocaleString()}` : '-'}
+                        {days90 > 0 ? `₪${days90.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '-'}
                       </td>
                       <td className="px-4 py-3 text-sm font-bold text-gray-900">
-                        ₪{data.total.toLocaleString()}
+                        ₪{total.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                       </td>
                     </tr>
-                  ))
+                  )})
                 )}
                 {!loading && agingData.length > 0 && (
                   <tr className="bg-gray-50 font-bold">
                     <td className="px-4 py-3 text-sm text-gray-900">סה"כ</td>
-                    <td className="px-4 py-3 text-sm text-green-600">₪{totals.current.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm text-yellow-600">₪{totals.days_30.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm text-orange-600">₪{totals.days_60.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm text-red-600">₪{totals.days_90.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-sm text-blue-600">₪{totals.total.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-sm text-green-600">₪{totals.current.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td className="px-4 py-3 text-sm text-yellow-600">₪{totals.days_30.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td className="px-4 py-3 text-sm text-orange-600">₪{totals.days_60.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td className="px-4 py-3 text-sm text-red-600">₪{totals.days_90.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    <td className="px-4 py-3 text-sm text-blue-600">₪{totals.total.toLocaleString('he-IL', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
                   </tr>
                 )}
               </tbody>
@@ -262,7 +337,7 @@ export default function ARAgingReportPage() {
         {/* Note */}
         <div className="bg-yellow-50 rounded-lg border border-yellow-200 p-4 print:hidden">
           <p className="text-sm text-yellow-800">
-            💡 <strong>הערה:</strong> נתונים מדומים להדגמה. במימוש מלא, הנתונים יגיעו מטבלת Statements/Invoices + Payments.
+            💡 <strong>הערה:</strong> החישוב מבוסס על נסיעות שנמסרו (DELIVERED). במימוש מלא, הנתונים יגיעו מטבלת Statements/Invoices + Payments.
           </p>
         </div>
       </div>

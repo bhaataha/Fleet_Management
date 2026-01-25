@@ -1,9 +1,27 @@
 # Fleet Management System - מערכת ניהול הובלות עפר
 
+## � Quick Start - Production Installation
+
+```bash
+# Clone and run setup wizard
+git clone <your-repo-url>
+cd Fleet_Management
+chmod +x setup-wizard.sh
+sudo ./setup-wizard.sh
+```
+
+**That's it!** The wizard will guide you through the entire setup.
+
+👉 **Full Guide**: [docs/setup/SETUP_WIZARD_README.md](docs/setup/SETUP_WIZARD_README.md)
+
+---
+
 ## 📋 תוכן עניינים
 - [סקירה כללית](#סקירה-כללית)
 - [תכונות עיקריות](#תכונות-עיקריות)
-- [התקנה מהירה](#התקנה-מהירה)
+- [התקנה](#התקנה)
+  - [התקנה אוטומטית (מומלץ)](#התקנה-אוטומטית-מומלץ)
+  - [התקנה ידנית](#התקנה-ידנית)
 - [מבנה הפרויקט](#מבנה-הפרויקט)
 - [תיעוד](#תיעוד)
 - [Super Admin](#super-admin)
@@ -55,14 +73,43 @@
 
 ---
 
-## 🚀 התקנה מהירה
+## 🚀 התקנה
 
-### דרישות מקדימות
+### התקנה אוטומטית (מומלץ ל-Production)
+
+**Setup Wizard** - התקנה אוטומטית עם הנחיה שלב-אחר-שלב:
+
+```bash
+# 1. שכפול הפרויקט
+git clone https://github.com/bhaataha/Fleet_Management.git
+cd Fleet_Management
+
+# 2. הרצת אשף ההתקנה
+chmod +x setup-wizard.sh
+sudo ./setup-wizard.sh
+```
+
+האשף ידריך אותך:
+- ✓ בדיקת דרישות מקדימות
+- ✓ הגדרת שרת ופרטי רשת
+- ✓ יצירת Super Admin
+- ✓ הוספת ארגון ראשון
+- ✓ הרצת Docker containers
+- ✓ אתחול Database
+- ✓ אימות התקנה
+
+📖 **מדריך מלא**: [docs/setup/SETUP_WIZARD_README.md](docs/setup/SETUP_WIZARD_README.md)
+
+---
+
+### התקנה ידנית (Development)
+
+#### דרישות מקדימות
 - Docker & Docker Compose
 - Node.js 18+ (לפיתוח מחוץ לקונטיינר)
 - PostgreSQL 15 (דרך Docker)
 
-### הרצה מהירה
+#### הרצה מהירה
 
 ```bash
 # 1. שכפול הפרויקט
@@ -78,7 +125,7 @@ docker-compose up -d
 # API Docs: http://localhost:8001/docs
 ```
 
-### כניסה ראשונה
+#### כניסה ראשונה
 
 **Super Admin:**
 - Email: `admin@fleetmanagement.com`
