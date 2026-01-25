@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ניקוי Service Worker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      direction: rtl;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .container {
+      background: white;
+      color: #333;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    h1 {
+      color: #667eea;
+      margin-bottom: 20px;
+    }
+    button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 18px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px 5px;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #5568d3;
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+    .success {
+      background: #10b981;
+    }
+    .warning {
+      background: #f59e0b;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 5px;
+      display: none;
+    }
+    #result.show {
+      display: block;
+    }
+    #result.success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 2px solid #10b981;
+    }
+    #result.info {
+      background: #dbeafe;
+      color: #1e40af;
+      border: 2px solid #3b82f6;
+    }
+    .step {
+      background: #f3f4f6;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 5px;
+      border-right: 4px solid #667eea;
+    }
+    .code {
+      background: #1f2937;
+      color: #10b981;
+      padding: 10px;
+      border-radius: 5px;
+      font-family: 'Courier New', monospace;
+      margin: 10px 0;
+      direction: ltr;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 ניקוי Service Worker</h1>
+    
+    <p style="font-size: 18px; margin-bottom: 20px;">
+      אם אתה רואה שגיאות CORS מ-sw.js, לחץ על הכפתור למטה כדי לנקות את ה-Service Worker הישן:
+    </p>
+
+    <div style="text-align: center;">
+      <button onclick="unregisterAll()" class="warning">
+        🗑️ נקה Service Workers
+      </button>
+      <button onclick="checkStatus()" style="background: #3b82f6;">
+        🔍 בדוק סטטוס
+      </button>
+      <button onclick="goToAdmin()" class="success">
+        ✅ עבור לממשק Admin
+      </button>
+    </div>
+
+    <div id="result"></div>
+
+    <div style="margin-top: 30px; padding: 20px; background: #fef3c7; color: #92400e; border-radius: 5px;">
+      <h3 style="margin-top: 0;">📋 צעדים ידניים (אם הכפתור לא עובד):</h3>
+      
+      <div class="step">
+        <strong>1. פתח Console בדפדפן (F12)</strong>
+      </div>
+      
+      <div class="step">
+        <strong>2. העתק והדבק את הקוד הזה:</strong>
+        <div class="code">
+navigator.serviceWorker.getRegistrations().then(r=>{
+  r.forEach(x=>x.unregister());
+  console.log('Unregistered', r.length, 'SWs');
+});
+caches.keys().then(k=>{
+  k.forEach(c=>caches.delete(c));
+  console.log('Cleared', k.length, 'caches');
+});
+        </div>
+      </div>
+      
+      <div class="step">
+        <strong>3. לחץ Enter</strong>
+      </div>
+      
+      <div class="step">
+        <strong>4. סגור את הטאב (Ctrl+W)</strong>
+      </div>
+      
+      <div class="step">
+        <strong>5. פתח טאב חדש וגש ל-Super Admin</strong>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showResult(message, type = 'info') {
+      const resultDiv = document.getElementById('result');
+      resultDiv.textContent = message;
+      resultDiv.className = 'show ' + type;
+    }
+
+    async function unregisterAll() {
+      if (!('serviceWorker' in navigator)) {
+        showResult('❌ Service Worker לא נתמך בדפדפן זה', 'info');
+        return;
+      }
+
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        
+        if (registrations.length === 0) {
+          showResult('✅ לא נמצאו Service Workers רשומים. הכל נקי!', 'success');
+          return;
+        }
+
+        let count = 0;
+        for (const registration of registrations) {
+          const success = await registration.unregister();
+          if (success) count++;
+        }
+
+        // Clear caches
+        const cacheNames = await caches.keys();
+        for (const cacheName of cacheNames) {
+          await caches.delete(cacheName);
+        }
+
+        showResult(
+          `✅ הוסרו ${count} Service Workers ו-${cacheNames.length} caches!\n\n` +
+          `כעת:\n1. סגור את הטאב הזה (Ctrl+W)\n2. פתח טאב חדש\n3. גש ל-http://localhost:3010/super-admin\n4. רענן עם Ctrl+Shift+R`,
+          'success'
+        );
+        
+        // Auto redirect after 3 seconds
+        setTimeout(() => {
+          window.location.href = 'http://localhost:3010/super-admin';
+        }, 3000);
+
+      } catch (error) {
+        showResult('❌ שגיאה: ' + error.message, 'info');
+      }
+    }
+
+    async function checkStatus() {
+      if (!('serviceWorker' in navigator)) {
+        showResult('❌ Service Worker לא נתמך בדפדפן זה', 'info');
+        return;
+      }
+
+      try {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        const cacheNames = await caches.keys();
+        
+        if (registrations.length === 0 && cacheNames.length === 0) {
+          showResult('✅ הכל נקי! אין Service Workers או Caches רשומים.', 'success');
+        } else {
+          showResult(
+            `📊 סטטוס נוכחי:\n` +
+            `• Service Workers: ${registrations.length}\n` +
+            `• Caches: ${cacheNames.length}\n\n` +
+            (registrations.length > 0 ? '⚠️ יש צורך בניקוי!' : '✅ נקי!'),
+            registrations.length > 0 ? 'info' : 'success'
+          );
+        }
+      } catch (error) {
+        showResult('❌ שגיאה: ' + error.message, 'info');
+      }
+    }
+
+    function goToAdmin() {
+      window.location.href = 'http://localhost:3010/super-admin';
+    }
+
+    // Auto-check on load
+    window.addEventListener('load', () => {
+      setTimeout(checkStatus, 500);
+    });
+  </script>
+</body>
+</html>

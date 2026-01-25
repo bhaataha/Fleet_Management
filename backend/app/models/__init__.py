@@ -1,8 +1,10 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Numeric, Enum, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Numeric, Enum, JSON, Date, DECIMAL
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from app.core.database import Base
 import enum
+import uuid
 
 
 class UserRole(str, enum.Enum):
@@ -45,19 +47,78 @@ class Organization(Base):
     """Multi-tenant organization"""
     __tablename__ = "organizations"
     
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    name = Column(String(200), nullable=False)
+    slug = Column(String(100), unique=True, nullable=False)
+    display_name = Column(String(200))
+    
+    # Contact
+    contact_name = Column(String(200))
+    contact_email = Column(String(255), unique=True, nullable=False, index=True)
+    contact_phone = Column(String(20))
     vat_id = Column(String(50))
-    timezone = Column(String(50), default="Asia/Jerusalem")
-    settings_json = Column(JSON)
-    is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Address
+    address = Column(Text)
+    city = Column(String(100))
+    postal_code = Column(String(20))
+    country = Column(String(3), server_default='ISR')
+    
+    # Subscription
+    plan_type = Column(String(50), nullable=False, server_default='trial')
+    plan_start_date = Column(Date)
+    plan_end_date = Column(Date)
+    trial_ends_at = Column(DateTime(timezone=True))
+    
+    # Limits
+    max_trucks = Column(Integer, server_default='5')
+    max_drivers = Column(Integer, server_default='10')
+    max_storage_gb = Column(Integer, server_default='10')
+    features_json = Column(JSONB, server_default='{}')
+    
+    # Billing
+    billing_cycle = Column(String(20), server_default='monthly')
+    billing_email = Column(String(255))
+    last_payment_date = Column(Date)
+    next_billing_date = Column(Date)
+    total_paid = Column(DECIMAL(10, 2), server_default='0')
+    
+    # Settings
+    timezone = Column(String(50), server_default='Asia/Jerusalem')
+    locale = Column(String(10), server_default='he')
+    currency = Column(String(3), server_default='ILS')
+    settings_json = Column(JSONB, server_default='{}')
+    
+    # Branding
+    logo_url = Column(Text)
+    primary_color = Column(String(7))
+    custom_domain = Column(String(255))
+    
+    # Status
+    status = Column(String(50), nullable=False, server_default='active', index=True)
+    suspended_reason = Column(Text)
+    
+    # Stats
+    total_trucks = Column(Integer, server_default='0')
+    total_drivers = Column(Integer, server_default='0')
+    total_jobs_completed = Column(Integer, server_default='0')
+    storage_used_gb = Column(DECIMAL(10, 2), server_default='0')
+    
+    # Legacy
+    is_active = Column(Boolean, server_default='true')
+    
+    # Metadata
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_by = Column(UUID(as_uuid=True))
     
     # Relationships
     users = relationship("User", back_populates="organization")
     customers = relationship("Customer", back_populates="organization")
+    sites = relationship("Site", back_populates="organization")
+    drivers = relationship("Driver", back_populates="organization")
     trucks = relationship("Truck", back_populates="organization")
+    materials = relationship("Material", back_populates="organization")
 
 
 class User(Base):
@@ -65,12 +126,14 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     phone = Column(String(20))
     name = Column(String(255), nullable=False)
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)
+    is_super_admin = Column(Boolean, server_default='false')
+    org_role = Column(String(50), server_default='user')
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -85,7 +148,7 @@ class UserRoleModel(Base):
     __tablename__ = "user_roles"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     role = Column(Enum(UserRole), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -99,7 +162,7 @@ class Customer(Base):
     __tablename__ = "customers"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     vat_id = Column(String(50))
     contact_name = Column(String(255))
@@ -122,7 +185,7 @@ class Site(Base):
     __tablename__ = "sites"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     name = Column(String(255), nullable=False)
     address = Column(Text)
@@ -135,6 +198,7 @@ class Site(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
+    organization = relationship("Organization", back_populates="sites")
     customer = relationship("Customer", back_populates="sites")
     jobs_from = relationship("Job", foreign_keys="Job.from_site_id", back_populates="from_site")
     jobs_to = relationship("Job", foreign_keys="Job.to_site_id", back_populates="to_site")
@@ -145,7 +209,7 @@ class Material(Base):
     __tablename__ = "materials"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     name_hebrew = Column(String(255))
     billing_unit = Column(Enum(BillingUnit), nullable=False)
@@ -154,6 +218,7 @@ class Material(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
+    organization = relationship("Organization", back_populates="materials")
     jobs = relationship("Job", back_populates="material")
 
 
@@ -162,7 +227,7 @@ class Truck(Base):
     __tablename__ = "trucks"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     plate_number = Column(String(20), nullable=False, unique=True)
     model = Column(String(100))
     truck_type = Column(String(50))  # פול טריילר/סמי/דאבל
@@ -184,7 +249,7 @@ class Trailer(Base):
     __tablename__ = "trailers"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     plate_number = Column(String(20), nullable=False, unique=True)
     capacity_ton = Column(Numeric(5, 2))
     capacity_m3 = Column(Numeric(5, 2))
@@ -200,7 +265,7 @@ class Driver(Base):
     __tablename__ = "drivers"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
     phone = Column(String(20))
@@ -211,6 +276,7 @@ class Driver(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
+    organization = relationship("Organization", back_populates="drivers")
     user = relationship("User", back_populates="driver_profile")
     jobs = relationship("Job", back_populates="driver")
 
@@ -220,7 +286,7 @@ class PriceList(Base):
     __tablename__ = "price_lists"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"))  # null = general price
     material_id = Column(Integer, ForeignKey("materials.id"), nullable=False)
     from_site_id = Column(Integer, ForeignKey("sites.id"))
@@ -240,7 +306,7 @@ class Job(Base):
     __tablename__ = "jobs"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     from_site_id = Column(Integer, ForeignKey("sites.id"), nullable=False)
     to_site_id = Column(Integer, ForeignKey("sites.id"), nullable=False)
@@ -290,6 +356,7 @@ class JobStatusEvent(Base):
     __tablename__ = "job_status_events"
     
     id = Column(Integer, primary_key=True, index=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
     status = Column(Enum(JobStatus), nullable=False)
     event_time = Column(DateTime(timezone=True), server_default=func.now())
@@ -307,6 +374,7 @@ class DeliveryNote(Base):
     __tablename__ = "delivery_notes"
     
     id = Column(Integer, primary_key=True, index=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False, unique=True)
     note_number = Column(String(50))
     receiver_name = Column(String(255), nullable=False)
@@ -324,6 +392,7 @@ class WeighTicket(Base):
     __tablename__ = "weigh_tickets"
     
     id = Column(Integer, primary_key=True, index=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
     ticket_number = Column(String(50))
     gross_weight = Column(Numeric(10, 2))
@@ -339,7 +408,7 @@ class File(Base):
     __tablename__ = "files"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     storage_key = Column(String(500), nullable=False)  # S3 key
     filename = Column(String(255), nullable=False)
     mime_type = Column(String(100))
@@ -368,7 +437,7 @@ class Statement(Base):
     __tablename__ = "statements"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     number = Column(String(50), unique=True, nullable=False)
     period_from = Column(DateTime(timezone=True), nullable=False)
@@ -390,6 +459,7 @@ class StatementLine(Base):
     __tablename__ = "statement_lines"
     
     id = Column(Integer, primary_key=True, index=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     statement_id = Column(Integer, ForeignKey("statements.id"), nullable=False)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
     description = Column(Text)
@@ -407,7 +477,7 @@ class Payment(Base):
     __tablename__ = "payments"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
     paid_at = Column(DateTime(timezone=True), nullable=False)
@@ -425,6 +495,7 @@ class PaymentAllocation(Base):
     __tablename__ = "payment_allocations"
     
     id = Column(Integer, primary_key=True, index=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     payment_id = Column(Integer, ForeignKey("payments.id"), nullable=False)
     statement_id = Column(Integer, ForeignKey("statements.id"), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
@@ -438,7 +509,7 @@ class Expense(Base):
     __tablename__ = "expenses"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     category = Column(String(100), nullable=False)  # דלק/טיפולים/צמיגים/אגרות/שכר
     amount = Column(Numeric(10, 2), nullable=False)
     expense_date = Column(DateTime(timezone=True), nullable=False)
@@ -457,7 +528,7 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     entity_type = Column(String(50), nullable=False)
     entity_id = Column(Integer, nullable=False)

@@ -1,11 +1,13 @@
 'use client'
 
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/stores/auth'
 import { useI18n } from '@/lib/i18n'
 import Logo from '@/components/ui/Logo'
 import Footer from '@/components/layout/Footer'
+import { superAdminApi } from '@/lib/api'
 import {
   LayoutDashboard,
   Truck,
@@ -21,8 +23,8 @@ import {
   Menu,
   X,
   Globe,
+  Shield,
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
 
 const navigation = [
   { name: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -51,6 +53,48 @@ export default function DashboardLayout({
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false)
+  const [orgSelectorOpen, setOrgSelectorOpen] = useState(false)
+  const [organizations, setOrganizations] = useState<any[]>([])
+  const [impersonatedOrgId, setImpersonatedOrgId] = useState<string | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+    // Load impersonation state
+    if (typeof window !== 'undefined') {
+      setImpersonatedOrgId(localStorage.getItem('impersonated_org_id'))
+    }
+    
+    // Load organizations for Super Admin
+    if (user?.is_super_admin) {
+      loadOrganizations()
+    }
+  }, [])
+
+  const loadOrganizations = async () => {
+    try {
+      const response = await superAdminApi.listOrganizations()
+      // Handle paginated response format: {total, skip, limit, items: [...]}
+      const orgs = response.data?.items || response.data?.organizations || (Array.isArray(response.data) ? response.data : [])
+      console.log('Loaded organizations:', orgs)
+      setOrganizations(Array.isArray(orgs) ? orgs : [])
+    } catch (error) {
+      console.error('Failed to load organizations:', error)
+      setOrganizations([]) // Set empty array on error
+    }
+  }
+
+  const handleImpersonate = (orgId: string) => {
+    localStorage.setItem('impersonated_org_id', orgId)
+    setImpersonatedOrgId(orgId)
+    setOrgSelectorOpen(false)
+    window.location.reload()
+  }
+
+  const clearImpersonation = () => {
+    localStorage.removeItem('impersonated_org_id')
+    setImpersonatedOrgId(null)
+    window.location.reload()
+  }
 
   useEffect(() => {
     setMounted(true)
@@ -119,6 +163,25 @@ export default function DashboardLayout({
 
           {/* Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+            {/* Super Admin Link */}
+            {user?.is_super_admin && (
+              <Link
+                href="/super-admin"
+                className={`
+                  flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                  transition-colors mb-2 border-2 border-purple-200
+                  ${
+                    pathname === '/super-admin'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                  }
+                `}
+              >
+                <Shield className="w-5 h-5" />
+                <span>Super Admin</span>
+              </Link>
+            )}
+            
             {navigation.map((item) => {
               const isActive = pathname === item.href
               const Icon = item.icon
@@ -214,7 +277,103 @@ export default function DashboardLayout({
           >
             <Menu className="w-6 h-6" />
           </button>
-          <div className="flex-1" />
+          
+          {/* Super Admin Controls */}
+          <div className="flex-1 flex items-center justify-end gap-4">
+            {/* Impersonation Banner */}
+            {user?.is_super_admin && impersonatedOrgId && (
+              <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-md px-3 py-1.5">
+                <Shield className="w-4 h-4 text-yellow-600" />
+                <span className="text-xs font-medium text-yellow-800">
+                  Viewing as Org: {impersonatedOrgId.slice(0, 8)}...
+                </span>
+                <button
+                  onClick={clearImpersonation}
+                  className="text-xs text-yellow-800 hover:text-yellow-900 underline font-medium"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+            
+            {/* Organization Selector for Super Admin */}
+            {user?.is_super_admin && (
+              <div className="relative">
+                <button
+                  onClick={() => setOrgSelectorOpen(!orgSelectorOpen)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50 border border-gray-300 rounded-lg transition-colors"
+                >
+                  <Shield className="w-4 h-4 text-blue-600" />
+                  <span className="font-medium">Switch Org</span>
+                </button>
+                
+                {orgSelectorOpen && (
+                  <div className="absolute top-full right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-50 max-h-96 overflow-y-auto">
+                    <div className="p-3 bg-gray-50 border-b border-gray-200">
+                      <h3 className="text-sm font-semibold text-gray-900">Select Organization</h3>
+                      <p className="text-xs text-gray-600 mt-0.5">View system as this organization</p>
+                    </div>
+                    
+                    {impersonatedOrgId && (
+                      <button
+                        onClick={clearImpersonation}
+                        className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 border-b border-gray-100 bg-blue-100 font-medium text-blue-700"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Shield className="w-4 h-4" />
+                          <span>Clear Impersonation (View as Super Admin)</span>
+                        </div>
+                      </button>
+                    )}
+                    
+                    {organizations.length === 0 ? (
+                      <div className="px-4 py-8 text-center text-sm text-gray-500">
+                        Loading organizations...
+                      </div>
+                    ) : !Array.isArray(organizations) ? (
+                      <div className="px-4 py-8 text-center text-sm text-red-500">
+                        Error loading organizations
+                      </div>
+                    ) : (
+                      organizations.map((org) => (
+                        <button
+                          key={org.id}
+                          onClick={() => handleImpersonate(org.id)}
+                          className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 border-b border-gray-100 ${
+                            impersonatedOrgId === org.id ? 'bg-blue-50' : ''
+                          }`}
+                        >
+                          <div className="font-medium text-gray-900">{org.name}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{org.slug}</div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className={`px-2 py-0.5 text-xs rounded-full ${
+                              org.status === 'active' ? 'bg-green-100 text-green-800' :
+                              org.status === 'suspended' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {org.status}
+                            </span>
+                            <span className="text-xs text-gray-500">{org.plan_type}</span>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Super Admin Dashboard Link */}
+            {user?.is_super_admin && (
+              <Link
+                href="/super-admin"
+                className="flex items-center gap-2 px-3 py-1.5 text-sm text-white bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors font-medium"
+              >
+                <Shield className="w-4 h-4" />
+                Super Admin
+              </Link>
+            )}
+          </div>
         </header>
 
         {/* Page content */}

@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.core.database import get_db
-from app.core.security import verify_password, create_access_token, decode_access_token
-from app.models import User, Driver
+from app.core.security import verify_password, create_access_token, create_access_token_for_user, decode_access_token
+from app.models import User, Driver, Organization
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 
@@ -66,17 +66,19 @@ async def login(credentials: LoginRequest, db: Session = Depends(get_db)):
             detail="User account is inactive"
         )
     
+    # Check if organization is suspended
+    org = db.query(Organization).filter(Organization.id == user.org_id).first()
+    if org and org.status == "suspended":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Organization is suspended: {org.suspended_reason or 'Please contact support'}"
+        )
+    
     # Get user roles
     roles = [role.role.value for role in user.roles]
     
-    # Create access token
-    token_data = {
-        "sub": str(user.id),
-        "email": user.email,
-        "org_id": user.org_id,
-        "roles": roles
-    }
-    access_token = create_access_token(token_data)
+    # Create access token with org_id, is_super_admin, org_role
+    access_token = create_access_token_for_user(user)
     
     return LoginResponse(
         access_token=access_token,
@@ -84,7 +86,13 @@ async def login(credentials: LoginRequest, db: Session = Depends(get_db)):
             "id": user.id,
             "name": user.name,
             "email": user.email,
-            "org_id": user.org_id,
+            "org_id": str(user.org_id),  # UUID to string
+            "org_name": org.name if org else None,
+            "org_slug": org.slug if org else None,
+            "plan_type": org.plan_type if org else None,
+            "trial_ends_at": org.trial_ends_at.isoformat() if org and org.trial_ends_at else None,
+            "is_super_admin": user.is_super_admin or False,
+            "org_role": user.org_role or "user",
             "roles": roles
         }
     )

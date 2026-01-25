@@ -10,6 +10,7 @@ from app.api.v1.endpoints import (
     pricing,
     statements,
     files,
+    super_admin,
 )
 
 api_router = APIRouter()
@@ -25,3 +26,4 @@ api_router.include_router(jobs.router, prefix="/jobs", tags=["jobs"])
 api_router.include_router(pricing.router, tags=["pricing"])
 api_router.include_router(statements.router, tags=["statements"])
 api_router.include_router(files.router, tags=["files"])
+api_router.include_router(super_admin.router, tags=["super-admin"])

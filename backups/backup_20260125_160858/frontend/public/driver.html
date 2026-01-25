@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="version" content="1.1">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Fleet Driver">
+  <meta name="theme-color" content="#2563eb">
+  <title>Fleet Driver App - אפליקציית נהג</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: #f3f4f6;
+      direction: rtl;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    .container { max-width: 600px; margin: 0 auto; padding: 16px; }
+    .header {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      padding: 20px;
+      border-radius: 0 0 20px 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .header h1 { font-size: 24px; margin-bottom: 4px; }
+    .header p { opacity: 0.9; font-size: 14px; }
+    .job-card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 16px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .job-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .job-id { font-weight: bold; font-size: 18px; }
+    .status-badge {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .status-assigned { background: #dbeafe; color: #1e40af; }
+    .status-enroute { background: #fef3c7; color: #92400e; }
+    .status-delivered { background: #d1fae5; color: #065f46; }
+    .job-details { margin: 12px 0; }
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .detail-label { color: #6b7280; font-size: 14px; }
+    .detail-value { font-weight: 500; font-size: 14px; }
+    .status-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    .btn {
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-success { background: #059669; color: white; }
+    .btn-primary:active { background: #1d4ed8; transform: scale(0.98); }
+    .btn-success:active { background: #047857; transform: scale(0.98); }
+    .btn-full { grid-column: 1 / -1; }
+    .camera-btn {
+      background: #f3f4f6;
+      color: #374151;
+      margin-top: 8px;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 48px 16px;
+      color: #9ca3af;
+    }
+    .empty-icon { font-size: 48px; margin-bottom: 16px; }
+    .signature-pad {
+      border: 2px dashed #d1d5db;
+      border-radius: 8px;
+      margin: 16px 0;
+      background: white;
+      touch-action: none;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🚛 אפליקציית נהג</h1>
+    <p id="driver-name">טוען...</p>
+    <div style="margin-top: 12px;">
+      <button id="toggle-view" class="btn" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; font-size: 13px; border: 1px solid rgba(255,255,255,0.3);">
+        📋 הצג את כל המשימות
+      </button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Map Section -->
+    <div id="map-section" class="hidden">
+      <div class="location-info">
+        <div class="label">📍 המיקום שלי</div>
+        <div class="value" id="current-location">מאתר מיקום...</div>
+      </div>
+      <div class="map-container">
+        <div id="map"></div>
+      </div>
+    </div>  <div class="container">
+    <div id="loading" class="empty-state">
+      <div class="empty-icon">⏳</div>
+      <p>טוען משימות...</p>
+    </div>
+
+    <div id="jobs-container"></div>
+
+    <div id="empty-state" class="empty-state hidden">
+      <div class="empty-icon">✅</div>
+      <p>אין משימות להיום</p>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'http://localhost:8001/api';
+    let token = localStorage.getItem('access_token');
+    let currentUser = null;
+    let sites = [];
+    let materials = [];
+    
+    // Load toggle state from localStorage (persist across refreshes)
+    let showAllJobs = localStorage.getItem('showAllJobs') === 'true';
+
+    // Check if logged in
+    if (!token) {
+      const phone = prompt('מספר טלפון (לדוגמה: 050-1111111):');
+      const password = prompt('סיסמה:');
+      login(phone, password);
+    } else {
+      init();
+    }
+
+    async function login(phone, password) {
+      try {
+        const res = await fetch(`${API_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone, password })
+        });
+        
+        if (!res.ok) {
+          const error = await res.json();
+          alert('שגיאה בהתחברות: ' + (error.detail || 'פרטים שגויים'));
+          localStorage.removeItem('access_token');
+          location.reload();
+          return;
+        }
+        
+        const data = await res.json();
+        token = data.access_token;
+        localStorage.setItem('access_token', token);
+        currentUser = data.user;
+        init();
+      } catch (err) {
+        alert('שגיאה בהתחברות: ' + err.message);
+        localStorage.removeItem('access_token');
+      }
+    }
+
+    async function init() {
+      await loadUser();
+      await loadReferenceData();
+      await loadJobs();
+      
+      // Update button text based on current state
+      updateToggleButton();
+      
+      // Add toggle button listener
+      document.getElementById('toggle-view').addEventListener('click', () => {
+        showAllJobs = !showAllJobs;
+        localStorage.setItem('showAllJobs', showAllJobs); // Save to localStorage
+        updateToggleButton();
+        loadJobs();
+      });
+    }
+    
+    function updateToggleButton() {
+      const btn = document.getElementById('toggle-view');
+      if (btn) {
+        btn.textContent = showAllJobs ? '👤 הצג רק את המשימות שלי' : '📋 הצג את כל המשימות';
+      }
+    }
+
+    async function loadReferenceData() {
+      try {
+        const [sitesRes, materialsRes] = await Promise.all([
+          fetch(`${API_URL}/sites`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`${API_URL}/materials`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        
+        if (!sitesRes.ok || !materialsRes.ok) {
+          console.error('Failed to fetch reference data');
+          return;
+        }
+        
+        sites = await sitesRes.json();
+        materials = await materialsRes.json();
+        console.log('Loaded sites:', sites.length, 'materials:', materials.length);
+      } catch (err) {
+        console.error('Failed to load reference data:', err);
+        alert('שגיאה בטעינת נתוני עזר: ' + err.message);
+      }
+    }
+
+    async function loadUser() {
+      try {
+        const res = await fetch(`${API_URL}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!res.ok) {
+          if (res.status === 401) {
+            // Token expired or invalid - clear and reload
+            console.log('Token expired, redirecting to login');
+            localStorage.removeItem('access_token');
+            location.reload();
+          }
+          return;
+        }
+        
+        currentUser = await res.json();
+        console.log('Loaded user:', currentUser.name, 'user_id:', currentUser.id);
+        
+        // Get driver record for this user
+        const driverRes = await fetch(`${API_URL}/drivers`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const drivers = await driverRes.json();
+        const myDriver = drivers.find(d => d.user_id === currentUser.id);
+        
+        if (myDriver) {
+          currentUser.driver_id = myDriver.id;
+          console.log('Driver ID:', myDriver.id);
+          document.getElementById('driver-name').textContent = myDriver.name;
+        } else {
+          document.getElementById('driver-name').textContent = currentUser.name;
+          console.warn('No driver record found for user');
+        }
+      } catch (err) {
+        console.error('Failed to load user:', err);
+        alert('שגיאה בטעינת פרטי משתמש');
+      }
+    }
+
+    async function loadJobs() {
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('empty-state').classList.add('hidden');
+      
+      try {
+        const res = await fetch(`${API_URL}/jobs`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!res.ok) {
+          throw new Error('Failed to fetch jobs');
+        }
+        
+        const allJobs = await res.json();
+        console.log('=== DEBUG: Load Jobs ===');
+        console.log('Total jobs from API:', allJobs.length);
+        console.log('Current user:', currentUser);
+        console.log('Driver ID:', currentUser?.driver_id);
+        
+        const today = new Date().toISOString().split('T')[0];
+        console.log('Today date:', today);
+        
+        // Debug: show all job dates
+        if (allJobs.length > 0) {
+          console.log('Sample of job dates:');
+          allJobs.slice(0, 5).forEach(j => {
+            console.log(`  Job #${j.id}: scheduled_date=${j.scheduled_date}, driver_id=${j.driver_id}, status=${j.status}`);
+          });
+        }
+        
+        // Show all jobs assigned to ANY driver for today (for debugging)
+        const todayJobs = allJobs.filter(j => {
+          const jobDate = j.scheduled_date ? new Date(j.scheduled_date).toISOString().split('T')[0] : null;
+          return jobDate === today;
+        });
+        
+        console.log(`Jobs scheduled for today (${today}):`, todayJobs.length);
+        
+        if (todayJobs.length > 0) {
+          console.log('Today\'s jobs details:');
+          todayJobs.forEach(j => {
+            console.log(`  #${j.id}: driver_id=${j.driver_id}, status=${j.status}, date=${j.scheduled_date}`);
+          });
+        }
+        
+        // Decide which jobs to show based on toggle
+        let jobsToShow;
+        
+        if (showAllJobs || !currentUser?.driver_id) {
+          // Show all today's jobs
+          jobsToShow = todayJobs;
+          console.log('📋 Showing ALL jobs for today:', jobsToShow.length);
+        } else {
+          // Show only my jobs
+          jobsToShow = todayJobs.filter(j => j.driver_id === currentUser.driver_id);
+          console.log(`👤 Showing jobs for driver ${currentUser.driver_id}:`, jobsToShow.length);
+        }
+        
+        document.getElementById('loading').classList.add('hidden');
+        
+        if (jobsToShow.length === 0) {
+          console.log('No jobs to display');
+          document.getElementById('empty-state').classList.remove('hidden');
+        } else {
+          console.log('✅ Rendering', jobsToShow.length, 'jobs');
+          renderJobs(jobsToShow);
+        }
+      } catch (err) {
+        console.error('❌ Error loading jobs:', err);
+        document.getElementById('loading').innerHTML = '<div class="empty-icon">❌</div><p>שגיאה בטעינת משימות: ' + err.message + '</p>';
+      }
+    }
+
+    function getSiteName(siteId) {
+      if (!siteId) return 'לא צוין';
+      const site = sites.find(s => s.id === siteId);
+      return site?.name || `אתר #${siteId}`;
+    }
+
+    function getMaterialName(materialId) {
+      if (!materialId) return 'לא צוין';
+      const material = materials.find(m => m.id === materialId);
+      return material?.name_hebrew || material?.name || `חומר #${materialId}`;
+    }
+
+    function renderJobs(jobs) {
+      const container = document.getElementById('jobs-container');
+      container.innerHTML = jobs.map(job => `
+        <div class="job-card">
+          <div class="job-header">
+            <span class="job-id">#${job.id}</span>
+            <span class="status-badge status-${job.status.toLowerCase()}">
+              ${getStatusLabel(job.status)}
+            </span>
+          </div>
+          <div class="job-details">
+            <div class="detail-row">
+              <span class="detail-label">מאתר</span>
+              <span class="detail-value">${getSiteName(job.from_site_id)}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">לאתר</span>
+              <span class="detail-value">${getSiteName(job.to_site_id)}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">חומר</span>
+              <span class="detail-value">${getMaterialName(job.material_id)}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">כמות</span>
+              <span class="detail-value">${job.planned_qty} ${job.unit}</span>
+            </div>
+          </div>
+          <div class="status-buttons">
+            ${getStatusButtons(job)}
+          </div>
+        </div>
+      `).join('');
+
+      // Add event listeners
+      jobs.forEach(job => {
+        const btns = document.querySelectorAll(`[data-job="${job.id}"]`);
+        btns.forEach(btn => {
+          btn.addEventListener('click', () => updateStatus(job.id, btn.dataset.status));
+        });
+      });
+      
+      // Update map markers
+      addJobMarkers(jobs);
+    }
+
+        'ENROUTE_PICKUP': 'בדרך לטעינה',
+        'LOADED': 'נטען',
+        'ENROUTE_DROPOFF': 'בדרך לפריקה',
+        'DELIVERED': 'נמסר',
+      };
+      return labels[status] || status;
+    }
+
+    function getStatusButtons(job) {
+      const status = job.status;
+      
+      if (status === 'ASSIGNED') {
+        return `<button class="btn btn-primary btn-full" data-job="${job.id}" data-status="ENROUTE_PICKUP">יצאתי לטעינה</button>`;
+      }
+      if (status === 'ENROUTE_PICKUP') {
+        return `<button class="btn btn-primary btn-full" data-job="${job.id}" data-status="LOADED">נטענתי</button>`;
+      }
+      if (status === 'LOADED') {
+        return `<button class="btn btn-primary btn-full" data-job="${job.id}" data-status="ENROUTE_DROPOFF">יצאתי לפריקה</button>`;
+      }
+      if (status === 'ENROUTE_DROPOFF') {
+        return `
+          <button class="btn btn-success btn-full" data-job="${job.id}" data-status="DELIVERED">השלמתי משלוח</button>
+          <button class="btn camera-btn btn-full" onclick="takePhoto(${job.id})">📷 צילום תמונה</button>
+        `;
+      }
+      if (status === 'DELIVERED') {
+        return `<div class="status-badge status-delivered" style="grid-column: 1/-1; text-align: center;">✅ הושלם</div>`;
+      }
+      return '';
+    }
+
+    async function updateStatus(jobId, newStatus) {
+      try {
+        // Get location if available
+        let lat, lng;
+        if (navigator.geolocation) {
+          const pos = await new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject);
+          });
+          lat = pos.coords.latitude;
+          lng = pos.coords.longitude;
+        }
+
+        await fetch(`${API_URL}/jobs/${jobId}/status`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ status: newStatus, lat, lng })
+        });
+
+        // Reload jobs
+        await loadJobs();
+      } catch (err) {
+        alert('שגיאה בעדכון סטטוס');
+        console.error(err);
+      }
+    }
+
+    async function takePhoto(jobId) {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment';
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        try {
+          // Show uploading message
+          const uploadMsg = document.createElement('div');
+          uploadMsg.textContent = 'מעלה תמונה...';
+          uploadMsg.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#333;color:white;padding:20px;border-radius:8px;z-index:9999;';
+          document.body.appendChild(uploadMsg);
+          
+          // Create form data
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('file_type', 'PHOTO');
+          
+          // Upload to server
+          const res = await fetch(`${API_URL}/jobs/${jobId}/files/upload`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+          
+          document.body.removeChild(uploadMsg);
+          
+          if (!res.ok) {
+            const error = await res.json();
+            throw new Error(error.detail || 'העלאה נכשלה');
+          }
+          
+          const result = await res.json();
+          alert('תמונה הועלתה בהצלחה! ✓');
+          
+          // Reload jobs to show updated file count
+          await loadJobs();
+          
+        } catch (err) {
+          console.error('Photo upload error:', err);
+          alert('שגיאה בהעלאת תמונה: ' + err.message);
+        }
+      };
+      input.click();
+    }
+
+  </script>
+</body>
+</html>

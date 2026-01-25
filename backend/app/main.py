@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import settings
 from app.api.v1.api import api_router
+from app.middleware.tenant import tenant_middleware
 from pathlib import Path
 
 
@@ -33,10 +34,15 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight for 1 hour
 )
 
 # Add CORS for static files
 app.add_middleware(CORSStaticFilesMiddleware)
+
+# Add tenant middleware (must be AFTER CORS, BEFORE routes)
+app.middleware("http")(tenant_middleware)
 
 # Mount static files for uploads (MVP: local storage)
 uploads_dir = Path("/app/uploads")

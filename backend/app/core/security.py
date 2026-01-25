@@ -33,6 +33,32 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
+def create_access_token_for_user(user, expires_delta: Optional[timedelta] = None) -> str:
+    """
+    Create a JWT access token for a User model instance.
+    Includes org_id, is_super_admin, and org_role.
+    """
+    expire = datetime.utcnow() + (
+        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    
+    to_encode = {
+        "sub": str(user.id),
+        "email": user.email,
+        "org_id": str(user.org_id),  # UUID → string for JSON
+        "is_super_admin": user.is_super_admin or False,
+        "org_role": user.org_role or "user",
+        "exp": expire
+    }
+    
+    encoded_jwt = jwt.encode(
+        to_encode, 
+        settings.JWT_SECRET_KEY, 
+        algorithm=settings.JWT_ALGORITHM
+    )
+    return encoded_jwt
+
+
 def decode_access_token(token: str) -> Optional[dict]:
     """Decode and verify a JWT access token."""
     try:

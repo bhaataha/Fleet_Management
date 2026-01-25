@@ -31,6 +31,12 @@ api.interceptors.request.use((config) => {
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }
+    
+    // Super Admin impersonation: add X-Org-Id header if selected
+    const impersonatedOrgId = localStorage.getItem('impersonated_org_id')
+    if (impersonatedOrgId) {
+      config.headers['X-Org-Id'] = impersonatedOrgId
+    }
   }
   return config
 })
@@ -220,4 +226,54 @@ export const priceListsApi = {
     api.delete(`/price-lists/${id}`),
 }
 
+// Super Admin API
+export const superAdminApi = {
+  // Organizations
+  listOrganizations: (params?: { status?: string; plan_type?: string; search?: string }) =>
+    api.get<any[]>("/super-admin/organizations", { params }),
+  createOrganization: (data: {
+    name: string;
+    slug: string;
+    plan_type: string;
+    max_users?: number;
+    max_trucks?: number;
+    max_drivers?: number;
+    max_customers?: number;
+    trial_days?: number;
+  }) => api.post<any>("/super-admin/organizations", data),
+  getOrganization: (orgId: string) =>
+    api.get<any>(`/super-admin/organizations/${orgId}`),
+  updateOrganization: (orgId: string, data: Partial<{
+    name: string;
+    display_name: string;
+    slug: string;
+    contact_name: string;
+    contact_email: string;
+    contact_phone: string;
+    vat_id: string;
+    plan_type: string;
+    max_users: number;
+    max_trucks: number;
+    max_drivers: number;
+    max_customers: number;
+    trial_ends_at: string;
+  }>) => api.patch<any>(`/super-admin/organizations/${orgId}`, data),
+  deleteOrganization: (orgId: string, confirm: boolean = false) =>
+    api.delete(`/super-admin/organizations/${orgId}`, { params: { confirm } }),
+  
+  // Organization Actions
+  suspendOrganization: (orgId: string, reason: string) =>
+    api.post(`/super-admin/organizations/${orgId}/suspend`, { reason }),
+  activateOrganization: (orgId: string) =>
+    api.post(`/super-admin/organizations/${orgId}/activate`),
+  
+  // Organization Users
+  getOrganizationUsers: (orgId: string) =>
+    api.get<any[]>(`/super-admin/organizations/${orgId}/users`),
+  
+  // System Stats
+  getSystemStats: () => api.get<any>("/super-admin/stats"),
+}
+
 export default api
+
