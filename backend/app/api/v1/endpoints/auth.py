@@ -3,15 +3,17 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token, decode_access_token
-from app.models import User
+from app.models import User, Driver
 from pydantic import BaseModel, EmailStr
+from typing import Optional
 
 router = APIRouter()
 security = HTTPBearer()
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
     password: str
 
 
@@ -32,14 +34,30 @@ class UserInfo(BaseModel):
 @router.post("/login", response_model=LoginResponse)
 async def login(credentials: LoginRequest, db: Session = Depends(get_db)):
     """
-    Login endpoint - authenticate user and return JWT token
+    Login endpoint - authenticate user with email OR phone number and return JWT token
+    Drivers can login with their phone number
     """
-    # Find user
-    user = db.query(User).filter(User.email == credentials.email).first()
-    if not user or not verify_password(credentials.password, user.password_hash):
+    user = None
+    
+    # Try to find user by email or phone
+    if credentials.email:
+        user = db.query(User).filter(User.email == credentials.email).first()
+    elif credentials.phone:
+        # Find driver by phone, then get associated user
+        driver = db.query(Driver).filter(Driver.phone == credentials.phone).first()
+        if driver and driver.user_id:
+            user = db.query(User).filter(User.id == driver.user_id).first()
+    
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
+            detail="Incorrect credentials"
+        )
+    
+    if not verify_password(credentials.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect credentials"
         )
     
     if not user.is_active:

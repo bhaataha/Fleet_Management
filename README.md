@@ -2,6 +2,17 @@
 
 מערכת לניהול תפעול וכספים של חברת הובלות עפר (dirt hauling operations).
 
+## 📚 Documentation
+
+**👉 Start here: [DOCS_INDEX.md](DOCS_INDEX.md)** - Complete documentation index
+
+### Quick Links
+- 🚀 [Quick Start Guide](QUICK_START.md) - Get running in 5 minutes
+- 👤 [Demo Data & Credentials](DEMO_DATA.md) - Login info & test data
+- 📋 [TODO & Improvements](TODO_IMPROVEMENTS.md) - Roadmap & missing features ⭐
+- ✅ [Running Status](RUNNING_STATUS.md) - Current system status
+- 📖 [Full PRD (Hebrew)](plan.md) - Complete specification
+
 ## Architecture
 
 - **Backend**: FastAPI (Python) - REST API
@@ -70,6 +81,29 @@ Fleet_Management/
 ├── mobile/              # PWA driver app (future)
 └── docs/                # Documentation
 ```
+
+## Current Status
+
+### ✅ Implemented Features
+- [x] User authentication (JWT + RBAC)
+- [x] Customer & Site management
+- [x] Fleet management (Trucks, Drivers, Trailers)
+- [x] Materials & Price lists
+- [x] Job/Trip creation & assignment
+- [x] Driver mobile app (PWA)
+- [x] Job status tracking workflow
+- [x] **Driver login with phone number**
+- [x] Demo data with 5 drivers, 4 customers, 8 sites
+- [x] GPS location capture on status updates
+
+### ⚠️ Partially Implemented
+- [ ] **Photo upload** - UI exists, backend pending (see [TODO_IMPROVEMENTS.md](TODO_IMPROVEMENTS.md))
+- [ ] **Digital signature** - DB ready, UI pending
+- [ ] **GPS tracking map** - Data collected, map view pending
+- [ ] **PDF export** - Basic structure, needs implementation
+
+### 📋 Planned Features
+See [TODO_IMPROVEMENTS.md](TODO_IMPROVEMENTS.md) for detailed roadmap.
 
 ## Development Workflow
 

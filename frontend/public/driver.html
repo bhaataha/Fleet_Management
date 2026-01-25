@@ -142,27 +142,37 @@
 
     // Check if logged in
     if (!token) {
-      const email = prompt('אימייל:');
+      const phone = prompt('מספר טלפון (לדוגמה: 050-1111111):');
       const password = prompt('סיסמה:');
-      login(email, password);
+      login(phone, password);
     } else {
       init();
     }
 
-    async function login(email, password) {
+    async function login(phone, password) {
       try {
         const res = await fetch(`${API_URL}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ phone, password })
         });
+        
+        if (!res.ok) {
+          const error = await res.json();
+          alert('שגיאה בהתחברות: ' + (error.detail || 'פרטים שגויים'));
+          localStorage.removeItem('access_token');
+          location.reload();
+          return;
+        }
+        
         const data = await res.json();
         token = data.access_token;
         localStorage.setItem('access_token', token);
         currentUser = data.user;
         init();
       } catch (err) {
-        alert('שגיאה בהתחברות');
+        alert('שגיאה בהתחברות: ' + err.message);
+        localStorage.removeItem('access_token');
       }
     }
 
