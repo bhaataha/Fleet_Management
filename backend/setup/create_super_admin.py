@@ -99,12 +99,13 @@ def create_super_admin():
         # Create super admin user
         user_result = session.execute(
             text("""
-                INSERT INTO users (org_id, email, password_hash, is_active, is_super_admin, created_at, updated_at)
-                VALUES (:org_id, :email, :password_hash, true, true, :created_at, :updated_at)
+                INSERT INTO users (org_id, name, email, password_hash, is_active, is_super_admin, created_at, updated_at)
+                VALUES (:org_id, :name, :email, :password_hash, true, true, :created_at, :updated_at)
                 RETURNING id
             """),
             {
                 "org_id": org_id,
+                "name": "Super Admin",
                 "email": admin_email,
                 "password_hash": password_hash,
                 "created_at": now,
