@@ -30,6 +30,7 @@ const navigation = [
   { name: 'nav.sites', href: '/sites', icon: MapPin },
   { name: 'nav.fleet', href: '/fleet', icon: Truck },
   { name: 'nav.materials', href: '/materials', icon: Package },
+  { name: 'nav.pricing', href: '/pricing', icon: DollarSign },
   { name: 'nav.billing', href: '/billing', icon: FileText },
   { name: 'nav.reports', href: '/reports', icon: BarChart3 },
   { name: 'nav.settings', href: '/settings', icon: Settings },

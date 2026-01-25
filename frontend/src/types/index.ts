@@ -16,6 +16,38 @@ export type BillingUnit = 'TON' | 'M3' | 'TRIP' | 'KM'
 
 export type StatementStatus = 'DRAFT' | 'SENT' | 'PARTIALLY_PAID' | 'PAID'
 
+export interface PriceList {
+  id: number
+  org_id?: number
+  customer_id?: number
+  material_id: number
+  from_site_id?: number
+  to_site_id?: number
+  unit: BillingUnit
+  base_price: number
+  min_charge?: number
+  wait_fee_per_hour?: number
+  night_surcharge_pct?: number
+  valid_from: string
+  valid_to?: string
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PriceListCreate {
+  customer_id?: number
+  material_id: number
+  from_site_id?: number
+  to_site_id?: number
+  unit: BillingUnit
+  base_price: number
+  min_charge?: number
+  wait_fee_per_hour?: number
+  night_surcharge_pct?: number
+  valid_from: string
+  valid_to?: string
+}
+
 export interface User {
   id: number
   name: string

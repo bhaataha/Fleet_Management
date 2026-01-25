@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="version" content="1.1">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Fleet Driver">
@@ -105,6 +109,11 @@
   <div class="header">
     <h1>🚛 אפליקציית נהג</h1>
     <p id="driver-name">טוען...</p>
+    <div style="margin-top: 12px;">
+      <button id="toggle-view" class="btn" style="background: rgba(255,255,255,0.2); color: white; padding: 8px 16px; font-size: 13px; border: 1px solid rgba(255,255,255,0.3);">
+        📋 הצג את כל המשימות
+      </button>
+    </div>
   </div>
 
   <div class="container">
@@ -127,6 +136,9 @@
     let currentUser = null;
     let sites = [];
     let materials = [];
+    
+    // Load toggle state from localStorage (persist across refreshes)
+    let showAllJobs = localStorage.getItem('showAllJobs') === 'true';
 
     // Check if logged in
     if (!token) {
@@ -158,6 +170,24 @@
       await loadUser();
       await loadReferenceData();
       await loadJobs();
+      
+      // Update button text based on current state
+      updateToggleButton();
+      
+      // Add toggle button listener
+      document.getElementById('toggle-view').addEventListener('click', () => {
+        showAllJobs = !showAllJobs;
+        localStorage.setItem('showAllJobs', showAllJobs); // Save to localStorage
+        updateToggleButton();
+        loadJobs();
+      });
+    }
+    
+    function updateToggleButton() {
+      const btn = document.getElementById('toggle-view');
+      if (btn) {
+        btn.textContent = showAllJobs ? '👤 הצג רק את המשימות שלי' : '📋 הצג את כל המשימות';
+      }
     }
 
     async function loadReferenceData() {
@@ -231,29 +261,62 @@
         }
         
         const allJobs = await res.json();
-        console.log('All jobs:', allJobs.length);
+        console.log('=== DEBUG: Load Jobs ===');
+        console.log('Total jobs from API:', allJobs.length);
+        console.log('Current user:', currentUser);
+        console.log('Driver ID:', currentUser?.driver_id);
         
-        // Filter for today and current driver
         const today = new Date().toISOString().split('T')[0];
-        const myJobs = allJobs.filter(j => {
+        console.log('Today date:', today);
+        
+        // Debug: show all job dates
+        if (allJobs.length > 0) {
+          console.log('Sample of job dates:');
+          allJobs.slice(0, 5).forEach(j => {
+            console.log(`  Job #${j.id}: scheduled_date=${j.scheduled_date}, driver_id=${j.driver_id}, status=${j.status}`);
+          });
+        }
+        
+        // Show all jobs assigned to ANY driver for today (for debugging)
+        const todayJobs = allJobs.filter(j => {
           const jobDate = j.scheduled_date ? new Date(j.scheduled_date).toISOString().split('T')[0] : null;
-          const isToday = jobDate === today;
-          const isMyJob = j.driver_id === currentUser.driver_id;
-          return isToday && isMyJob;
+          return jobDate === today;
         });
         
-        console.log('My jobs today:', myJobs.length, 'Driver ID:', currentUser.driver_id);
+        console.log(`Jobs scheduled for today (${today}):`, todayJobs.length);
+        
+        if (todayJobs.length > 0) {
+          console.log('Today\'s jobs details:');
+          todayJobs.forEach(j => {
+            console.log(`  #${j.id}: driver_id=${j.driver_id}, status=${j.status}, date=${j.scheduled_date}`);
+          });
+        }
+        
+        // Decide which jobs to show based on toggle
+        let jobsToShow;
+        
+        if (showAllJobs || !currentUser?.driver_id) {
+          // Show all today's jobs
+          jobsToShow = todayJobs;
+          console.log('📋 Showing ALL jobs for today:', jobsToShow.length);
+        } else {
+          // Show only my jobs
+          jobsToShow = todayJobs.filter(j => j.driver_id === currentUser.driver_id);
+          console.log(`👤 Showing jobs for driver ${currentUser.driver_id}:`, jobsToShow.length);
+        }
         
         document.getElementById('loading').classList.add('hidden');
         
-        if (myJobs.length === 0) {
+        if (jobsToShow.length === 0) {
+          console.log('No jobs to display');
           document.getElementById('empty-state').classList.remove('hidden');
         } else {
-          renderJobs(myJobs);
+          console.log('✅ Rendering', jobsToShow.length, 'jobs');
+          renderJobs(jobsToShow);
         }
       } catch (err) {
-        console.error('Error loading jobs:', err);
-        document.getElementById('loading').innerHTML = '<div class="empty-icon">❌</div><p>שגיאה בטעינת משימות</p>';
+        console.error('❌ Error loading jobs:', err);
+        document.getElementById('loading').innerHTML = '<div class="empty-icon">❌</div><p>שגיאה בטעינת משימות: ' + err.message + '</p>';
       }
     }
 

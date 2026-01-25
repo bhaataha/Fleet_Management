@@ -9,6 +9,8 @@ import type {
   Job, 
   JobCreate,
   JobUpdate,
+  PriceList,
+  PriceListCreate,
   LoginRequest, 
   LoginResponse 
 } from '@/types'
@@ -198,6 +200,24 @@ export const jobsApi = {
     lng?: number
   }) =>
     api.post<Job>(`/jobs/${id}/status`, data),
+}
+
+// Price Lists API
+export const priceListsApi = {
+  getAll: (params?: { customer_id?: number; material_id?: number }) =>
+    api.get<PriceList[]>('/price-lists', { params }),
+  
+  get: (id: number) =>
+    api.get<PriceList>(`/price-lists/${id}`),
+  
+  create: (data: PriceListCreate) =>
+    api.post<PriceList>('/price-lists', data),
+  
+  update: (id: number, data: Partial<PriceListCreate>) =>
+    api.patch<PriceList>(`/price-lists/${id}`, data),
+  
+  delete: (id: number) =>
+    api.delete(`/price-lists/${id}`),
 }
 
 export default api
