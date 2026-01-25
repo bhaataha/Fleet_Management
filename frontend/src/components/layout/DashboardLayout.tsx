@@ -48,6 +48,7 @@ export default function DashboardLayout({
   const { t, language, setLanguage } = useI18n()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -58,8 +59,17 @@ export default function DashboardLayout({
     router.push('/login')
   }
 
-  const toggleLanguage = () => {
-    setLanguage(language === 'he' ? 'en' : 'he')
+  const handleLanguageChange = (lang: 'he' | 'en' | 'ar') => {
+    setLanguage(lang)
+    setLanguageMenuOpen(false)
+  }
+
+  const getLanguageLabel = () => {
+    switch (language) {
+      case 'he': return 'עברית'
+      case 'en': return 'English'
+      case 'ar': return 'العربية'
+    }
   }
 
   // Prevent hydration mismatch
@@ -150,13 +160,37 @@ export default function DashboardLayout({
               </div>
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={toggleLanguage}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
-              >
-                <Globe className="w-4 h-4" />
-                {language === 'he' ? 'EN' : 'עב'}
-              </button>
+              <div className="flex-1 relative">
+                <button
+                  onClick={() => setLanguageMenuOpen(!languageMenuOpen)}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  <Globe className="w-4 h-4" />
+                  {getLanguageLabel()}
+                </button>
+                {languageMenuOpen && (
+                  <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border rounded-lg shadow-lg overflow-hidden z-50">
+                    <button
+                      onClick={() => handleLanguageChange('he')}
+                      className={`w-full text-center px-4 py-2 text-sm hover:bg-gray-100 ${language === 'he' ? 'bg-blue-50 font-semibold text-blue-600' : ''}`}
+                    >
+                      עברית
+                    </button>
+                    <button
+                      onClick={() => handleLanguageChange('en')}
+                      className={`w-full text-center px-4 py-2 text-sm hover:bg-gray-100 ${language === 'en' ? 'bg-blue-50 font-semibold text-blue-600' : ''}`}
+                    >
+                      English
+                    </button>
+                    <button
+                      onClick={() => handleLanguageChange('ar')}
+                      className={`w-full text-center px-4 py-2 text-sm hover:bg-gray-100 ${language === 'ar' ? 'bg-blue-50 font-semibold text-blue-600' : ''}`}
+                    >
+                      العربية
+                    </button>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={handleLogout}
                 className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm text-red-700 hover:bg-red-50 rounded-lg transition-colors"

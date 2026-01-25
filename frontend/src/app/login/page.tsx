@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -44,8 +45,17 @@ export default function LoginPage() {
     }
   }
 
-  const toggleLanguage = () => {
-    setLanguage(language === 'he' ? 'en' : 'he')
+  const handleLanguageChange = (lang: 'he' | 'en' | 'ar') => {
+    setLanguage(lang)
+    setLanguageMenuOpen(false)
+  }
+
+  const getLanguageLabel = () => {
+    switch (language) {
+      case 'he': return 'עברית'
+      case 'en': return 'English'
+      case 'ar': return 'العربية'
+    }
   }
 
   // Prevent hydration mismatch
@@ -64,13 +74,37 @@ export default function LoginPage() {
       <div className="max-w-md w-full">
         {/* Language Toggle */}
         <div className="flex justify-end mb-4">
-          <button
-            onClick={toggleLanguage}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-white rounded-lg shadow hover:shadow-md transition-shadow"
-          >
-            <Globe className="w-4 h-4" />
-            {language === 'he' ? 'English' : 'עברית'}
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setLanguageMenuOpen(!languageMenuOpen)}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+            >
+              <Globe className="w-4 h-4" />
+              {getLanguageLabel()}
+            </button>
+            {languageMenuOpen && (
+              <div className="absolute left-0 mt-2 w-36 bg-white border rounded-lg shadow-lg z-50 overflow-hidden">
+                <button
+                  onClick={() => handleLanguageChange('he')}
+                  className={`w-full text-center px-4 py-2 text-sm hover:bg-gray-100 ${language === 'he' ? 'bg-blue-50 font-semibold text-blue-600' : ''}`}
+                >
+                  עברית
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('en')}
+                  className={`w-full text-center px-4 py-2 text-sm hover:bg-gray-100 ${language === 'en' ? 'bg-blue-50 font-semibold text-blue-600' : ''}`}
+                >
+                  English
+                </button>
+                <button
+                  onClick={() => handleLanguageChange('ar')}
+                  className={`w-full text-center px-4 py-2 text-sm hover:bg-gray-100 ${language === 'ar' ? 'bg-blue-50 font-semibold text-blue-600' : ''}`}
+                >
+                  العربية
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Login Card */}

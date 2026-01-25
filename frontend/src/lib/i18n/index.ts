@@ -4,9 +4,10 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { he } from './he'
 import { en } from './en'
+import { ar } from './ar'
 import type { TranslationKeys } from './he'
 
-type Language = 'he' | 'en'
+type Language = 'he' | 'en' | 'ar'
 
 interface I18nStore {
   language: Language
@@ -18,6 +19,7 @@ interface I18nStore {
 const translations: Record<Language, TranslationKeys> = {
   he,
   en,
+  ar,
 }
 
 export const useI18n = create<I18nStore>()(
@@ -32,10 +34,10 @@ export const useI18n = create<I18nStore>()(
           translations: translations[lang] 
         })
         
-        // Update document direction
+        // Update document direction - Hebrew and Arabic are RTL
         if (typeof window !== 'undefined') {
           document.documentElement.lang = lang
-          document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr'
+          document.documentElement.dir = (lang === 'he' || lang === 'ar') ? 'rtl' : 'ltr'
         }
       },
       
