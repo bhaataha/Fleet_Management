@@ -159,36 +159,49 @@ def upgrade():
         except Exception as e:
             print(f"  ⚠ Warning for {table}: {e}")
     
-    # Step 3: Create default organization
+    # Step 3: Create default organization (only if slug column exists)
     print("Creating default organization for existing data...")
-    op.execute(f"""
-        INSERT INTO organizations (
-            id,
-            name,
-            slug,
-            display_name,
-            contact_email,
-            plan_type,
-            status,
-            max_trucks,
-            max_drivers,
-            max_storage_gb,
-            created_at
-        ) VALUES (
-            '{DEFAULT_ORG_ID}'::uuid,
-            'Default Organization',
-            'default-org',
-            'TruckFlow Main',
-            'admin@truckflow.com',
-            'enterprise',
-            'active',
-            999,
-            999,
-            1000,
-            NOW()
-        )
-        ON CONFLICT (id) DO NOTHING;
-    """)
+    conn = op.get_bind()
+    result = conn.execute(sa.text("""
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name='organizations' AND column_name='slug'
+    """))
+    
+    if result.fetchone() is not None:
+        # New-style organizations table with slug column
+        op.execute(f"""
+            INSERT INTO organizations (
+                id,
+                name,
+                slug,
+                display_name,
+                contact_email,
+                plan_type,
+                status,
+                max_trucks,
+                max_drivers,
+                max_storage_gb,
+                created_at
+            ) VALUES (
+                '{DEFAULT_ORG_ID}'::uuid,
+                'Default Organization',
+                'default-org',
+                'TruckFlow Main',
+                'admin@truckflow.com',
+                'enterprise',
+                'active',
+                999,
+                999,
+                1000,
+                NOW()
+            )
+            ON CONFLICT (id) DO NOTHING;
+        """)
+        print("  ✓ Created default organization")
+    else:
+        # Old-style organizations table - skip for now
+        print("  ⊘ Skipping - organizations table is old schema (will be handled separately)")
     
     # Step 4: Populate org_id in all existing data
     print("Populating org_id in existing data...")
