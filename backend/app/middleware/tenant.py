@@ -29,6 +29,7 @@ async def tenant_middleware(request: Request, call_next):
     # Skip public endpoints
     public_paths = [
         "/health",
+        "/api/health",  # Health endpoint with API prefix
         "/docs",
         "/openapi.json",
         "/redoc",
