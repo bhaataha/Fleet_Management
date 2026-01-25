@@ -71,9 +71,9 @@ export const he = {
   // Billing Units
   billingUnit: {
     TON: 'טון',
-    M3: 'מ״ק',
+    M3: 'מטר מעוקב',
     TRIP: 'נסיעה',
-    KM: 'ק״מ',
+    KM: 'קילומטר',
   },
 
   // Units (for display)
