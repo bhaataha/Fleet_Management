@@ -135,7 +135,7 @@ async def create_job(
     Auto-assigned to current org from JWT
     """
     user_info = get_current_user_info(request)
-    org_id = UUID(user_info["org_id"])
+    org_id = int(user_info["org_id"])
     user_id = user_info["user_id"]
     
     db_job = Job(
@@ -173,7 +173,7 @@ async def update_job(
     Filtered by org_id from JWT
     """
     user_info = get_current_user_info(request)
-    org_id = UUID(user_info["org_id"])
+    org_id = int(user_info["org_id"])
     user_id = user_info["user_id"]
     
     db_job = db.query(Job).filter(
@@ -230,7 +230,7 @@ async def update_job_status(
     Filtered by org_id from JWT
     """
     user_info = get_current_user_info(request)
-    org_id = UUID(user_info["org_id"])
+    org_id = int(user_info["org_id"])
     user_id = user_info["user_id"]
     
     db_job = db.query(Job).filter(

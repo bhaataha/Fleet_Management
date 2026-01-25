@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TruckFlow - מעקב צי בזמן אמת</title>
+  <link rel="icon" type="image/svg+xml" href="/icon-192.svg">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif;
+      direction: rtl;
+      height: 100vh;
+      overflow: hidden;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 50%, #1e40af 100%);
+      color: white;
+      padding: 16px 24px;
+      box-shadow: 0 4px 20px rgba(37, 99, 235, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 1000;
+      position: relative;
+    }
+    
+    .header-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    
+    .header-icon {
+      font-size: 28px;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
+    .header-stats {
+      display: flex;
+      gap: 24px;
+      font-size: 14px;
+    }
+    
+    .stat-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 8px 16px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .stat-icon {
+      font-size: 20px;
+    }
+    
+    .stat-value {
+      font-weight: 600;
+      font-size: 16px;
+    }
+    
+    .stat-label {
+      opacity: 0.9;
+      font-size: 12px;
+    }
+    
+    .container {
+      display: flex;
+      height: calc(100vh - 68px);
+    }
+    
+    .sidebar {
+      width: 350px;
+      background: white;
+      border-left: 1px solid #e5e7eb;
+      overflow-y: auto;
+      box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .sidebar-header {
+      padding: 16px;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    
+    .sidebar-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 12px;
+    }
+    
+    .refresh-btn {
+      width: 100%;
+      padding: 10px;
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.3s;
+    }
+    
+    .refresh-btn:hover {
+      background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    }
+    
+    .refresh-btn:active {
+      transform: scale(0.96);
+    }
+    
+    .job-list {
+      padding: 8px;
+    }
+    
+    .job-item {
+      background: white;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .job-item:hover {
+      background: #f9fafb;
+      border-color: #2563eb;
+      transform: translateX(-2px);
+    }
+    
+    .job-item.active {
+      background: #eff6ff;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    
+    .job-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    
+    .job-id {
+      font-weight: 600;
+      color: #1e40af;
+      font-size: 14px;
+    }
+    
+    .job-status {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    
+    .status-enroute_pickup {
+      background: #fef3c7;
+      color: #92400e;
+    }
+    
+    .status-loaded {
+      background: #fed7aa;
+      color: #9a3412;
+    }
+    
+    .status-enroute_dropoff {
+      background: #e0e7ff;
+      color: #4338ca;
+    }
+    
+    .status-delivered {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    
+    .job-driver {
+      font-size: 13px;
+      color: #374151;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .job-route {
+      font-size: 11px;
+      color: #6b7280;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .job-time {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+    
+    #map {
+      flex: 1;
+      height: 100%;
+    }
+    
+    .map-popup {
+      direction: rtl;
+      text-align: right;
+    }
+    
+    .popup-title {
+      font-weight: 600;
+      font-size: 14px;
+      color: #1e40af;
+      margin-bottom: 8px;
+    }
+    
+    .popup-info {
+      font-size: 12px;
+      color: #374151;
+      margin-bottom: 4px;
+    }
+    
+    .popup-time {
+      font-size: 11px;
+      color: #9ca3af;
+      margin-top: 8px;
+    }
+    
+    .no-location {
+      opacity: 0.5;
+      background: #f3f4f6 !important;
+    }
+    
+    .no-location-badge {
+      background: #f3f4f6;
+      color: #6b7280;
+      padding: 4px 8px;
+      border-radius: 8px;
+      font-size: 11px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-title">
+      <span class="header-icon">🗺️</span>
+      <span>מעקב צי בזמן אמת</span>
+    </div>
+    <div class="header-stats">
+      <div class="stat-item">
+        <span class="stat-icon">🚛</span>
+        <div>
+          <div class="stat-value" id="active-count">0</div>
+          <div class="stat-label">רכבים פעילים</div>
+        </div>
+      </div>
+      <div class="stat-item">
+        <span class="stat-icon">📦</span>
+        <div>
+          <div class="stat-value" id="jobs-count">0</div>
+          <div class="stat-label">משימות היום</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">משימות פעילות</div>
+        <button class="refresh-btn" onclick="loadJobs()">
+          <span>🔄</span>
+          <span>רענן</span>
+        </button>
+      </div>
+      <div class="job-list" id="job-list">
+        <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
+          <div style="font-size: 48px; margin-bottom: 12px;">⏳</div>
+          <div>טוען משימות...</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="map"></div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <script>
+    const API_URL = 'http://truckflow.site:8001/api';
+    let token = localStorage.getItem('access_token');
+    let map;
+    let markers = {};
+    let jobs = [];
+    let drivers = [];
+    let sites = [];
+    
+    // Israel center coordinates
+    const ISRAEL_CENTER = [31.5, 34.75];
+    
+    // Initialize map
+    function initMap() {
+      map = L.map('map').setView(ISRAEL_CENTER, 8);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+      }).addTo(map);
+    }
+    
+    // Custom truck icon
+    function getTruckIcon(status) {
+      const colors = {
+        'ENROUTE_PICKUP': '#f59e0b',
+        'LOADED': '#f97316',
+        'ENROUTE_DROPOFF': '#6366f1',
+        'DELIVERED': '#10b981'
+      };
+      
+      const color = colors[status] || '#3b82f6';
+      
+      return L.divIcon({
+        html: `<div style="
+          background: ${color};
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 20px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          border: 3px solid white;
+        ">🚛</div>`,
+        className: '',
+        iconSize: [36, 36],
+        iconAnchor: [18, 18]
+      });
+    }
+    
+    // Format time ago
+    function timeAgo(dateString) {
+      if (!dateString) return 'לא זמין';
+      
+      const now = new Date();
+      const past = new Date(dateString);
+      const diffMs = now - past;
+      const diffMins = Math.floor(diffMs / 60000);
+      
+      if (diffMins < 1) return 'כרגע';
+      if (diffMins < 60) return `לפני ${diffMins} דקות`;
+      
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `לפני ${diffHours} שעות`;
+      
+      const diffDays = Math.floor(diffHours / 24);
+      return `לפני ${diffDays} ימים`;
+    }
+    
+    // Get driver name
+    function getDriverName(driverId) {
+      if (!driverId) return 'לא משובץ';
+      const driver = drivers.find(d => d.id === driverId);
+      return driver?.name || `נהג #${driverId}`;
+    }
+    
+    // Get site name
+    function getSiteName(siteId) {
+      if (!siteId) return 'לא צוין';
+      const site = sites.find(s => s.id === siteId);
+      return site?.name || `אתר #${siteId}`;
+    }
+    
+    // Get status label
+    function getStatusLabel(status) {
+      const labels = {
+        'ASSIGNED': 'משובץ',
+        'ENROUTE_PICKUP': 'בדרך לטעינה',
+        'LOADED': 'נטען',
+        'ENROUTE_DROPOFF': 'בדרך לפריקה',
+        'DELIVERED': 'נמסר'
+      };
+      return labels[status] || status;
+    }
+    
+    // Update map markers
+    function updateMapMarkers() {
+      // Clear existing markers
+      Object.values(markers).forEach(marker => map.removeLayer(marker));
+      markers = {};
+      
+      const bounds = [];
+      
+      jobs.forEach(job => {
+        // Get last status event with location
+        const lastEvent = job.status_events?.find(e => e.lat && e.lng);
+        
+        if (lastEvent) {
+          const lat = parseFloat(lastEvent.lat);
+          const lng = parseFloat(lastEvent.lng);
+          
+          if (lat && lng) {
+            bounds.push([lat, lng]);
+            
+            const marker = L.marker([lat, lng], {
+              icon: getTruckIcon(job.status)
+            }).addTo(map);
+            
+            const popupContent = `
+              <div class="map-popup">
+                <div class="popup-title">🚛 משימה #${job.id}</div>
+                <div class="popup-info"><strong>נהג:</strong> ${getDriverName(job.driver_id)}</div>
+                <div class="popup-info"><strong>סטטוס:</strong> ${getStatusLabel(job.status)}</div>
+                <div class="popup-info"><strong>מאתר:</strong> ${getSiteName(job.from_site_id)}</div>
+                <div class="popup-info"><strong>לאתר:</strong> ${getSiteName(job.to_site_id)}</div>
+                <div class="popup-time">📍 עודכן: ${timeAgo(lastEvent.event_time)}</div>
+              </div>
+            `;
+            
+            marker.bindPopup(popupContent);
+            markers[job.id] = marker;
+          }
+        }
+      });
+      
+      // Fit map to bounds
+      if (bounds.length > 0) {
+        map.fitBounds(bounds, { padding: [50, 50] });
+      }
+    }
+    
+    // Render job list
+    function renderJobList() {
+      const container = document.getElementById('job-list');
+      
+      const activeJobs = jobs.filter(j => 
+        ['ENROUTE_PICKUP', 'LOADED', 'ENROUTE_DROPOFF'].includes(j.status)
+      );
+      
+      if (activeJobs.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
+            <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
+            <div>אין משימות פעילות כרגע</div>
+          </div>
+        `;
+        return;
+      }
+      
+      container.innerHTML = activeJobs.map(job => {
+        const lastEvent = job.status_events?.find(e => e.lat && e.lng);
+        const hasLocation = !!lastEvent;
+        
+        return `
+          <div class="job-item ${!hasLocation ? 'no-location' : ''}" 
+               onclick="focusJob(${job.id})"
+               id="job-${job.id}">
+            <div class="job-header">
+              <div class="job-id">משימה #${job.id}</div>
+              <div class="job-status status-${job.status.toLowerCase()}">
+                ${getStatusLabel(job.status)}
+              </div>
+            </div>
+            <div class="job-driver">
+              👤 ${getDriverName(job.driver_id)}
+            </div>
+            <div class="job-route">
+              📍 ${getSiteName(job.from_site_id)} → 🎯 ${getSiteName(job.to_site_id)}
+            </div>
+            ${hasLocation 
+              ? `<div class="job-time">📍 ${timeAgo(lastEvent.event_time)}</div>`
+              : `<div class="no-location-badge">⚠️ אין מיקום</div>`
+            }
+          </div>
+        `;
+      }).join('');
+      
+      // Update stats
+      document.getElementById('active-count').textContent = activeJobs.length;
+      document.getElementById('jobs-count').textContent = jobs.length;
+    }
+    
+    // Focus on specific job
+    function focusJob(jobId) {
+      // Remove active class from all
+      document.querySelectorAll('.job-item').forEach(item => {
+        item.classList.remove('active');
+      });
+      
+      // Add active class
+      const item = document.getElementById(`job-${jobId}`);
+      if (item) {
+        item.classList.add('active');
+      }
+      
+      // Focus on marker
+      const marker = markers[jobId];
+      if (marker) {
+        map.setView(marker.getLatLng(), 14);
+        marker.openPopup();
+      }
+    }
+    
+    // Load all data
+    async function loadJobs() {
+      try {
+        const [jobsRes, driversRes, sitesRes] = await Promise.all([
+          fetch(`${API_URL}/jobs`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`${API_URL}/drivers`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`${API_URL}/sites`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        
+        if (!jobsRes.ok || !driversRes.ok || !sitesRes.ok) {
+          throw new Error('Failed to fetch data');
+        }
+        
+        jobs = await jobsRes.json();
+        drivers = await driversRes.json();
+        sites = await sitesRes.json();
+        
+        // Filter today's jobs with status events
+        const today = new Date().toISOString().split('T')[0];
+        jobs = jobs.filter(j => {
+          const jobDate = j.scheduled_date ? new Date(j.scheduled_date).toISOString().split('T')[0] : null;
+          return jobDate === today;
+        });
+        
+        console.log('Loaded:', jobs.length, 'jobs,', drivers.length, 'drivers,', sites.length, 'sites');
+        
+        updateMapMarkers();
+        renderJobList();
+      } catch (err) {
+        console.error('Failed to load data:', err);
+        alert('שגיאה בטעינת נתונים');
+      }
+    }
+    
+    // Check login
+    if (!token) {
+      alert('יש להתחבר תחילה');
+      window.location.href = '/';
+    } else {
+      initMap();
+      loadJobs();
+      
+      // Auto-refresh every 30 seconds
+      setInterval(loadJobs, 30000);
+    }
+  </script>
+</body>
+</html>
