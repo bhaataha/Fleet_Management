@@ -5,6 +5,7 @@ import { useI18n } from '@/lib/i18n'
 import { materialsApi } from '@/lib/api'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Search, Plus, Edit, Trash2, Package } from 'lucide-react'
+import Link from 'next/link'
 import type { Material } from '@/types'
 
 export default function MaterialsPage() {
@@ -41,10 +42,13 @@ export default function MaterialsPage() {
             <h1 className="text-3xl font-bold text-gray-900">{t('materials.title')}</h1>
             <p className="text-gray-600 mt-1">סוגי חומרים להובלה</p>
           </div>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <Link
+            href="/materials/new"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
             <Plus className="w-5 h-5" />
             {t('materials.addMaterial')}
-          </button>
+          </Link>
         </div>
 
         <div className="bg-white rounded-lg shadow">
@@ -93,10 +97,22 @@ export default function MaterialsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex items-center gap-2">
-                          <button className="text-blue-600 hover:text-blue-800">
+                          <button 
+                            onClick={() => window.location.href = `/materials/${material.id}`}
+                            className="text-blue-600 hover:text-blue-800"
+                            title="ערוך"
+                          >
                             <Edit className="w-4 h-4" />
                           </button>
-                          <button className="text-red-600 hover:text-red-800">
+                          <button 
+                            onClick={() => {
+                              if (confirm('האם למחוק את החומר?')) {
+                                materialsApi.delete(material.id).then(() => loadMaterials())
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-800"
+                            title="מחק"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>

@@ -9,9 +9,9 @@ import { AlertCircle, Truck, Globe } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { setAuth } = useAuth()
+  const { setAuth, isAuthenticated } = useAuth()
   const { t, language, setLanguage } = useI18n()
-  const [email, setEmail] = useState('admin@example.com')
+  const [email, setEmail] = useState('admin@fleet.com')
   const [password, setPassword] = useState('admin123')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -19,7 +19,12 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true)
-  }, [])
+    
+    // If already authenticated, redirect to dashboard
+    if (isAuthenticated) {
+      router.push('/dashboard')
+    }
+  }, [isAuthenticated, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

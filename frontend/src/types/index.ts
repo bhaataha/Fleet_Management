@@ -49,6 +49,9 @@ export interface Site {
   lng?: number
   opening_hours?: string
   access_notes?: string
+  contact_name?: string
+  contact_phone?: string
+  notes?: string
   is_active: boolean
   created_at: string
   updated_at?: string
@@ -60,6 +63,7 @@ export interface Material {
   name: string
   name_hebrew?: string
   billing_unit: BillingUnit
+  description?: string
   is_active: boolean
   created_at: string
 }
@@ -70,6 +74,7 @@ export interface Truck {
   plate_number: string
   model?: string
   truck_type?: string
+  type?: string
   capacity_ton?: number
   capacity_m3?: number
   insurance_expiry?: string
@@ -126,9 +131,17 @@ export interface JobCreate {
 }
 
 export interface JobUpdate {
+  customer_id?: number
+  from_site_id?: number
+  to_site_id?: number
+  material_id?: number
+  scheduled_date?: string
+  planned_qty?: string
+  unit?: BillingUnit
   driver_id?: number
   truck_id?: number
   trailer_id?: number
+  status?: JobStatus
   actual_qty?: number
   notes?: string
 }

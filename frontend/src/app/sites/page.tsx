@@ -5,6 +5,7 @@ import { useI18n } from '@/lib/i18n'
 import { sitesApi, customersApi } from '@/lib/api'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Search, Plus, Edit, Trash2, MapPin } from 'lucide-react'
+import Link from 'next/link'
 import type { Site, Customer } from '@/types'
 
 export default function SitesPage() {
@@ -51,10 +52,13 @@ export default function SitesPage() {
             <h1 className="text-3xl font-bold text-gray-900">{t('sites.title')}</h1>
             <p className="text-gray-600 mt-1">אתרי עבודה / פרויקטים</p>
           </div>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2">
+          <Link
+            href="/sites/new"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          >
             <Plus className="w-5 h-5" />
             {t('sites.addSite')}
-          </button>
+          </Link>
         </div>
 
         <div className="bg-white rounded-lg shadow">

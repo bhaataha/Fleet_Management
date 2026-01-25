@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useI18n } from '@/lib/i18n'
-import { customersApi, sitesApi } from '@/lib/api'
+import { customersApi } from '@/lib/api'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Plus, Edit, Trash2, Search } from 'lucide-react'
+import Link from 'next/link'
 import type { Customer } from '@/types'
 
 export default function CustomersPage() {
@@ -12,7 +13,6 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [showCreateModal, setShowCreateModal] = useState(false)
 
   useEffect(() => {
     loadCustomers()
@@ -43,13 +43,13 @@ export default function CustomersPage() {
             <h1 className="text-3xl font-bold text-gray-900">{t('customers.title')}</h1>
             <p className="text-gray-600 mt-1">ניהול לקוחות ואנשי קשר</p>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
+          <Link
+            href="/customers/new"
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
             {t('customers.createCustomer')}
-          </button>
+          </Link>
         </div>
 
         {/* Search */}

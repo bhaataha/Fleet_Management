@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useI18n } from '@/lib/i18n'
-import { jobsApi } from '@/lib/api'
+import { jobsApi, sitesApi, materialsApi, driversApi } from '@/lib/api'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Clock } from 'lucide-react'
 import type { Job } from '@/types'
@@ -12,21 +12,73 @@ export default function DashboardPage() {
   const { t } = useI18n()
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
+  
+  // Reference data
+  const [sites, setSites] = useState<any[]>([])
+  const [materials, setMaterials] = useState<any[]>([])
+  const [drivers, setDrivers] = useState<any[]>([])
 
   useEffect(() => {
+    loadReferenceData()
     loadTodayJobs()
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(() => {
+      loadTodayJobs()
+    }, 30000)
+    
+    return () => clearInterval(interval)
   }, [])
+
+  const loadReferenceData = async () => {
+    try {
+      const [sitesRes, materialsRes, driversRes] = await Promise.all([
+        sitesApi.getAll(),
+        materialsApi.getAll(),
+        driversApi.getAll()
+      ])
+      setSites(sitesRes.data)
+      setMaterials(materialsRes.data)
+      setDrivers(driversRes.data)
+    } catch (error) {
+      console.error('Failed to load reference data:', error)
+    }
+  }
 
   const loadTodayJobs = async () => {
     try {
+      const response = await jobsApi.getAll()
+      // Filter for today's jobs on the client side
       const today = new Date().toISOString().split('T')[0]
-      const response = await jobsApi.list({ date: today })
-      setJobs(response.data)
+      const todayJobs = response.data.filter((job: Job) => {
+        if (!job.scheduled_date) return false
+        const jobDate = new Date(job.scheduled_date).toISOString().split('T')[0]
+        return jobDate === today
+      })
+      setJobs(todayJobs)
     } catch (error) {
       console.error('Failed to load jobs:', error)
     } finally {
       setLoading(false)
     }
+  }
+
+  const getSiteName = (siteId: number | null | undefined) => {
+    if (!siteId) return '-'
+    const site = sites.find(s => s.id === siteId)
+    return site?.name || `אתר #${siteId}`
+  }
+
+  const getMaterialName = (materialId: number | null | undefined) => {
+    if (!materialId) return '-'
+    const material = materials.find(m => m.id === materialId)
+    return material?.name || `חומר #${materialId}`
+  }
+
+  const getDriverName = (driverId: number | null | undefined) => {
+    if (!driverId) return '-'
+    const driver = drivers.find(d => d.id === driverId)
+    return driver?.name || `נהג #${driverId}`
   }
 
   const stats = {
@@ -142,13 +194,13 @@ export default function DashboardPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {jobs.map((job) => (
-                    <tr key={job.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-900">#{job.id}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{job.from_site_id}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{job.to_site_id}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{job.material_id}</td>
+                    <tr key={job.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => window.location.href = `/jobs/${job.id}`}>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-900">#{job.id}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{getSiteName(job.from_site_id)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{getSiteName(job.to_site_id)}</td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{getMaterialName(job.material_id)}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {job.driver_id || '-'}
+                        {getDriverName(job.driver_id)}
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${jobStatusColors[job.status]}`}>

@@ -17,13 +17,13 @@ class DriverBase(BaseModel):
 
 
 class DriverCreate(DriverBase):
-    user_id: int
+    user_id: Optional[int] = None
 
 
 class DriverResponse(DriverBase):
     id: int
     org_id: int
-    user_id: int
+    user_id: Optional[int] = None
     is_active: bool
     created_at: datetime
     
@@ -59,3 +59,14 @@ async def create_driver(driver: DriverCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_driver)
     return db_driver
+
+
+@router.delete("/{driver_id}", status_code=204)
+async def delete_driver(driver_id: int, db: Session = Depends(get_db)):
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    
+    db.delete(driver)
+    db.commit()
+    return None

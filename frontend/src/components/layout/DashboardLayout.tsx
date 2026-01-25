@@ -168,7 +168,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <div className={`lg:${language === 'he' ? 'mr' : 'ml'}-64`}>
+      <div className={language === 'he' ? 'lg:mr-64' : 'lg:ml-64'}>
         {/* Top bar */}
         <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4">
           <button

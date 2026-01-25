@@ -122,9 +122,11 @@
   </div>
 
   <script>
-    const API_URL = 'http://localhost:8000/api';
+    const API_URL = 'http://localhost:8001/api';
     let token = localStorage.getItem('access_token');
     let currentUser = null;
+    let sites = [];
+    let materials = [];
 
     // Check if logged in
     if (!token) {
@@ -154,7 +156,28 @@
 
     async function init() {
       await loadUser();
+      await loadReferenceData();
       await loadJobs();
+    }
+
+    async function loadReferenceData() {
+      try {
+        const [sitesRes, materialsRes] = await Promise.all([
+          fetch(`${API_URL}/sites`, { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch(`${API_URL}/materials`, { headers: { 'Authorization': `Bearer ${token}` } })
+        ]);
+        
+        if (!sitesRes.ok || !materialsRes.ok) {
+          throw new Error('Failed to fetch reference data');
+        }
+        
+        sites = await sitesRes.json();
+        materials = await materialsRes.json();
+        console.log('Loaded sites:', sites.length, 'materials:', materials.length);
+      } catch (err) {
+        console.error('Failed to load reference data:', err);
+        alert('שגיאה בטעינת נתוני עזר: ' + err.message);
+      }
     }
 
     async function loadUser() {
@@ -162,25 +185,64 @@
         const res = await fetch(`${API_URL}/auth/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+        
+        if (!res.ok) {
+          // Token expired or invalid - clear and reload
+          localStorage.removeItem('access_token');
+          location.reload();
+          return;
+        }
+        
         currentUser = await res.json();
-        document.getElementById('driver-name').textContent = currentUser.name;
+        console.log('Loaded user:', currentUser.name, 'user_id:', currentUser.id);
+        
+        // Get driver record for this user
+        const driverRes = await fetch(`${API_URL}/drivers`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const drivers = await driverRes.json();
+        const myDriver = drivers.find(d => d.user_id === currentUser.id);
+        
+        if (myDriver) {
+          currentUser.driver_id = myDriver.id;
+          console.log('Driver ID:', myDriver.id);
+          document.getElementById('driver-name').textContent = myDriver.name;
+        } else {
+          document.getElementById('driver-name').textContent = currentUser.name;
+          console.warn('No driver record found for user');
+        }
       } catch (err) {
-        console.error(err);
+        console.error('Failed to load user:', err);
+        alert('שגיאה בטעינת פרטי משתמש');
       }
     }
 
     async function loadJobs() {
       document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('empty-state').classList.add('hidden');
       
       try {
-        const today = new Date().toISOString().split('T')[0];
-        const res = await fetch(`${API_URL}/jobs?date=${today}`, {
+        const res = await fetch(`${API_URL}/jobs`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
-        const jobs = await res.json();
         
-        // Filter jobs for current driver (assuming driver_id matches user_id)
-        const myJobs = jobs.filter(j => j.driver_id === currentUser.id);
+        if (!res.ok) {
+          throw new Error('Failed to fetch jobs');
+        }
+        
+        const allJobs = await res.json();
+        console.log('All jobs:', allJobs.length);
+        
+        // Filter for today and current driver
+        const today = new Date().toISOString().split('T')[0];
+        const myJobs = allJobs.filter(j => {
+          const jobDate = j.scheduled_date ? new Date(j.scheduled_date).toISOString().split('T')[0] : null;
+          const isToday = jobDate === today;
+          const isMyJob = j.driver_id === currentUser.driver_id;
+          return isToday && isMyJob;
+        });
+        
+        console.log('My jobs today:', myJobs.length, 'Driver ID:', currentUser.driver_id);
         
         document.getElementById('loading').classList.add('hidden');
         
@@ -190,9 +252,21 @@
           renderJobs(myJobs);
         }
       } catch (err) {
-        console.error(err);
-        document.getElementById('loading').textContent = 'שגיאה בטעינת משימות';
+        console.error('Error loading jobs:', err);
+        document.getElementById('loading').innerHTML = '<div class="empty-icon">❌</div><p>שגיאה בטעינת משימות</p>';
       }
+    }
+
+    function getSiteName(siteId) {
+      if (!siteId) return 'לא צוין';
+      const site = sites.find(s => s.id === siteId);
+      return site?.name || `אתר #${siteId}`;
+    }
+
+    function getMaterialName(materialId) {
+      if (!materialId) return 'לא צוין';
+      const material = materials.find(m => m.id === materialId);
+      return material?.name_hebrew || material?.name || `חומר #${materialId}`;
     }
 
     function renderJobs(jobs) {
@@ -208,15 +282,15 @@
           <div class="job-details">
             <div class="detail-row">
               <span class="detail-label">מאתר</span>
-              <span class="detail-value">${job.from_site_id}</span>
+              <span class="detail-value">${getSiteName(job.from_site_id)}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">לאתר</span>
-              <span class="detail-value">${job.to_site_id}</span>
+              <span class="detail-value">${getSiteName(job.to_site_id)}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">חומר</span>
-              <span class="detail-value">${job.material_id}</span>
+              <span class="detail-value">${getMaterialName(job.material_id)}</span>
             </div>
             <div class="detail-row">
               <span class="detail-label">כמות</span>
