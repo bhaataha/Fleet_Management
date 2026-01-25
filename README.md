@@ -1,212 +1,326 @@
-# Fleet Management System - הובלות עפר
+# Fleet Management System - מערכת ניהול הובלות עפר
 
-מערכת לניהול תפעול וכספים של חברת הובלות עפר (dirt hauling operations).
+## 📋 תוכן עניינים
+- [סקירה כללית](#סקירה-כללית)
+- [תכונות עיקריות](#תכונות-עיקריות)
+- [התקנה מהירה](#התקנה-מהירה)
+- [מבנה הפרויקט](#מבנה-הפרויקט)
+- [תיעוד](#תיעוד)
+- [Super Admin](#super-admin)
+- [פתרון בעיות](#פתרון-בעיות)
 
-## 📚 Documentation
+---
 
-**👉 Start here: [docs/README.md](docs/README.md)** - Complete documentation index
+## 🎯 סקירה כללית
 
-### Quick Links
-- 🚀 [Quick Start Guide](docs/setup/QUICK_START.md) - Get running in 5 minutes
-- 👤 [Demo Data & Credentials](docs/setup/DEMO_DATA.md) - Login info & test data
-- 📋 [TODO & Improvements](docs/project/TODO_IMPROVEMENTS.md) - Roadmap & missing features ⭐
-- ✅ [Running Status](docs/project/RUNNING_STATUS.md) - Current system status
-- 📖 [Full PRD (Hebrew)](docs/architecture/plan.md) - Complete specification
-- 📱 [Mobile Apps Update](docs/features/MOBILE_APPS_LANDING_UPDATE.md) - Landing page promotion
-- 🏢 [Multi-Tenant Specification](docs/architecture/MULTI_TENANT_SPEC.md) - Multi-tenant architecture ✨ NEW
+מערכת לניהול מקצה לקצה של פעילות הובלות עפר - Multi-Tenant SaaS:
 
-### Recent Updates
-- **2026-01-25 (Latest)**: ✅ **Multi-Tenant Migration Phase 1 COMPLETE** - Database + Models updated with UUID-based org_id! 🎉
-- **2026-01-25**: Documentation reorganized into `docs/` folder with clear categories
-- **2026-01-25**: Multi-tenant architecture specification created
-- **2026-01-25**: Landing page upgraded with mobile apps promotion (iOS/Android coming Q2 2026)
+- **ניהול ארגונים** - מערכת Super Admin לניהול מרובה ארגונים
+- **תפעול יומי** - Dispatch, שיבוץ נהגים, ניהול נסיעות
+- **תעוד דיגיטלי** - תעודות משלוח, שקילה, חתימות דיגיטליות
+- **חיוב אוטומטי** - מחירון, חישוב חיוב, חשבוניות
+- **דוחות ואנליטיקה** - רווחיות, תפוקה, יעילות
 
-### 🆕 Multi-Tenant Implementation (Phase 1 ✅)
-- **Status**: Database migration complete, backend models updated
-- **What's Done**: Organizations table, org_id in all 20 tables, UUID-based, foreign keys, indexes
-- **Next**: Middleware + API security (Phase 2)
-- **Docs**: 
-  - 📖 [Phase 1 Complete Summary](PHASE_1_COMPLETE.md)
-  - 🚀 [Next Steps Guide](NEXT_STEPS.md) - Complete implementation guide for Phase 2
-  - ✅ [Status Tracker](MULTI_TENANT_STATUS.md)
-  - 🔍 [Database Verification](DATABASE_VERIFICATION.md)
-  - 📘 [Multi-Tenant README](MULTI_TENANT_README.md)
+---
 
-## Architecture
+## ⚡ תכונות עיקריות
 
-- **Backend**: FastAPI (Python) - REST API
-- **Frontend**: Next.js (React + TypeScript) - Web Admin
-- **Mobile**: PWA (Progressive Web App) - Driver App (Native apps coming Q2 2026 📱)
-- **Database**: PostgreSQL
-- **Storage**: S3-compatible (MinIO for dev)
-- **Auth**: JWT + RBAC
+### 🏢 Multi-Tenant Architecture
+- **בידוד מלא** בין ארגונים (org_id בכל טבלה)
+- **Super Admin Interface** - ניהול כל הארגונים ממקום אחד
+- **Impersonation** - צפייה כארגון ספציפי לתמיכה
+- **Tenant Middleware** - הפרדה אוטומטית ברמת API
 
-## Quick Start
+### 👨‍💼 Super Admin
+- יצירת ארגונים חדשים
+- עריכת פרטי ארגון (שם, טלפון, ח.פ, מגבלות)
+- השעיה/הפעלה של ארגונים
+- מעקב סטטיסטיקות מערכתיות
+- ניהול תוכניות ומגבלות
 
-### Prerequisites
+### 📱 אפליקציית נהג (PWA)
+- קבלת משימות בזמן אמת
+- עדכוני סטטוס (טעינה → פריקה → הושלם)
+- העלאת תמונות ותעודות
+- חתימה דיגיטלית
+- עבודה Offline
+
+### 💼 ממשק ניהול Web
+- **Dashboard** - תצוגה כוללת של פעילות
+- **Dispatch Board** - שיבוץ נהגים ומשאיות
+- **ניהול לקוחות** - פרויקטים, אתרים, מחירונים
+- **ניהול צי** - משאיות, נהגים, זמינות
+- **חיוב וגבייה** - חשבוניות, תשלומים, יתרות
+- **דוחות** - רווחיות, תפוקה, חובות
+
+---
+
+## 🚀 התקנה מהירה
+
+### דרישות מקדימות
 - Docker & Docker Compose
-- Node.js 18+ (for local frontend development)
-- Python 3.11+ (for local backend development)
+- Node.js 18+ (לפיתוח מחוץ לקונטיינר)
+- PostgreSQL 15 (דרך Docker)
 
-### Development Setup
+### הרצה מהירה
 
-1. **Clone and setup environment**
 ```bash
-cp .env.example .env
-# Edit .env with your configuration
-```
+# 1. שכפול הפרויקט
+git clone https://github.com/bhaataha/Fleet_Management.git
+cd Fleet_Management
 
-2. **Start all services**
-```bash
+# 2. הרצת המערכת
 docker-compose up -d
+
+# 3. המתן לבניה (פעם ראשונה ~2-3 דקות)
+# Frontend: http://localhost:3010
+# Backend API: http://localhost:8001
+# API Docs: http://localhost:8001/docs
 ```
 
-3. **Access the applications**
-- Web Admin: http://localhost:3000
-- Backend API: http://localhost:8000
-- API Docs: http://localhost:8000/docs
-- MinIO Console: http://localhost:9001
+### כניסה ראשונה
 
-### Database Migrations
+**Super Admin:**
+- Email: `admin@fleetmanagement.com`
+- Password: `SuperAdmin123!`
+- URL: http://localhost:3010/super-admin
 
-```bash
-# Run migrations
-docker-compose exec backend alembic upgrade head
+**ארגון ברירת מחדל:**
+- Email: `admin@example.com`
+- Password: `Admin123!`
+- URL: http://localhost:3010/login
 
-# Create new migration
-docker-compose exec backend alembic revision --autogenerate -m "description"
-```
+📚 **מדריך מפורט:** [docs/setup/GETTING_STARTED.md](docs/setup/GETTING_STARTED.md)
 
-## Project Structure
+---
+
+## 📁 מבנה הפרויקט
 
 ```
 Fleet_Management/
-├── backend/              # FastAPI backend
+├── backend/              # FastAPI + SQLAlchemy
 │   ├── app/
-│   │   ├── api/         # API endpoints
-│   │   ├── core/        # Auth, config, security
-│   │   ├── models/      # SQLAlchemy models
-│   │   ├── schemas/     # Pydantic schemas
-│   │   └── services/    # Business logic
-│   ├── db/              # Database scripts
-│   └── tests/
-├── frontend/            # Next.js web admin
+│   │   ├── api/v1/      # Endpoints
+│   │   ├── models/      # Database Models
+│   │   ├── middleware/  # Tenant Isolation
+│   │   └── core/        # Config, Auth
+│   └── alembic/         # DB Migrations
+│
+├── frontend/            # Next.js 14 + TypeScript
 │   ├── src/
-│   │   ├── app/        # App router pages
-│   │   ├── components/ # React components
-│   │   ├── lib/        # Utilities
-│   │   └── types/      # TypeScript types
-│   └── public/
-├── mobile/              # PWA driver app (future)
-└── docs/                # Documentation
+│   │   ├── app/         # Pages (App Router)
+│   │   ├── components/  # React Components
+│   │   ├── lib/         # API, Utils, i18n
+│   │   └── types/       # TypeScript Types
+│   └── public/          # Static Files
+│
+├── docs/                # תיעוד מפורט
+│   ├── architecture/    # תכנון מערכת
+│   ├── features/        # תיעוד תכונות
+│   ├── phases/          # שלבי פיתוח
+│   ├── setup/           # התקנה ותצורה
+│   └── troubleshooting/ # פתרון בעיות
+│
+├── uploads/             # קבצים שהועלו
+└── docker-compose.yml   # הגדרות Docker
 ```
 
-## Current Status
+---
 
-### ✅ Implemented Features
-- [x] User authentication (JWT + RBAC)
-- [x] Customer & Site management
-- [x] Fleet management (Trucks, Drivers, Trailers)
-- [x] Materials & Price lists
-- [x] Job/Trip creation & assignment
-- [x] Driver mobile app (PWA)
-- [x] Job status tracking workflow
-- [x] **Driver login with phone number**
-- [x] Demo data with 5 drivers, 4 customers, 8 sites
-- [x] GPS location capture on status updates
+## 📖 תיעוד
 
-### ⚠️ Partially Implemented
-- [ ] **Photo upload** - UI exists, backend pending (see [TODO_IMPROVEMENTS.md](TODO_IMPROVEMENTS.md))
-- [ ] **Digital signature** - DB ready, UI pending
-- [ ] **GPS tracking map** - Data collected, map view pending
-- [ ] **PDF export** - Basic structure, needs implementation
+### מדריכי התקנה
+- [מדריך התחלה מהיר](docs/setup/QUICK_START.md)
+- [התקנה מפורטת](docs/setup/GETTING_STARTED.md)
+- [נתוני דוגמה](docs/setup/DEMO_DATA.md)
+- [מדריך בדיקות](docs/setup/TESTING_GUIDE.md)
 
-### 📋 Planned Features
-See [TODO_IMPROVEMENTS.md](TODO_IMPROVEMENTS.md) for detailed roadmap.
+### אדריכלות ותכנון
+- [PRD מלא](docs/architecture/plan.md) - תכנון מפורט של המערכת
+- [מבנה מערכת](docs/STRUCTURE.md)
 
-## Development Workflow
+### תכונות
+- [Super Admin UI](docs/features/SUPER_ADMIN_UI_GUIDE.md) - מדריך משתמש
+- [Super Admin Technical](docs/features/SUPER_ADMIN_UI_COMPLETE.md) - תיעוד טכני
+- [עריכת ארגונים](docs/features/EDIT_ORGANIZATION_FEATURE.md)
+- [גישת Super Admin](docs/features/SUPER_ADMIN_ACCESS.md)
 
-### Backend Development
+### שלבי פיתוח
+- [Phase 1 - Multi-Tenant](docs/phases/PHASE_1_COMPLETE.md)
+- [Multi-Tenant Status](docs/phases/MULTI_TENANT_STATUS.md)
+- [Super Admin Complete](docs/features/SUPER_ADMIN_COMPLETE.md)
+
+### פתרון בעיות
+- [תיקון CORS Service Worker](docs/troubleshooting/SW_CORS_FIX.md)
+- [אימות Database](docs/troubleshooting/DATABASE_VERIFICATION.md)
+
+---
+
+## 👑 Super Admin
+
+### גישה
+```
+URL: http://localhost:3010/super-admin
+Email: admin@fleetmanagement.com
+Password: SuperAdmin123!
+```
+
+### תכונות
+✅ יצירת ארגונים חדשים  
+✅ עריכת פרטי ארגון (שם, טלפון, ח.פ, מגבלות)  
+✅ השעיה/הפעלה של ארגונים  
+✅ מחיקת ארגונים (עם אישור כפול)  
+✅ Impersonation - צפייה כארגון ספציפי  
+✅ סטטיסטיקות מערכת (ארגונים, משתמשים, משאיות)  
+
+📚 **מדריך מלא:** [Super Admin UI Guide](docs/features/SUPER_ADMIN_UI_GUIDE.md)
+
+---
+
+## 🔧 פתרון בעיות
+
+### שגיאות CORS מ-Service Worker
+```
+Access to fetch at 'http://localhost:8001/api/...' blocked by CORS
+```
+**פתרון:** גש ל-http://localhost:3010/clear-sw.html ולחץ "נקה Service Workers"
+
+📚 [מדריך מלא](docs/troubleshooting/SW_CORS_FIX.md)
+
+### שגיאות TypeScript
+```
+Cannot find module 'react' or JSX element implicitly has type 'any'
+```
+**פתרון:** 
+1. Ctrl+Shift+P
+2. הקלד: `TypeScript: Restart TS Server`
+3. Enter
+
+### Backend לא עולה
+```bash
+# בדוק לוגים
+docker-compose logs backend
+
+# הפעל מחדש
+docker-compose restart backend
+```
+
+### Database Connection Error
+```bash
+# בדוק שהDB רץ
+docker-compose ps db
+
+# הפעל מחדש DB
+docker-compose restart db
+```
+
+---
+
+## 🛠️ פיתוח
+
+### הרצה מקומית (ללא Docker)
+
+**Backend:**
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8001
 ```
 
-### Frontend Development
+**Frontend:**
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### Running Tests
-```bash
-# Backend tests
-docker-compose exec backend pytest
+### מסד נתונים
 
-# Frontend tests
-cd frontend && npm test
+```bash
+# Migrations
+cd backend
+alembic upgrade head
+
+# יצירת migration חדש
+alembic revision --autogenerate -m "description"
+
+# SQL ישיר
+docker-compose exec db psql -U fleet_user -d fleet_management
 ```
 
-## Key Features (MVP Phase 1)
+---
 
-- ✅ Customer & Site Management
-- ✅ Fleet Management (Trucks, Trailers, Drivers)
-- ✅ Daily Dispatch Board
-- ✅ Job/Trip Management with Status Tracking
-- ✅ Mobile Driver App (PWA)
-  - Job assignments
-  - Status updates
-  - Signature capture
-  - Photo upload
-- ✅ Pricing Engine with Automatic Calculation
-- ✅ Statement/Invoice Generation (PDF/Excel)
-- ✅ Payment Tracking & AR Aging
-- ✅ Basic Reports
+## 🏗️ טכנולוגיות
 
-## User Roles
+### Backend
+- **FastAPI** - Python web framework
+- **SQLAlchemy** - ORM
+- **PostgreSQL** - Database
+- **Alembic** - Migrations
+- **JWT** - Authentication
+- **Pydantic** - Validation
 
-- **Admin**: Full system access
-- **Dispatcher**: Create/assign jobs, operational reports
-- **Accounting**: Financial operations, billing, payments
-- **Driver**: Mobile app access, job updates only
+### Frontend
+- **Next.js 14** - React Framework (App Router)
+- **TypeScript** - Type Safety
+- **Tailwind CSS** - Styling
+- **Axios** - HTTP Client
+- **Zustand** - State Management
+- **Lucide React** - Icons
 
-## API Documentation
+### DevOps
+- **Docker** - Containerization
+- **Docker Compose** - Orchestration
 
-Full API documentation available at: http://localhost:8000/docs (Swagger UI)
+---
 
-Key endpoints:
-- `POST /api/auth/login` - Authentication
-- `GET /api/jobs` - List jobs
-- `POST /api/jobs/{id}/status` - Update job status
-- `POST /api/jobs/{id}/delivery-note` - Submit delivery note with signature
-- `POST /api/statements/generate` - Generate billing statement
+## 📊 סטטוס הפרויקט
 
-## Environment Variables
+### ✅ הושלם
+- ✅ Multi-Tenant Architecture
+- ✅ Super Admin Interface (CRUD ארגונים)
+- ✅ עריכת ארגונים (שם, טלפון, מגבלות)
+- ✅ Authentication & Authorization
+- ✅ Tenant Middleware
+- ✅ Impersonation
+- ✅ Service Worker Fixes
 
-See `.env.example` for all required variables.
+### 🚧 בפיתוח
+- Phase 3: Endpoint org_id Filtering (13 קבצים)
+- User Management UI
+- Driver Mobile App
+- Jobs Dispatch Board
 
-Critical variables:
-- `DATABASE_URL` - PostgreSQL connection string
-- `JWT_SECRET_KEY` - Secret for JWT tokens
-- `S3_*` - S3/MinIO credentials for file storage
+### 📅 עתידי
+- Customer Portal
+- Advanced Analytics
+- Mobile Native Apps
+- White Labeling
 
-## Business Rules
+---
 
-1. **Job Status Lifecycle**: `PLANNED` → `ASSIGNED` → `ENROUTE_PICKUP` → `LOADED` → `ENROUTE_DROPOFF` → `DELIVERED` → `CLOSED`
-2. **Delivery Requirements**: Cannot mark `DELIVERED` without signature + receiver name + at least one photo
-3. **Billing Lock**: Jobs cannot be modified after being included in a sent statement (Admin override only)
-4. **Price Override**: Requires Accounting/Admin role + mandatory reason field + audit log
+## 🤝 תרומה
 
-## Support
+הפרויקט נמצא בפיתוח פעיל. לשאלות או בעיות:
+- פתח Issue ב-GitHub
+- צור Pull Request עם תיאור מפורט
 
-For detailed specifications, see [plan.md](plan.md) (Hebrew)
+---
 
-For AI agent instructions, see [.github/copilot-instructions.md](.github/copilot-instructions.md)
+## 📝 רישיון
 
-## License
+This project is private and proprietary.
 
-Proprietary - All rights reserved
+---
+
+## 📞 יצירת קשר
+
+**Repository:** https://github.com/bhaataha/Fleet_Management  
+**Issues:** https://github.com/bhaataha/Fleet_Management/issues
+
+---
+
+**עודכן לאחרונה:** 25 ינואר 2026  
+**גרסה:** 1.0.0 (MVP)
