@@ -5,6 +5,7 @@ from fastapi import Request, HTTPException, status
 from jose import jwt, JWTError
 from app.core.config import settings
 from uuid import UUID
+from typing import Union
 import logging
 
 logger = logging.getLogger(__name__)
@@ -59,28 +60,42 @@ async def tenant_middleware(request: Request, call_next):
             algorithms=[settings.JWT_ALGORITHM]
         )
         
-        org_id_str = payload.get("org_id")
+        org_id_value = payload.get("org_id")
         is_super_admin = payload.get("is_super_admin", False)
         user_id = payload.get("sub")
         
-        if not org_id_str:
+        if org_id_value is None:
             logger.error(f"Token missing org_id for user {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Token missing org_id - please login again"
             )
         
-        # Convert to UUID
-        org_id = UUID(org_id_str)
+        # Convert to appropriate type (Integer or UUID)
+        # Try Integer first (current schema), then UUID (future schema)
+        try:
+            org_id = int(org_id_value)
+        except (ValueError, TypeError):
+            try:
+                org_id = UUID(org_id_value)
+            except (ValueError, TypeError):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid org_id format in token"
+                )
         
         # Super Admin impersonation: Check X-Org-Id header
         if is_super_admin:
             impersonate_org_id = request.headers.get("X-Org-Id")
             if impersonate_org_id:
                 try:
-                    org_id = UUID(impersonate_org_id)
+                    # Try Integer first, then UUID
+                    try:
+                        org_id = int(impersonate_org_id)
+                    except (ValueError, TypeError):
+                        org_id = UUID(impersonate_org_id)
                     logger.info(f"Super Admin {user_id} impersonating org {org_id}")
-                except ValueError:
+                except (ValueError, TypeError):
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Invalid X-Org-Id header format"
@@ -117,7 +132,7 @@ async def tenant_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-def get_current_org_id(request: Request) -> UUID:
+def get_current_org_id(request: Request) -> Union[int, UUID]:
     """
     Extract org_id from request state (set by tenant_middleware)
     
@@ -126,13 +141,13 @@ def get_current_org_id(request: Request) -> UUID:
         customers = db.query(Customer).filter(Customer.org_id == org_id).all()
     
     Returns:
-        UUID: Current organization ID
+        Union[int, UUID]: Current organization ID (Integer in current schema, UUID in future)
         
     Raises:
         HTTPException 403: If org_id not found in request state
     """
     org_id = getattr(request.state, "org_id", None)
-    if not org_id:
+    if org_id is None:
         logger.error("get_current_org_id called but org_id not in request.state")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
