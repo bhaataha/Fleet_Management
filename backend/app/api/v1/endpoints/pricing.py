@@ -57,6 +57,18 @@ class PricingPreviewRequest(BaseModel):
     is_night: bool = False
 
 
+class PricingQuoteRequest(BaseModel):
+    """For pricing preview before job creation"""
+    customer_id: int
+    material_id: int
+    from_site_id: Optional[int] = None
+    to_site_id: Optional[int] = None
+    unit: str
+    quantity: Decimal
+    wait_hours: Optional[Decimal] = 0
+    is_night: bool = False
+
+
 class PricingBreakdown(BaseModel):
     base_amount: Decimal
     min_charge_adjustment: Decimal
@@ -101,6 +113,74 @@ def create_price_list(
     db.commit()
     db.refresh(db_price_list)
     return db_price_list
+
+
+@router.get("/price-lists/{id}", response_model=PriceListResponse)
+def get_price_list(
+    id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    price_list = (
+        db.query(PriceListModel)
+        .filter(
+            PriceListModel.id == id,
+            PriceListModel.org_id == current_user.org_id
+        )
+        .first()
+    )
+    if not price_list:
+        raise HTTPException(status_code=404, detail="Price list not found")
+    return price_list
+
+
+@router.patch("/price-lists/{id}", response_model=PriceListResponse)
+def update_price_list(
+    id: int,
+    price_list: PriceListCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db_price_list = (
+        db.query(PriceListModel)
+        .filter(
+            PriceListModel.id == id,
+            PriceListModel.org_id == current_user.org_id
+        )
+        .first()
+    )
+    if not db_price_list:
+        raise HTTPException(status_code=404, detail="Price list not found")
+    
+    # Update fields
+    for key, value in price_list.model_dump().items():
+        setattr(db_price_list, key, value)
+    
+    db.commit()
+    db.refresh(db_price_list)
+    return db_price_list
+
+
+@router.delete("/price-lists/{id}")
+def delete_price_list(
+    id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db_price_list = (
+        db.query(PriceListModel)
+        .filter(
+            PriceListModel.id == id,
+            PriceListModel.org_id == current_user.org_id
+        )
+        .first()
+    )
+    if not db_price_list:
+        raise HTTPException(status_code=404, detail="Price list not found")
+    
+    db.delete(db_price_list)
+    db.commit()
+    return {"message": "Price list deleted successfully"}
 
 
 @router.post("/pricing/preview", response_model=PricingBreakdown)
@@ -183,3 +263,98 @@ def preview_pricing(
             "is_night": request.is_night,
         },
     )
+
+
+@router.post("/pricing/quote", response_model=PricingBreakdown)
+def get_pricing_quote(
+    request: PricingQuoteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Calculate pricing quote before job creation
+    Returns pricing breakdown based on customer, material, route, and quantity
+    """
+    # Find applicable price list
+    query = (
+        db.query(PriceListModel)
+        .filter(
+            PriceListModel.org_id == current_user.org_id,
+            PriceListModel.material_id == request.material_id,
+            PriceListModel.unit == request.unit,
+            PriceListModel.valid_from <= DateType.today(),
+            (PriceListModel.valid_to.is_(None))
+            | (PriceListModel.valid_to >= DateType.today()),
+        )
+        .filter(
+            (PriceListModel.customer_id == request.customer_id)
+            | (PriceListModel.customer_id.is_(None))
+        )
+    )
+    
+    # Try to find route-specific price first
+    price_list = None
+    if request.from_site_id and request.to_site_id:
+        price_list = query.filter(
+            PriceListModel.from_site_id == request.from_site_id,
+            PriceListModel.to_site_id == request.to_site_id,
+        ).order_by(
+            PriceListModel.customer_id.desc(),
+            PriceListModel.valid_from.desc(),
+        ).first()
+    
+    # If no route-specific price, find general price
+    if not price_list:
+        price_list = query.filter(
+            PriceListModel.from_site_id.is_(None),
+            PriceListModel.to_site_id.is_(None),
+        ).order_by(
+            PriceListModel.customer_id.desc(),
+            PriceListModel.valid_from.desc(),
+        ).first()
+
+    if not price_list:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No applicable price list found for customer_id={request.customer_id}, material_id={request.material_id}, unit={request.unit}"
+        )
+
+    # Calculate base amount
+    base_amount = price_list.base_price * request.quantity
+
+    # Min charge adjustment
+    min_charge_adjustment = Decimal(0)
+    if price_list.min_charge and base_amount < price_list.min_charge:
+        min_charge_adjustment = price_list.min_charge - base_amount
+        base_amount = price_list.min_charge
+
+    # Wait fee
+    wait_fee = Decimal(0)
+    if price_list.wait_fee_per_hour and request.wait_hours:
+        wait_fee = price_list.wait_fee_per_hour * request.wait_hours
+
+    # Night surcharge
+    night_surcharge = Decimal(0)
+    if request.is_night and price_list.night_surcharge_pct:
+        night_surcharge = base_amount * (price_list.night_surcharge_pct / 100)
+
+    total = base_amount + wait_fee + night_surcharge
+
+    return PricingBreakdown(
+        base_amount=base_amount,
+        min_charge_adjustment=min_charge_adjustment,
+        wait_fee=wait_fee,
+        night_surcharge=night_surcharge,
+        total=total,
+        details={
+            "price_list_id": price_list.id,
+            "unit_price": float(price_list.base_price),
+            "unit": request.unit,
+            "quantity": float(request.quantity),
+            "wait_hours": float(request.wait_hours or 0),
+            "is_night": request.is_night,
+            "is_customer_specific": price_list.customer_id is not None,
+            "is_route_specific": price_list.from_site_id is not None,
+        },
+    )
+

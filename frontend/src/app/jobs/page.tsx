@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useI18n } from '@/lib/i18n'
-import { jobsApi, sitesApi, materialsApi, driversApi } from '@/lib/api'
-import { Truck, MapPin, Calendar, User, Package, Plus, Search, Filter } from 'lucide-react'
-import type { Job, Site, Material, Driver } from '@/types'
+import { jobsApi, sitesApi, materialsApi, driversApi, customersApi } from '@/lib/api'
+import { Truck, MapPin, Calendar, User, Package, Plus, Search, Filter, Building2 } from 'lucide-react'
+import type { Job, Site, Material, Driver, Customer } from '@/types'
 
 const STATUS_COLORS: Record<string, string> = {
   PLANNED: 'bg-gray-100 text-gray-800',
@@ -24,6 +24,7 @@ export default function JobsPage() {
   const [sites, setSites] = useState<Site[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
+  const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -40,17 +41,19 @@ export default function JobsPage() {
         params.status = statusFilter
       }
       
-      const [jobsRes, sitesRes, materialsRes, driversRes] = await Promise.all([
+      const [jobsRes, sitesRes, materialsRes, driversRes, customersRes] = await Promise.all([
         jobsApi.list(params),
         sitesApi.getAll(),
         materialsApi.getAll(),
         driversApi.getAll(),
+        customersApi.getAll(),
       ])
       
       setJobs(jobsRes.data)
       setSites(sitesRes.data)
       setMaterials(materialsRes.data)
       setDrivers(driversRes.data)
+      setCustomers(customersRes.data)
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -74,6 +77,12 @@ export default function JobsPage() {
     if (!driverId) return 'ללא נהג'
     const driver = drivers.find(d => d.id === driverId)
     return driver?.name || `נהג #${driverId}`
+  }
+
+  const getCustomerName = (customerId: number | null | undefined) => {
+    if (!customerId) return 'לא צוין'
+    const customer = customers.find(c => c.id === customerId)
+    return customer?.name || `לקוח #${customerId}`
   }
 
   const filteredJobs = jobs.filter(job => {
@@ -169,6 +178,9 @@ export default function JobsPage() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      לקוח
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       {t('jobs.id')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -196,7 +208,11 @@ export default function JobsPage() {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredJobs.map((job) => (
-                    <tr key={job.id} className="hover:bg-gray-50 cursor-pointer">
+                    <tr 
+                      key={job.id} 
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => window.location.href = `/jobs/${job.id}`}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                         #{job.id}
                       </td>
@@ -204,6 +220,12 @@ export default function JobsPage() {
                         <div className="flex items-center gap-2">
                           <Calendar className="w-4 h-4 text-gray-400" />
                           {new Date(job.scheduled_date).toLocaleDateString('he-IL')}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-gray-400" />
+                          <span className="font-medium">{getCustomerName(job.customer_id)}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
@@ -238,18 +260,11 @@ export default function JobsPage() {
                           {t(`jobs.status.${job.status}`)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => window.location.href = `/jobs/${job.id}`}
-                            className="text-blue-600 hover:text-blue-800 font-medium"
-                          >
-                            צפה
-                          </button>
-                          <span className="text-gray-300">|</span>
-                          <button
                             onClick={() => window.location.href = `/jobs/${job.id}/edit`}
-                            className="text-green-600 hover:text-green-800 font-medium"
+                            className="text-blue-600 hover:text-blue-800 font-medium"
                           >
                             ערוך
                           </button>

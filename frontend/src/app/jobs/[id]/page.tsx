@@ -18,7 +18,10 @@ import {
   FileText,
   Image as ImageIcon,
   Phone,
-  Mail
+  Mail,
+  Edit,
+  DollarSign,
+  Printer
 } from 'lucide-react'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -32,6 +35,130 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELED: 'bg-red-100 text-red-800',
 }
 
+// Print styles
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style')
+  style.textContent = `
+    @media print {
+      @page {
+        size: A4;
+        margin: 10mm 12mm;
+      }
+      
+      body {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+        font-size: 11px;
+      }
+      
+      .print\\:hidden {
+        display: none !important;
+      }
+      
+      .print\\:border-2 {
+        border-width: 1px !important;
+      }
+      
+      .print\\:bg-white {
+        background-color: white !important;
+        background-image: none !important;
+      }
+      
+      .print-header {
+        display: block !important;
+        border-bottom: 2px solid #2563eb;
+        padding-bottom: 8px;
+        margin-bottom: 12px;
+      }
+      
+      .print-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #1e40af;
+        text-align: center;
+        margin: 0;
+      }
+      
+      .print-company {
+        font-size: 13px;
+        font-weight: 600;
+        color: #374151;
+        text-align: center;
+        margin-top: 4px;
+      }
+      
+      .print-signature-area {
+        display: block !important;
+        margin-top: 20px;
+        padding-top: 15px;
+        border-top: 1px dashed #9ca3af;
+      }
+      
+      .print-signature-line {
+        border-top: 1px solid #000;
+        margin: 15px 40px 3px 40px;
+      }
+      
+      /* Hide navigation and buttons */
+      nav, .no-print, button, .print\\:hidden {
+        display: none !important;
+      }
+      
+      /* Compact spacing */
+      .space-y-6 > * + * {
+        margin-top: 0.75rem !important;
+      }
+      
+      /* Reduce padding */
+      .rounded-lg, .rounded-xl {
+        padding: 8px !important;
+      }
+      
+      /* Smaller fonts */
+      h3, .text-lg {
+        font-size: 14px !important;
+      }
+      
+      .text-sm {
+        font-size: 10px !important;
+      }
+      
+      .text-xs {
+        font-size: 9px !important;
+      }
+      
+      /* Compact grid gaps */
+      .gap-4 {
+        gap: 0.5rem !important;
+      }
+      
+      .gap-3 {
+        gap: 0.4rem !important;
+      }
+      
+      /* Reduce icon sizes */
+      svg {
+        width: 12px !important;
+        height: 12px !important;
+      }
+      
+      /* Compact pricing section */
+      .text-2xl {
+        font-size: 18px !important;
+      }
+      
+      /* Single page fit */
+      .max-w-6xl {
+        max-width: 100% !important;
+      }
+    }
+  `
+  if (!document.getElementById('print-styles')) {
+    style.id = 'print-styles'
+    document.head.appendChild(style)
+  }
+}
+
 export default function JobDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -39,6 +166,8 @@ export default function JobDetailPage() {
   const [job, setJob] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [statusEvents, setStatusEvents] = useState<any[]>([])
+  const [pricingPreview, setPricingPreview] = useState<any>(null)
+  const [loadingPricing, setLoadingPricing] = useState(false)
   
   // Reference data
   const [customer, setCustomer] = useState<any>(null)
@@ -114,6 +243,11 @@ export default function JobDetailPage() {
       
       await Promise.all(promises)
       
+      // Load pricing if job has necessary data
+      if (jobData.customer_id && jobData.material_id && jobData.planned_qty) {
+        loadPricing(jobData)
+      }
+      
       // Try to load status events
       try {
         const eventsResponse = await api.get(`/jobs/${params.id}/status-events`)
@@ -128,6 +262,32 @@ export default function JobDetailPage() {
     } finally {
       setLoading(false)
     }
+  }
+  
+  const loadPricing = async (jobData: any) => {
+    try {
+      setLoadingPricing(true)
+      const response = await api.post('/pricing/quote', {
+        customer_id: jobData.customer_id,
+        material_id: jobData.material_id,
+        from_site_id: jobData.from_site_id || null,
+        to_site_id: jobData.to_site_id || null,
+        unit: jobData.unit,
+        quantity: parseFloat(jobData.planned_qty),
+        wait_hours: 0,
+        is_night: false
+      })
+      setPricingPreview(response.data)
+    } catch (error: any) {
+      console.error('Failed to fetch pricing:', error.response?.status)
+      setPricingPreview(null)
+    } finally {
+      setLoadingPricing(false)
+    }
+  }
+  
+  const handlePrint = () => {
+    window.print()
   }
 
   const handleStatusChange = async (newStatus: string) => {
@@ -162,8 +322,17 @@ export default function JobDetailPage() {
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto space-y-6">
+        {/* Print Header - Only visible when printing */}
+        <div className="hidden print-header">
+          <div className="print-title">תעודת משלוח</div>
+          <div className="print-company">מערכת ניהול הובלות עפר</div>
+          <div className="text-center text-gray-600 mt-2">
+            תאריך: {new Date(job.scheduled_date).toLocaleDateString('he-IL')} | מספר נסיעה: {job.id}
+          </div>
+        </div>
+
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between print:hidden">
           <div className="flex items-center gap-4">
             <button
               onClick={() => router.push('/jobs')}
@@ -179,9 +348,25 @@ export default function JobDetailPage() {
             </div>
           </div>
           
-          <span className={`px-4 py-2 text-sm font-medium rounded-full ${STATUS_COLORS[job.status]}`}>
-            {t(`jobs.status.${job.status}`)}
-          </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handlePrint}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors flex items-center gap-2 print:hidden"
+            >
+              <Printer className="w-4 h-4" />
+              הדפס תעודת משלוח
+            </button>
+            <button
+              onClick={() => router.push(`/jobs/${job.id}/edit`)}
+              className="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex items-center gap-2 print:hidden"
+            >
+              <Edit className="w-4 h-4" />
+              ערוך נסיעה
+            </button>
+            <span className={`px-4 py-2 text-sm font-medium rounded-full ${STATUS_COLORS[job.status]}`}>
+              {t(`jobs.status.${job.status}`)}
+            </span>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -225,7 +410,7 @@ export default function JobDetailPage() {
             </div>
 
             {/* Material & Quantity */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 print:border-2">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Package className="w-5 h-5 text-green-600" />
                 חומר וכמות
@@ -248,13 +433,125 @@ export default function JobDetailPage() {
               </div>
             </div>
 
+            {/* Pricing Section */}
+            {loadingPricing && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6 print:bg-white print:border-2">
+                <div className="flex items-center justify-center gap-2 text-blue-600">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                  <span>מחשב מחיר...</span>
+                </div>
+              </div>
+            )}
+
+            {!loadingPricing && pricingPreview && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6 print:bg-white print:border-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-blue-600 rounded-lg">
+                    <DollarSign className="w-5 h-5 text-white" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    מחיר משוער
+                  </h3>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Base Price */}
+                  {pricingPreview.details && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">מחיר בסיס ({pricingPreview.details.unit})</span>
+                      <span className="font-medium text-gray-900">
+                        ₪{Number(pricingPreview.details.unit_price || 0).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Quantity */}
+                  {pricingPreview.details && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">כמות</span>
+                      <span className="font-medium text-gray-900">
+                        {Number(pricingPreview.details.quantity || 0).toFixed(2)} {pricingPreview.details.unit}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Subtotal */}
+                  {pricingPreview.details && (
+                    <div className="flex justify-between items-center text-sm pb-3 border-b border-blue-200">
+                      <span className="text-gray-600">סכום ביניים</span>
+                      <span className="font-medium text-gray-900">
+                        ₪{Number(pricingPreview.details.base_amount || 0).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Min Charge Adjustment */}
+                  {pricingPreview.min_charge_adjustment && pricingPreview.min_charge_adjustment > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-yellow-800 font-medium">תוספת מינימום חיוב</span>
+                        <span className="font-semibold text-yellow-900">
+                          +₪{Number(pricingPreview.min_charge_adjustment || 0).toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Wait Fee */}
+                  {pricingPreview.wait_fee && pricingPreview.wait_fee > 0 && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">דמי המתנה</span>
+                      <span className="font-medium text-orange-600">
+                        +₪{Number(pricingPreview.wait_fee || 0).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Night Surcharge */}
+                  {pricingPreview.night_surcharge && pricingPreview.night_surcharge > 0 && (
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600">תוספת לילה</span>
+                      <span className="font-medium text-purple-600">
+                        +₪{Number(pricingPreview.night_surcharge || 0).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Total */}
+                  <div className="flex justify-between items-center pt-3 border-t-2 border-blue-300">
+                    <span className="text-lg font-semibold text-gray-900">סה״כ</span>
+                    <span className="text-2xl font-bold text-blue-600">
+                      ₪{Number(pricingPreview.total || 0).toFixed(2)}
+                    </span>
+                  </div>
+
+                  {/* Price List Info */}
+                  {pricingPreview.price_list_id && (
+                    <div className="mt-4 pt-3 border-t border-blue-200">
+                      <div className="text-xs text-gray-500 space-y-1">
+                        <div>מחירון מס׳: {pricingPreview.price_list_id}</div>
+                        {pricingPreview.details?.from_site_name && pricingPreview.details?.to_site_name && (
+                          <div className="text-blue-600 font-medium">
+                            ✓ מחיר ספציפי למסלול: {pricingPreview.details.from_site_name} → {pricingPreview.details.to_site_name}
+                          </div>
+                        )}
+                        {(!pricingPreview.details?.from_site_name || !pricingPreview.details?.to_site_name) && (
+                          <div>מחיר כללי ללקוח</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Fleet */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-6 print:border-2">
               <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Truck className="w-5 h-5 text-orange-600" />
                 צי
               </h3>
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Driver */}
                 <div>
                   <p className="text-sm text-gray-600 mb-2">נהג</p>
@@ -398,7 +695,7 @@ export default function JobDetailPage() {
             </div>
 
             {/* Info */}
-            <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
+            <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 print:hidden">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div className="text-sm text-blue-900">
@@ -407,6 +704,26 @@ export default function JobDetailPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Signature Area - Only visible when printing */}
+        <div className="hidden print-signature-area">
+          <div className="grid grid-cols-2 gap-12">
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">חתימת נהג:</p>
+              <div className="print-signature-line"></div>
+              <p className="text-xs text-gray-600 text-center mt-1">שם הנהג וחתימה</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">חתימת מקבל:</p>
+              <div className="print-signature-line"></div>
+              <p className="text-xs text-gray-600 text-center mt-1">שם המקבל וחתימה</p>
+            </div>
+          </div>
+          <div className="mt-8 text-center text-xs text-gray-500">
+            <p>תעודה זו הופקה באמצעות מערכת ניהול הובלות עפר</p>
+            <p className="mt-1">הודפס בתאריך: {new Date().toLocaleDateString('he-IL')} {new Date().toLocaleTimeString('he-IL')}</p>
           </div>
         </div>
       </div>

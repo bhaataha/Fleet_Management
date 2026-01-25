@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useI18n } from '@/lib/i18n'
 import api from '@/lib/api'
-import { ArrowLeft, MapPin, Package, Truck } from 'lucide-react'
+import { ArrowLeft, MapPin, Package, Truck, DollarSign } from 'lucide-react'
 
 export default function NewJobPage() {
   const router = useRouter()
@@ -31,6 +31,10 @@ export default function NewJobPage() {
   const [materials, setMaterials] = useState<any[]>([])
   const [trucks, setTrucks] = useState<any[]>([])
   const [drivers, setDrivers] = useState<any[]>([])
+  
+  // Pricing preview
+  const [pricingPreview, setPricingPreview] = useState<any>(null)
+  const [loadingPricing, setLoadingPricing] = useState(false)
 
   // Load data for selects
   useEffect(() => {
@@ -59,6 +63,45 @@ export default function NewJobPage() {
   const availableSites = formData.customer_id 
     ? sites.filter(s => s.customer_id === parseInt(formData.customer_id))
     : sites
+    
+  // Auto-calculate pricing when relevant fields change
+  useEffect(() => {
+    const fetchPricing = async () => {
+      // Check if we have all required data for pricing
+      if (!formData.customer_id || !formData.material_id || !formData.planned_qty) {
+        setPricingPreview(null)
+        return
+      }
+      
+      try {
+        setLoadingPricing(true)
+        const response = await api.post('/pricing/quote', {
+          customer_id: parseInt(formData.customer_id),
+          material_id: parseInt(formData.material_id),
+          from_site_id: formData.from_site_id ? parseInt(formData.from_site_id) : null,
+          to_site_id: formData.to_site_id ? parseInt(formData.to_site_id) : null,
+          unit: formData.unit,
+          quantity: parseFloat(formData.planned_qty),
+          wait_hours: 0,
+          is_night: false
+        })
+        setPricingPreview(response.data)
+      } catch (error: any) {
+        console.error('Pricing fetch error:', error.response?.status, error.response?.data?.detail)
+        // Silently fail for 404 (no price list found)
+        if (error.response?.status !== 404) {
+          console.error('Unexpected pricing API error:', error.message)
+        }
+        setPricingPreview(null)
+      } finally {
+        setLoadingPricing(false)
+      }
+    }
+    
+    // Debounce the API call
+    const timer = setTimeout(fetchPricing, 500)
+    return () => clearTimeout(timer)
+  }, [formData.customer_id, formData.material_id, formData.from_site_id, formData.to_site_id, formData.unit, formData.planned_qty])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -277,6 +320,99 @@ export default function NewJobPage() {
               </div>
             </div>
           </div>
+
+          {/* Pricing Preview */}
+          {(pricingPreview || loadingPricing) && (
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6 space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-blue-600" />
+                תצוגה מקדימה של מחיר
+              </h3>
+              
+              {loadingPricing ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="mr-3 text-gray-600">מחשב מחיר...</span>
+                </div>
+              ) : pricingPreview ? (
+                <div className="space-y-3">
+                  {/* Base Price */}
+                  <div className="flex justify-between items-center py-2 border-b border-blue-200">
+                    <span className="text-gray-700">מחיר בסיס ({pricingPreview.details?.unit || formData.unit})</span>
+                    <span className="font-semibold text-gray-900">
+                      ₪{Number(pricingPreview.details?.unit_price || 0).toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  {/* Quantity */}
+                  <div className="flex justify-between items-center py-2 border-b border-blue-200">
+                    <span className="text-gray-700">כמות</span>
+                    <span className="font-semibold text-gray-900">
+                      {pricingPreview.details?.quantity || formData.planned_qty} {pricingPreview.details?.unit || formData.unit}
+                    </span>
+                  </div>
+                  
+                  {/* Subtotal (base amount before adjustments) */}
+                  <div className="flex justify-between items-center py-2 border-b border-blue-200">
+                    <span className="text-gray-700">סכום חלקי</span>
+                    <span className="font-semibold text-gray-900">
+                      ₪{Number(pricingPreview.base_amount || 0).toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  {/* Min Charge Adjustment */}
+                  {pricingPreview.min_charge_adjustment && Number(pricingPreview.min_charge_adjustment) > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <p className="text-sm text-yellow-800">
+                        ⚠️ תוספת חיוב מינימום: ₪{Number(pricingPreview.min_charge_adjustment).toFixed(2)}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Wait Fee */}
+                  {pricingPreview.wait_fee && Number(pricingPreview.wait_fee) > 0 && (
+                    <div className="flex justify-between items-center py-1 pr-4">
+                      <span className="text-sm text-gray-600">• דמי המתנה</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        ₪{Number(pricingPreview.wait_fee).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Night Surcharge */}
+                  {pricingPreview.night_surcharge && Number(pricingPreview.night_surcharge) > 0 && (
+                    <div className="flex justify-between items-center py-1 pr-4">
+                      <span className="text-sm text-gray-600">• תוספת לילה</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        ₪{Number(pricingPreview.night_surcharge).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Total */}
+                  <div className="flex justify-between items-center py-3 border-t-2 border-blue-300 mt-2">
+                    <span className="text-lg font-bold text-gray-900">סה״כ לחיוב</span>
+                    <span className="text-2xl font-bold text-blue-600">
+                      ₪{Number(pricingPreview.total || 0).toFixed(2)}
+                    </span>
+                  </div>
+                  
+                  {/* Info */}
+                  {pricingPreview.details && (
+                    <div className="text-xs text-gray-500 pt-2">
+                      מחושב לפי מחירון #{pricingPreview.details.price_list_id}
+                      {pricingPreview.details.is_customer_specific && ' (ספציפי ללקוח)'}
+                      {pricingPreview.details.is_route_specific && ' (ספציפי למסלול)'}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-gray-500">
+                  לא נמצא מחירון מתאים - נא להוסיף מחירון למוצר/לקוח זה
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Fleet Assignment */}
           <div className="space-y-4">

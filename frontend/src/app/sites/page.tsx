@@ -44,6 +44,19 @@ export default function SitesPage() {
     return customers.find(c => c.id === customerId)?.name || '-'
   }
 
+  const handleDelete = async (id: number) => {
+    if (!confirm('האם אתה בטוח שברצונך למחוק את האתר?')) return
+    
+    try {
+      await sitesApi.delete(id)
+      alert('האתר נמחק בהצלחה!')
+      loadData()
+    } catch (error) {
+      console.error('Failed to delete site:', error)
+      alert('שגיאה במחיקת האתר')
+    }
+  }
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -119,10 +132,16 @@ export default function SitesPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex items-center gap-2">
-                          <button className="text-blue-600 hover:text-blue-800">
+                          <Link
+                            href={`/sites/${site.id}/edit`}
+                            className="text-blue-600 hover:text-blue-800 p-1 hover:bg-blue-50 rounded"
+                          >
                             <Edit className="w-4 h-4" />
-                          </button>
-                          <button className="text-red-600 hover:text-red-800">
+                          </Link>
+                          <button
+                            onClick={() => handleDelete(site.id)}
+                            className="text-red-600 hover:text-red-800 p-1 hover:bg-red-50 rounded"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>

@@ -29,6 +29,19 @@ export default function CustomersPage() {
     }
   }
 
+  const handleDelete = async (id: number) => {
+    if (!confirm('האם אתה בטוח שברצונך למחוק את הלקוח?')) return
+    
+    try {
+      await customersApi.delete(id)
+      alert('הלקוח נמחק בהצלחה!')
+      loadCustomers()
+    } catch (error) {
+      console.error('Failed to delete customer:', error)
+      alert('שגיאה במחיקת הלקוח')
+    }
+  }
+
   const filteredCustomers = customers.filter(c =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.contact_name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -123,13 +136,15 @@ export default function CustomersPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <button
+                        <Link
+                          href={`/customers/${customer.id}/edit`}
                           className="p-1 text-blue-600 hover:bg-blue-50 rounded"
                           title={t('common.edit')}
                         >
                           <Edit className="w-4 h-4" />
-                        </button>
+                        </Link>
                         <button
+                          onClick={() => handleDelete(customer.id)}
                           className="p-1 text-red-600 hover:bg-red-50 rounded"
                           title={t('common.delete')}
                         >

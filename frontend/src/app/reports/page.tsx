@@ -20,12 +20,20 @@ export default function ReportsPage() {
       enabled: true
     },
     {
+      title: 'דוח לקוח',
+      description: 'פירוט נסיעות ומחירים ללקוח ספציפי',
+      icon: FileText,
+      color: 'bg-indigo-500',
+      endpoint: '/reports/customer-report',
+      enabled: true
+    },
+    {
       title: 'דוח רווחיות לפי משאית',
       description: 'ניתוח הכנסות והוצאות לפי משאית',
       icon: TrendingUp,
       color: 'bg-green-500',
       endpoint: '/reports/truck-profitability',
-      enabled: false
+      enabled: true
     },
     {
       title: 'דוח חובות לקוחות',
@@ -33,7 +41,7 @@ export default function ReportsPage() {
       icon: DollarSign,
       color: 'bg-orange-500',
       endpoint: '/reports/ar-aging',
-      enabled: false
+      enabled: true
     },
     {
       title: 'דוח סיכום חודשי',
