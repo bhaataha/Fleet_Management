@@ -24,7 +24,7 @@ class DriverCreate(DriverBase):
 
 class DriverResponse(DriverBase):
     id: int
-    org_id: UUID
+    org_id: int
     user_id: Optional[int] = None
     is_active: bool
     created_at: datetime

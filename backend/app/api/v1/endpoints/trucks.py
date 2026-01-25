@@ -39,7 +39,7 @@ class TruckUpdate(BaseModel):
 
 class TruckResponse(TruckBase):
     id: int
-    org_id: UUID
+    org_id: int
     is_active: bool
     created_at: datetime
     updated_at: Optional[datetime]
