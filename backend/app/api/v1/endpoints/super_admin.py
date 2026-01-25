@@ -8,7 +8,7 @@ from app.models import Organization, User
 from app.core.tenant import require_super_admin, get_org_stats, is_super_admin
 from app.core.security import get_password_hash
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Optional, List, Union
 from uuid import UUID, uuid4
 from datetime import datetime, date
 
@@ -57,7 +57,7 @@ class OrganizationUpdate(BaseModel):
 
 
 class OrganizationResponse(BaseModel):
-    id: UUID
+    id: Union[int, UUID]  # Support both Integer (current) and UUID (future)
     name: str
     slug: str
     display_name: Optional[str]
