@@ -4,20 +4,27 @@
 
 ## 📚 Documentation
 
-**👉 Start here: [DOCS_INDEX.md](DOCS_INDEX.md)** - Complete documentation index
+**👉 Start here: [docs/README.md](docs/README.md)** - Complete documentation index
 
 ### Quick Links
-- 🚀 [Quick Start Guide](QUICK_START.md) - Get running in 5 minutes
-- 👤 [Demo Data & Credentials](DEMO_DATA.md) - Login info & test data
-- 📋 [TODO & Improvements](TODO_IMPROVEMENTS.md) - Roadmap & missing features ⭐
-- ✅ [Running Status](RUNNING_STATUS.md) - Current system status
-- 📖 [Full PRD (Hebrew)](plan.md) - Complete specification
+- 🚀 [Quick Start Guide](docs/setup/QUICK_START.md) - Get running in 5 minutes
+- 👤 [Demo Data & Credentials](docs/setup/DEMO_DATA.md) - Login info & test data
+- 📋 [TODO & Improvements](docs/project/TODO_IMPROVEMENTS.md) - Roadmap & missing features ⭐
+- ✅ [Running Status](docs/project/RUNNING_STATUS.md) - Current system status
+- 📖 [Full PRD (Hebrew)](docs/architecture/plan.md) - Complete specification
+- 📱 [Mobile Apps Update](docs/features/MOBILE_APPS_LANDING_UPDATE.md) - Landing page promotion
+- 🏢 [Multi-Tenant Specification](docs/architecture/MULTI_TENANT_SPEC.md) - Multi-tenant architecture ✨ NEW
+
+### Recent Updates
+- **2026-01-25 (Latest)**: Documentation reorganized into `docs/` folder with clear categories ✨
+- **2026-01-25**: Multi-tenant architecture specification created
+- **2026-01-25**: Landing page upgraded with mobile apps promotion (iOS/Android coming Q2 2026)
 
 ## Architecture
 
 - **Backend**: FastAPI (Python) - REST API
 - **Frontend**: Next.js (React + TypeScript) - Web Admin
-- **Mobile**: PWA (Progressive Web App) - Driver App
+- **Mobile**: PWA (Progressive Web App) - Driver App (Native apps coming Q2 2026 📱)
 - **Database**: PostgreSQL
 - **Storage**: S3-compatible (MinIO for dev)
 - **Auth**: JWT + RBAC

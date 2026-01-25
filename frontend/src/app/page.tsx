@@ -11,7 +11,9 @@ import {
   CheckCircle2,
   ArrowLeft,
   Zap,
-  Globe2
+  Globe2,
+  Apple,
+  Download
 } from 'lucide-react'
 import Logo from '@/components/ui/Logo'
 import Footer from '@/components/layout/Footer'
@@ -28,8 +30,8 @@ export default function HomePage() {
     },
     {
       icon: Smartphone,
-      title: 'אפליקציית נהגים',
-      description: 'עדכוני סטטוס בזמן אמת, חתימות דיגיטליות, העלאת תמונות ועבודה במצב Offline'
+      title: 'אפליקציית נהגים (PWA + Native)',
+      description: 'עדכוני סטטוס בזמן אמת, חתימות דיגיטליות, העלאת תמונות ועבודה במצב Offline. בקרוב: אפליקציות Native לאנדרויד ו-iOS!'
     },
     {
       icon: FileText,
@@ -63,7 +65,8 @@ export default function HomePage() {
       features: [
         'עד 5 משאיות ו-10 נהגים',
         'ניהול נסיעות ותעודות משלוח',
-        'אפליקציית נהגים בסיסית',
+        'אפליקציית נהגים PWA',
+        'אפליקציות Native (iOS + Android בקרוב)',
         'דוחות סטנדרטיים',
         'תמיכה בדוא"ל',
         'אחסון 10GB'
@@ -80,6 +83,7 @@ export default function HomePage() {
       features: [
         'עד 20 משאיות ו-40 נהגים',
         'כל התכונות מהתוכנית הבסיסית',
+        'אפליקציות Native מלאות (iOS + Android בקרוב)',
         'אופטימיזציה אוטומטית של מסלולים',
         'דוחות מתקדמים + אנליטיקה',
         'שילוב WhatsApp ו-SMS',
@@ -99,6 +103,7 @@ export default function HomePage() {
       features: [
         'משאיות ונהגים ללא הגבלה',
         'כל התכונות מהתוכנית המקצועית',
+        'אפליקציות Native מותאמות אישית',
         'מנהל חשבון ייעודי',
         'התאמות אישיות',
         'הדרכה אישית לצוות',
@@ -151,11 +156,13 @@ export default function HomePage() {
           <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
             TruckFlow - הפתרון המלא לניהול צי, שיבוץ נהגים, תיעוד דיגיטלי וחיוב אוטומטי.
             <br />
+            <span className="font-semibold text-blue-600">בקרוב: אפליקציות Native לאנדרויד ו-iOS!</span>
+            <br />
             חסכו זמן, הגדילו רווחיות ושפרו שירות בקליק אחד.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link
-              href="/login"
+              href="/signup"
               className="px-8 py-4 bg-blue-600 text-white text-lg font-semibold rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
             >
               התחל עכשיו בחינם
@@ -191,8 +198,14 @@ export default function HomePage() {
               <div className="text-blue-100">נסיעות בחודש</div>
             </div>
             <div>
-              <div className="text-4xl font-bold mb-2">99.9%</div>
-              <div className="text-blue-100">זמינות המערכת</div>
+              <div className="text-4xl font-bold mb-2">
+                <span className="flex items-center justify-center gap-2">
+                  <Smartphone className="w-8 h-8" />
+                  2
+                </span>
+              </div>
+              <div className="text-blue-100">פלטפורמות נייד</div>
+              <div className="text-xs text-blue-200 mt-1">(PWA + Native בקרוב)</div>
             </div>
           </div>
         </div>
@@ -226,6 +239,188 @@ export default function HomePage() {
                 </p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Mobile Apps Section - NEW */}
+      <section className="py-20 px-4 bg-gradient-to-br from-indigo-600 via-blue-600 to-blue-700 text-white relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl"></div>
+        </div>
+
+        <div className="container mx-auto max-w-6xl relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Text Content */}
+            <div>
+              <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full mb-6">
+                <Smartphone className="w-5 h-5" />
+                <span className="font-semibold">בקרוב!</span>
+              </div>
+              
+              <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
+                אפליקציות מובייל
+                <br />
+                <span className="text-blue-200">לאנדרויד ו-iOS</span>
+              </h2>
+              
+              <p className="text-xl text-blue-100 mb-8 leading-relaxed">
+                חווית שימוש משופרת לנהגים עם אפליקציה Native מהירה ואינטואיטיבית.
+                התראות בזמן אמת, מעקב GPS מדויק, ועבודה חלקה גם ללא אינטרנט.
+              </p>
+
+              {/* Features List */}
+              <div className="space-y-4 mb-8">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-6 h-6 text-green-300 flex-shrink-0 mt-1" />
+                  <div>
+                    <p className="font-semibold">התראות Push מלאות</p>
+                    <p className="text-blue-100 text-sm">קבלת עדכונים מיידיים על משימות חדשות</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-6 h-6 text-green-300 flex-shrink-0 mt-1" />
+                  <div>
+                    <p className="font-semibold">מעקב GPS ברקע</p>
+                    <p className="text-blue-100 text-sm">מעקב אוטומטי גם כשהאפליקציה סגורה</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-6 h-6 text-green-300 flex-shrink-0 mt-1" />
+                  <div>
+                    <p className="font-semibold">ביצועים מעולים</p>
+                    <p className="text-blue-100 text-sm">מהירות וחלקות ברמת אפליקציה Native</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-6 h-6 text-green-300 flex-shrink-0 mt-1" />
+                  <div>
+                    <p className="font-semibold">עבודה Offline מתקדמת</p>
+                    <p className="text-blue-100 text-sm">סנכרון אוטומטי כשחוזרים לטווח</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* App Store Badges (Coming Soon) */}
+              <div className="flex flex-wrap gap-4">
+                <div className="relative group">
+                  <div className="bg-white/10 backdrop-blur-sm border-2 border-white/30 rounded-xl px-6 py-3 flex items-center gap-3 cursor-not-allowed">
+                    <Apple className="w-8 h-8" />
+                    <div className="text-right">
+                      <p className="text-xs text-blue-100">בקרוב ב</p>
+                      <p className="font-bold">App Store</p>
+                    </div>
+                  </div>
+                  <div className="absolute -top-2 -right-2 bg-yellow-400 text-gray-900 text-xs font-bold px-2 py-1 rounded-full">
+                    Q2 2026
+                  </div>
+                </div>
+
+                <div className="relative group">
+                  <div className="bg-white/10 backdrop-blur-sm border-2 border-white/30 rounded-xl px-6 py-3 flex items-center gap-3 cursor-not-allowed">
+                    <svg className="w-8 h-8" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.5,12.92 20.16,13.19L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z" />
+                    </svg>
+                    <div className="text-right">
+                      <p className="text-xs text-blue-100">בקרוב ב</p>
+                      <p className="font-bold">Google Play</p>
+                    </div>
+                  </div>
+                  <div className="absolute -top-2 -right-2 bg-yellow-400 text-gray-900 text-xs font-bold px-2 py-1 rounded-full">
+                    Q2 2026
+                  </div>
+                </div>
+              </div>
+
+              {/* Early Access */}
+              <div className="mt-8 bg-white/10 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <p className="font-semibold mb-2">💡 רוצה לקבל גישה מוקדמת?</p>
+                <p className="text-sm text-blue-100 mb-3">
+                  הירשם לרשימת ההמתנה וקבל הזמנה לגרסת Beta
+                </p>
+                <a
+                  href="/signup"
+                  className="inline-flex items-center gap-2 bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold hover:bg-blue-50 transition-colors"
+                >
+                  הצטרף לרשימת ההמתנה
+                  <ArrowLeft className="w-4 h-4" />
+                </a>
+              </div>
+            </div>
+
+            {/* Phone Mockup */}
+            <div className="relative">
+              <div className="relative mx-auto w-full max-w-sm">
+                {/* Phone Frame */}
+                <div className="relative bg-gray-900 rounded-[3rem] p-3 shadow-2xl">
+                  <div className="bg-white rounded-[2.5rem] overflow-hidden">
+                    {/* Status Bar */}
+                    <div className="bg-gradient-to-br from-blue-600 to-indigo-600 px-6 py-3 flex justify-between items-center text-white text-xs">
+                      <span>9:41</span>
+                      <div className="flex gap-1">
+                        <div className="w-4 h-3 bg-white/30 rounded-sm"></div>
+                        <div className="w-4 h-3 bg-white/30 rounded-sm"></div>
+                        <div className="w-4 h-3 bg-white/30 rounded-sm"></div>
+                      </div>
+                    </div>
+
+                    {/* App Content Preview */}
+                    <div className="p-6 bg-gray-50">
+                      <div className="text-center mb-6">
+                        <Logo size="sm" />
+                        <p className="text-sm text-gray-600 mt-2">אפליקציית נהג</p>
+                      </div>
+
+                      {/* Sample Job Card */}
+                      <div className="bg-white rounded-xl shadow-md p-4 mb-4 border-r-4 border-blue-600">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <p className="text-sm text-gray-500">נסיעה #1234</p>
+                            <p className="font-bold text-gray-900">פינוי עפר</p>
+                          </div>
+                          <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full font-semibold">
+                            בדרך
+                          </span>
+                        </div>
+                        <div className="space-y-2 text-sm text-gray-700">
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                            <span>מחצבת נשר</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                            <span>רמת אביב</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="space-y-2">
+                        <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold">
+                          עדכן סטטוס
+                        </button>
+                        <button className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold">
+                          צלם תמונה
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notch */}
+                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-7 bg-gray-900 rounded-b-2xl"></div>
+                </div>
+
+                {/* Floating Elements */}
+                <div className="absolute -top-6 -right-6 bg-green-500 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg animate-pulse">
+                  ✓ פיתוח בעיצומו
+                </div>
+                <div className="absolute -bottom-6 -left-6 bg-yellow-400 text-gray-900 px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
+                  📱 React Native
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -319,7 +514,7 @@ export default function HomePage() {
                   </div>
 
                   <Link
-                    href="/login"
+                    href={plan.monthlyPrice ? '/signup' : '/login'}
                     className={`block w-full text-center px-6 py-3 rounded-lg font-semibold transition-all mb-6 ${
                       plan.popular
                         ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white hover:shadow-lg'
@@ -360,7 +555,7 @@ export default function HomePage() {
             הצטרפו למאות חברות הובלות שכבר משתמשות ב-TruckFlow
           </p>
           <Link
-            href="/login"
+            href="/signup"
             className="inline-flex items-center gap-2 px-8 py-4 bg-white text-blue-600 text-lg font-semibold rounded-xl hover:bg-gray-100 transition-all shadow-xl"
           >
             התחל ניסיון חינם עכשיו

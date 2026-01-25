@@ -1,7 +1,7 @@
 # Fleet Management System - AI Coding Agent Instructions
 
 ## Project Overview
-This is a **planning-stage** Fleet Management System for dirt hauling operations ("הובלות עפר"). The project contains a comprehensive PRD in Hebrew ([plan.md](../plan.md)) covering the full system architecture, but **no implementation code exists yet**.
+This is a **planning-stage** Fleet Management System for dirt hauling operations ("הובלות עפר"). The project contains a comprehensive PRD in Hebrew ([plan.md](../docs/architecture/plan.md)) covering the full system architecture, but **no implementation code exists yet**.
 
 **Primary Language**: Hebrew (documentation) + English (code when implemented)
 **Target Market**: Small-to-medium Israeli trucking companies specializing in dirt/aggregate hauling
@@ -146,4 +146,4 @@ Payment 1:N PaymentAllocations (can partially pay multiple statements)
 
 ---
 
-**When in doubt**: Reference specific sections in [plan.md](../plan.md) - it's the authoritative source. All technical decisions (DB schema, API routes, validation rules) are documented there with rationale.
+**When in doubt**: Reference specific sections in [plan.md](../docs/architecture/plan.md) - it's the authoritative source. All technical decisions (DB schema, API routes, validation rules) are documented there with rationale.
