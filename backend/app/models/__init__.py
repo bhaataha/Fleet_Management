@@ -47,7 +47,7 @@ class Organization(Base):
     """Multi-tenant organization"""
     __tablename__ = "organizations"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    id = Column(Integer, primary_key=True, autoincrement=True, index=True)
     name = Column(String(200), nullable=False)
     slug = Column(String(100), unique=True, nullable=False)
     display_name = Column(String(200))
@@ -110,7 +110,7 @@ class Organization(Base):
     # Metadata
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    created_by = Column(UUID(as_uuid=True))
+    created_by = Column(Integer)
     
     # Relationships
     users = relationship("User", back_populates="organization")
@@ -126,7 +126,7 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     phone = Column(String(20))
     name = Column(String(255), nullable=False)
@@ -148,7 +148,7 @@ class UserRoleModel(Base):
     __tablename__ = "user_roles"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     role = Column(Enum(UserRole), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -162,7 +162,7 @@ class Customer(Base):
     __tablename__ = "customers"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     vat_id = Column(String(50))
     contact_name = Column(String(255))
@@ -185,7 +185,7 @@ class Site(Base):
     __tablename__ = "sites"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     name = Column(String(255), nullable=False)
     address = Column(Text)
@@ -211,7 +211,7 @@ class Material(Base):
     __tablename__ = "materials"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     name_hebrew = Column(String(255))
     billing_unit = Column(Enum(BillingUnit), nullable=False)
@@ -229,7 +229,7 @@ class Truck(Base):
     __tablename__ = "trucks"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     plate_number = Column(String(20), nullable=False, unique=True)
     model = Column(String(100))
     truck_type = Column(String(50))  # פול טריילר/סמי/דאבל
@@ -251,7 +251,7 @@ class Trailer(Base):
     __tablename__ = "trailers"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     plate_number = Column(String(20), nullable=False, unique=True)
     capacity_ton = Column(Numeric(5, 2))
     capacity_m3 = Column(Numeric(5, 2))
@@ -267,7 +267,7 @@ class Driver(Base):
     __tablename__ = "drivers"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True)
     name = Column(String(255), nullable=False)
     phone = Column(String(20))
@@ -288,7 +288,7 @@ class PriceList(Base):
     __tablename__ = "price_lists"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"))  # null = general price
     material_id = Column(Integer, ForeignKey("materials.id"), nullable=False)
     from_site_id = Column(Integer, ForeignKey("sites.id"))
@@ -308,7 +308,7 @@ class Job(Base):
     __tablename__ = "jobs"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     from_site_id = Column(Integer, ForeignKey("sites.id"), nullable=False)
     to_site_id = Column(Integer, ForeignKey("sites.id"), nullable=False)
@@ -358,7 +358,7 @@ class JobStatusEvent(Base):
     __tablename__ = "job_status_events"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
     status = Column(Enum(JobStatus), nullable=False)
     event_time = Column(DateTime(timezone=True), server_default=func.now())
@@ -376,7 +376,7 @@ class DeliveryNote(Base):
     __tablename__ = "delivery_notes"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False, unique=True)
     note_number = Column(String(50))
     receiver_name = Column(String(255), nullable=False)
@@ -394,7 +394,7 @@ class WeighTicket(Base):
     __tablename__ = "weigh_tickets"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
     ticket_number = Column(String(50))
     gross_weight = Column(Numeric(10, 2))
@@ -410,7 +410,7 @@ class File(Base):
     __tablename__ = "files"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     storage_key = Column(String(500), nullable=False)  # S3 key
     filename = Column(String(255), nullable=False)
     mime_type = Column(String(100))
@@ -439,7 +439,7 @@ class Statement(Base):
     __tablename__ = "statements"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     number = Column(String(50), unique=True, nullable=False)
     period_from = Column(DateTime(timezone=True), nullable=False)
@@ -461,7 +461,7 @@ class StatementLine(Base):
     __tablename__ = "statement_lines"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     statement_id = Column(Integer, ForeignKey("statements.id"), nullable=False)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
     description = Column(Text)
@@ -479,7 +479,7 @@ class Payment(Base):
     __tablename__ = "payments"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
     paid_at = Column(DateTime(timezone=True), nullable=False)
@@ -497,7 +497,7 @@ class PaymentAllocation(Base):
     __tablename__ = "payment_allocations"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     payment_id = Column(Integer, ForeignKey("payments.id"), nullable=False)
     statement_id = Column(Integer, ForeignKey("statements.id"), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
@@ -511,7 +511,7 @@ class Expense(Base):
     __tablename__ = "expenses"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     category = Column(String(100), nullable=False)  # דלק/טיפולים/צמיגים/אגרות/שכר
     amount = Column(Numeric(10, 2), nullable=False)
     expense_date = Column(DateTime(timezone=True), nullable=False)
@@ -530,7 +530,7 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
     entity_type = Column(String(50), nullable=False)
     entity_id = Column(Integer, nullable=False)
