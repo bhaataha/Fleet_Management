@@ -1,0 +1,162 @@
+# Copy-Paste Commands for Remote Server Test
+# Execute these commands one by one on: root@64.176.173.36
+
+# ========================================
+# STEP 1: Connect
+# ========================================
+ssh root@64.176.173.36
+
+# ========================================
+# STEP 2: Quick Install (Option A - Automated)
+# ========================================
+# Download and run quick test script
+curl -o quick-test.sh https://raw.githubusercontent.com/bhaataha/Fleet_Management/main/quick-test.sh
+chmod +x quick-test.sh
+./quick-test.sh
+
+# ========================================
+# STEP 3: Manual Install (Option B - Manual)
+# ========================================
+
+# Update system
+apt update && apt upgrade -y
+
+# Install Docker
+curl -fsSL https://get.docker.com -o get-docker.sh && sh get-docker.sh
+
+# Install git
+apt install git -y
+
+# Clone repository
+cd /opt
+git clone https://github.com/bhaataha/Fleet_Management.git
+cd Fleet_Management
+
+# Set permissions
+chmod +x setup-wizard.sh backup.sh backend/setup/create_super_admin.py
+
+# Get server IP
+curl ifconfig.me
+
+# Run setup wizard
+./setup-wizard.sh
+
+# ========================================
+# STEP 4: During Setup Wizard
+# ========================================
+# Answer these prompts:
+
+Server IP: 64.176.173.36
+Generate passwords: y
+Super Admin Email: admin@example.com
+Super Admin Password: YourStrongPassword123!
+Confirm Password: YourStrongPassword123!
+Organization Name: Demo Transport Company
+
+# ========================================
+# STEP 5: After Setup Complete
+# ========================================
+
+# Check containers
+docker compose ps
+
+# View logs
+docker compose logs -f
+
+# Test API (in another terminal)
+curl http://64.176.173.36:8001/health
+
+# Test Frontend (in browser)
+# Open: http://64.176.173.36:3010
+
+# ========================================
+# STEP 6: Allow Firewall (if needed)
+# ========================================
+
+# Check firewall status
+ufw status
+
+# Allow required ports
+ufw allow 8001/tcp
+ufw allow 3010/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+
+# Enable firewall
+ufw enable
+
+# ========================================
+# STEP 7: Verify Everything Works
+# ========================================
+
+# Container status
+docker compose ps
+# Should show: fleet_backend, fleet_frontend, fleet_db, fleet_minio
+
+# Check API
+curl http://localhost:8001/health
+# Should return: {"status":"healthy"}
+
+# Check Frontend
+curl -I http://localhost:3010
+# Should return: HTTP/1.1 200 OK
+
+# Database check
+docker exec -it fleet_db psql -U fleet_user -d fleet_management -c "SELECT COUNT(*) FROM users WHERE is_super_admin = true;"
+# Should return: 1
+
+# ========================================
+# TROUBLESHOOTING
+# ========================================
+
+# If port already in use:
+lsof -i :8001
+lsof -i :3010
+kill -9 <PID>
+
+# If containers won't start:
+docker compose logs fleet_backend
+docker compose logs fleet_db
+
+# Reset everything:
+docker compose down -v
+docker system prune -a -f
+./setup-wizard.sh
+
+# View setup log:
+cat /var/log/fleet-setup.log
+
+# ========================================
+# USEFUL COMMANDS
+# ========================================
+
+# Start system
+cd /opt/Fleet_Management && docker compose up -d
+
+# Stop system
+docker compose down
+
+# Restart specific service
+docker compose restart fleet_backend
+
+# View real-time logs
+docker compose logs -f
+
+# Backup database
+./backup.sh
+
+# Access database console
+docker exec -it fleet_db psql -U fleet_user -d fleet_management
+
+# Check resource usage
+docker stats
+
+# Clean up disk space
+docker system prune -a
+
+# Update application
+cd /opt/Fleet_Management
+git pull
+./backup.sh
+docker compose up -d --build
+docker exec fleet_backend alembic upgrade head
