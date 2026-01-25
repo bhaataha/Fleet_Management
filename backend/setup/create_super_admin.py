@@ -63,25 +63,25 @@ def create_super_admin():
             session.close()
             return
         
-        # Generate UUIDs
-        org_id = str(uuid4())
+        # Create organization (id is auto-incremented)
         now = datetime.utcnow()
         
         print("🏢 Creating organization...")
         
-        # Create organization
-        session.execute(
+        # Create organization and get its ID
+        org_result = session.execute(
             text("""
-                INSERT INTO organizations (id, name, created_at, updated_at)
-                VALUES (:id, :name, :created_at, :updated_at)
+                INSERT INTO organizations (name, created_at, updated_at)
+                VALUES (:name, :created_at, :updated_at)
+                RETURNING id
             """),
             {
-                "id": org_id,
                 "name": org_name,
                 "created_at": now,
                 "updated_at": now
             }
         )
+        org_id = org_result.scalar()
         
         print(f"✅ Organization created: {org_name} (ID: {org_id})")
         
