@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/stores/auth'
 import { useI18n } from '@/lib/i18n'
 import { authApi } from '@/lib/api'
+import Logo from '@/components/ui/Logo'
 import { AlertCircle, Truck, Globe } from 'lucide-react'
 
 export default function LoginPage() {
@@ -62,8 +63,8 @@ export default function LoginPage() {
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full">
-          <Truck className="w-8 h-8 text-blue-600 animate-pulse" />
+        <div className="animate-pulse">
+          <Logo size="lg" />
         </div>
       </div>
     )
@@ -111,12 +112,9 @@ export default function LoginPage() {
         <div className="bg-white rounded-2xl shadow-xl p-8">
           {/* Logo and Title */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-              <Truck className="w-8 h-8 text-blue-600" />
+            <div className="flex justify-center mb-4">
+              <Logo size="md" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              {t('auth.systemTitle')}
-            </h1>
             <p className="text-gray-600">{t('auth.welcome')}</p>
           </div>
 

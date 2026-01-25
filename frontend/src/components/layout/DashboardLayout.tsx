@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/stores/auth'
 import { useI18n } from '@/lib/i18n'
+import Logo from '@/components/ui/Logo'
+import Footer from '@/components/layout/Footer'
 import {
   LayoutDashboard,
   Truck,
@@ -104,9 +106,8 @@ export default function DashboardLayout({
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <Truck className="w-8 h-8 text-blue-600" />
-              <span className="font-bold text-lg">Fleet MS</span>
+            <Link href="/dashboard">
+              <Logo size="sm" />
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
@@ -204,7 +205,7 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main content */}
-      <div className={language === 'he' ? 'lg:mr-64' : 'lg:ml-64'}>
+      <div className={`${language === 'he' ? 'lg:mr-64' : 'lg:ml-64'} flex flex-col min-h-screen`}>
         {/* Top bar */}
         <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-4">
           <button
@@ -217,9 +218,12 @@ export default function DashboardLayout({
         </header>
 
         {/* Page content */}
-        <main className="p-6">
+        <main className="flex-1 p-6">
           {children}
         </main>
+
+        {/* Footer */}
+        <Footer variant="app" />
       </div>
     </div>
   )
