@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useI18n } from '@/lib/i18n'
 import { jobsApi, sitesApi, materialsApi, driversApi, customersApi } from '@/lib/api'
-import { Truck, Calendar, User, Package, Plus, Search, Filter, Building2 } from 'lucide-react'
+import { Truck, Calendar, User, Package, Plus, Search, Filter, Building2, FileText, Share2 } from 'lucide-react'
 import type { Job, Site, Material, Driver, Customer } from '@/types'
+import { billingUnitLabels } from '@/lib/utils'
 
 const STATUS_COLORS: Record<string, string> = {
   PLANNED: 'bg-gray-100 text-gray-800',
@@ -104,6 +105,77 @@ export default function JobsPage() {
       console.error('Failed to update status:', error)
       alert('שגיאה בעדכון סטטוס')
     }
+  }
+
+  async function handleDownloadPDF(jobId: number) {
+    try {
+      const token = localStorage.getItem('access_token')
+      if (!token) {
+        alert('אנא התחבר מחדש למערכת')
+        window.location.href = '/login'
+        return
+      }
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api'}/jobs/${jobId}/pdf`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (!response.ok) throw new Error('Failed to download PDF')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `delivery_note_${jobId}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('PDF download failed:', error)
+      alert('שגיאה בהורדת PDF')
+    }
+  }
+
+  function handleShareWhatsApp(jobId: number) {
+    const job = jobs.find(j => j.id === jobId)
+    if (!job) return
+    
+    // Get token for authenticated PDF access
+    const token = localStorage.getItem('access_token')
+    if (!token) {
+      alert('אנא התחבר מחדש למערכת')
+      window.location.href = '/login'
+      return
+    }
+    
+    const customerName = getCustomerName(job.customer_id)
+    const fromSite = getSiteName(job.from_site_id)
+    const toSite = getSiteName(job.to_site_id)
+    const material = getMaterialName(job.material_id)
+    const qty = job.actual_qty || job.planned_qty
+    const date = new Date(job.scheduled_date).toLocaleDateString('he-IL')
+    
+    // Direct API link with token for PDF download (opens in browser)
+    const pdfUrl = `http://truckflow.site:8001/api/jobs/${jobId}/pdf?token=${token}`
+    
+    const message = `🚛 *תעודת משלוח #${jobId}*
+
+📅 תאריך: ${date}
+👤 לקוח: ${customerName}
+📍 מסלול: ${fromSite} ← ${toSite}
+📦 חומר: ${material}
+⚖️ כמות: ${qty} ${billingUnitLabels[job.unit] || job.unit}
+
+📄 לצפייה והורדת תעודת המשלוח:
+${pdfUrl}
+
+_נשלח מ-TruckFlow_`
+    
+    const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`
+    window.open(whatsappUrl, '_blank')
   }
 
   // Filter jobs
@@ -276,7 +348,7 @@ export default function JobsPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-sm">
-                          {job.actual_qty || job.planned_qty} {t(`units.${job.unit}`)}
+                          {job.actual_qty || job.planned_qty} {billingUnitLabels[job.unit] || t(`units.${job.unit}`)}
                         </td>
                         <td className="px-6 py-4 text-sm">
                           <div className="flex items-center gap-2">
@@ -311,7 +383,28 @@ export default function JobsPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 text-sm" onClick={(e) => e.stopPropagation()}>
-                          <button onClick={() => window.location.href = `/jobs/${job.id}/edit`} className="text-blue-600">ערוך</button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleDownloadPDF(job.id)}
+                              className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                              title="הורד PDF"
+                            >
+                              <FileText className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleShareWhatsApp(job.id)}
+                              className="p-1 text-green-600 hover:bg-green-50 rounded"
+                              title="שתף ב-WhatsApp"
+                            >
+                              <Share2 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => window.location.href = `/jobs/${job.id}/edit`} 
+                              className="text-blue-600 text-xs hover:underline"
+                            >
+                              ערוך
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

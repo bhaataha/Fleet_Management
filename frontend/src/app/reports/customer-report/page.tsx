@@ -9,6 +9,7 @@ import api from '@/lib/api'
 import { ArrowRight, Printer, Download, DollarSign, Package, TrendingUp, Calendar } from 'lucide-react'
 import Link from 'next/link'
 import type { Customer, Job, Site, Material } from '@/types'
+import { billingUnitLabels } from '@/lib/utils'
 
 export default function CustomerReportPage() {
   const { t } = useI18n()
@@ -376,7 +377,7 @@ export default function CustomerReportPage() {
                             <td className="px-3 py-2 text-xs text-gray-700">{getSiteName(job.to_site_id)}</td>
                             <td className="px-3 py-2 text-xs text-gray-700">{getMaterialName(job.material_id)}</td>
                             <td className="px-3 py-2 text-xs text-gray-700 font-medium">
-                              {job.planned_qty} {job.unit}
+                              {job.planned_qty} {billingUnitLabels[job.unit] || job.unit}
                             </td>
                             <td className="px-3 py-2 text-xs text-gray-900">
                               {loadingPricing ? '...' : pricing ? (() => {

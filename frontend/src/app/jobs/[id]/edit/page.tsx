@@ -9,6 +9,7 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import Combobox from '@/components/ui/Combobox'
 import { ArrowRight, Save, Trash2, DollarSign } from 'lucide-react'
 import type { Customer, Site, Material, Driver, Truck, BillingUnit, JobStatus } from '@/types'
+import { billingUnitLabels } from '@/lib/utils'
 
 export default function EditJobPage() {
   const params = useParams()
@@ -332,7 +333,7 @@ export default function EditJobPage() {
               ) : pricingPreview ? (
                 <div className="space-y-3">
                   <div className="flex justify-between items-center py-2 border-b border-blue-200">
-                    <span className="text-gray-700">מחיר בסיס ({pricingPreview.details?.unit || formData.unit})</span>
+                    <span className="text-gray-700">מחיר בסיס ({billingUnitLabels[pricingPreview.details?.unit || formData.unit] || pricingPreview.details?.unit || formData.unit})</span>
                     <span className="font-semibold text-gray-900">
                       ₪{Number(pricingPreview.details?.unit_price || 0).toFixed(2)}
                     </span>
@@ -341,7 +342,7 @@ export default function EditJobPage() {
                   <div className="flex justify-between items-center py-2 border-b border-blue-200">
                     <span className="text-gray-700">כמות</span>
                     <span className="font-semibold text-gray-900">
-                      {pricingPreview.details?.quantity || formData.planned_qty} {pricingPreview.details?.unit || formData.unit}
+                      {pricingPreview.details?.quantity || formData.planned_qty} {billingUnitLabels[pricingPreview.details?.unit || formData.unit] || pricingPreview.details?.unit || formData.unit}
                     </span>
                   </div>
                   

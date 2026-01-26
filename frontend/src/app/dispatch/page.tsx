@@ -6,7 +6,7 @@ import { jobsApi, driversApi, trucksApi, sitesApi, materialsApi } from '@/lib/ap
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { Calendar as CalendarIcon, Filter, Truck as TruckIcon, GripVertical, ChevronLeft, ChevronRight, MapPin, Eye } from 'lucide-react'
 import type { Job, Driver, Truck, Site, Material } from '@/types'
-import { formatDate, jobStatusLabels, jobStatusColors } from '@/lib/utils'
+import { formatDate, jobStatusLabels, jobStatusColors, billingUnitLabels } from '@/lib/utils'
 import Link from 'next/link'
 
 // Compact Job Card Component for Grid View
@@ -55,7 +55,7 @@ function CompactJobCard({ job, onDragStart, onDragEnd, isDragging, getSiteName, 
           <span className="truncate">{getSiteName(job.from_site_id)}</span>
         </div>
         <div className="text-xs text-blue-600 font-medium">
-          {job.planned_qty} {job.unit}
+          {job.planned_qty} {billingUnitLabels[job.unit] || job.unit}
         </div>
       </div>
     </div>
@@ -623,7 +623,7 @@ function JobCard({ job, getSiteName, getMaterialName, onDragStart, onDragEnd, is
         <div>מ: {getSiteName(job.from_site_id)}</div>
         <div>ל: {getSiteName(job.to_site_id)}</div>
         <div className="font-semibold text-blue-600">
-          {job.planned_qty} {t(`billingUnit.${job.unit}`)}
+          {job.planned_qty} {billingUnitLabels[job.unit] || t(`billingUnit.${job.unit}`)}
         </div>
       </div>
     </div>

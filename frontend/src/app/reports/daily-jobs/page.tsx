@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n'
 import { jobsApi, driversApi, trucksApi, sitesApi, materialsApi, customersApi } from '@/lib/api'
 import { ArrowRight, Calendar, Download, Printer, TrendingUp, Clock, CheckCircle, AlertCircle } from 'lucide-react'
 import type { Job, Driver, Truck, Site, Material, Customer } from '@/types'
-import { jobStatusLabels, jobStatusColors } from '@/lib/utils'
+import { jobStatusLabels, jobStatusColors, billingUnitLabels } from '@/lib/utils'
 import Link from 'next/link'
 
 export default function DailyJobsReportPage() {
@@ -292,7 +292,7 @@ export default function DailyJobsReportPage() {
                       <td className="px-4 py-3 text-sm text-gray-700">{getSiteName(job.to_site_id)}</td>
                       <td className="px-4 py-3 text-sm text-gray-700">{getMaterialName(job.material_id)}</td>
                       <td className="px-4 py-3 text-sm text-gray-900 font-medium">
-                        {job.planned_qty} {job.unit}
+                        {job.planned_qty} {billingUnitLabels[job.unit] || job.unit}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${jobStatusColors[job.status as keyof typeof jobStatusColors]}`}>

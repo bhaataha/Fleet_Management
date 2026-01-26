@@ -41,16 +41,22 @@ async def tenant_middleware(request: Request, call_next):
     if request.url.path in public_paths or request.url.path.startswith("/static"):
         return await call_next(request)
     
-    # Get Authorization header
+    # Get token from Authorization header OR query parameter (for PDF links)
     auth_header = request.headers.get("Authorization")
-    if not auth_header or not auth_header.startswith("Bearer "):
+    token = None
+    
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header.split(" ")[1]
+    else:
+        # Check for token in query parameter (for shareable PDF links)
+        token = request.query_params.get("token")
+    
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid authorization header",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
-    token = auth_header.split(" ")[1]
     
     try:
         # Decode JWT

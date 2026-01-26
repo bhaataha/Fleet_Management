@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from decimal import Decimal
 from app.core.database import get_db
 from app.models import Job, JobStatus, JobStatusEvent, BillingUnit
 from app.middleware.tenant import get_current_org_id, get_current_user_info
+from app.services.pdf_generator import DeliveryNotePDF
 from pydantic import BaseModel
 from datetime import datetime
 from uuid import UUID
@@ -321,3 +323,76 @@ async def get_job_status_events(
         .all()
     
     return events
+
+
+@router.get("/{job_id}/pdf")
+async def download_job_pdf(
+    job_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Generate and download delivery note PDF for a job
+    Token can be provided via Authorization header OR query parameter (?token=...)
+    """
+    # org_id already extracted by middleware from token
+    org_id = get_current_org_id(request)
+    
+    # Get job with all related data
+    db_job = db.query(Job)\
+        .options(
+            joinedload(Job.customer),
+            joinedload(Job.from_site),
+            joinedload(Job.to_site),
+            joinedload(Job.material),
+            joinedload(Job.driver),
+            joinedload(Job.truck)
+        )\
+        .filter(Job.id == job_id, Job.org_id == org_id)\
+        .first()
+    
+    if not db_job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Prepare data for PDF
+    job_data = {
+        'id': db_job.id,
+        'scheduled_date': db_job.scheduled_date.strftime('%d/%m/%Y') if db_job.scheduled_date else 'N/A',
+        'status': db_job.status.value if db_job.status else 'PLANNED',
+        'customer_name': db_job.customer.name if db_job.customer else None,
+        'from_site_name': db_job.from_site.name if db_job.from_site else 'N/A',
+        'from_site_address': db_job.from_site.address if db_job.from_site else '-',
+        'to_site_name': db_job.to_site.name if db_job.to_site else 'N/A',
+        'to_site_address': db_job.to_site.address if db_job.to_site else '-',
+        'material_name': db_job.material.name if db_job.material else 'N/A',
+        'planned_qty': float(db_job.planned_qty) if db_job.planned_qty else 0,
+        'actual_qty': float(db_job.actual_qty) if db_job.actual_qty else None,
+        'unit': db_job.unit.value if db_job.unit else 'TON',
+        'driver_name': db_job.driver.name if db_job.driver else None,
+        'truck_plate': db_job.truck.plate_number if db_job.truck else None,
+        'notes': db_job.notes
+    }
+    
+    # Generate PDF
+    pdf_gen = DeliveryNotePDF()
+    pdf_buffer = pdf_gen.generate(job_data)
+    
+    # Create filename with job number and customer name
+    customer_name = db_job.customer.name if db_job.customer else 'NoCustomer'
+    # Clean customer name for filename (remove special characters, keep Hebrew)
+    import re
+    from urllib.parse import quote
+    clean_customer = re.sub(r'[^\w\s-]', '', customer_name).strip().replace(' ', '_')
+    
+    # Use URL encoding for Hebrew filename (RFC 5987)
+    filename_encoded = quote(f"תעודה_{job_id}_{clean_customer}.pdf")
+    filename_ascii = f"delivery_note_{job_id}.pdf"  # Fallback for old browsers
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"inline; filename={filename_ascii}; filename*=UTF-8''{filename_encoded}",
+            "Access-Control-Expose-Headers": "Content-Disposition"
+        }
+    )

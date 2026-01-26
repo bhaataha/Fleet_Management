@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useI18n } from '@/lib/i18n'
 import api, { customersApi, sitesApi, materialsApi, driversApi, trucksApi } from '@/lib/api'
+import { billingUnitLabels } from '@/lib/utils'
 import { 
   ArrowLeft, 
   MapPin, 
@@ -377,18 +378,47 @@ export default function JobDetailPage() {
     window.print()
   }
   
-  const handleSavePDF = () => {
-    // Update document title for PDF filename
-    const originalTitle = document.title
-    document.title = `תעודת_משלוח_${job.id}_${new Date(job.scheduled_date).toLocaleDateString('he-IL').replace(/\./g, '-')}`
-    
-    // Trigger print dialog (user can "Save as PDF")
-    window.print()
-    
-    // Restore original title
-    setTimeout(() => {
-      document.title = originalTitle
-    }, 100)
+  const handleSavePDF = async () => {
+    try {
+      const token = localStorage.getItem('access_token')
+      if (!token) {
+        alert('אנא התחבר מחדש למערכת')
+        router.push('/login')
+        return
+      }
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api'}/jobs/${params.id}/pdf`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (!response.ok) throw new Error('Failed to download PDF')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `delivery_note_${params.id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('PDF download failed:', error)
+      alert('שגיאה בהורדת PDF')
+    }
+  }
+  
+  const handleOpenPDFInBrowser = () => {
+    const token = localStorage.getItem('access_token')
+    if (!token) {
+      alert('אנא התחבר מחדש למערכת')
+      router.push('/login')
+      return
+    }
+    const pdfUrl = `http://truckflow.site:8001/api/jobs/${params.id}/pdf?token=${token}`
+    window.open(pdfUrl, '_blank')
   }
 
   const handleStatusChange = async (newStatus: string) => {
@@ -430,43 +460,45 @@ export default function JobDetailPage() {
   }
 
   const handleSendWhatsApp = () => {
-    // Build message with job details
-    const message = `
-🚛 *תעודת משלוח #${job.id}*
-
-📅 תאריך: ${new Date(job.scheduled_date).toLocaleDateString('he-IL')}
-
-👤 *לקוח:* ${customer?.name || `לקוח #${job.customer_id}`}
-
-📍 *מסלול:*
-מ: ${fromSite?.name || `אתר #${job.from_site_id}`}
-ל: ${toSite?.name || `אתר #${job.to_site_id}`}
-
-📦 *חומר וכמות:*
-${material?.name_hebrew || material?.name || `חומר #${job.material_id}`}
-כמות: ${job.planned_qty} ${job.unit}
-
-🚚 *פרטי הובלה:*
-נהג: ${driver?.name || 'לא משובץ'}
-משאית: ${truck?.plate_number || 'לא משובצה'}
-
-💰 *מחיר משוער:* ${pricingPreview?.total ? `₪${Number(pricingPreview.total).toFixed(2)}` : 'לא זמין'}
-
-📊 *סטטוס:* ${t(`jobs.status.${job.status}`)}
-
-${job.notes ? `📝 הערות: ${job.notes}` : ''}
-    `.trim()
-
-    // Encode message for URL
-    const encodedMessage = encodeURIComponent(message)
+    // Get token for authenticated PDF access
+    const token = localStorage.getItem('access_token')
+    if (!token) {
+      alert('אנא התחבר מחדש למערכת')
+      router.push('/login')
+      return
+    }
     
+    // Direct API link with token for PDF download (opens in browser)
+    const pdfUrl = `http://truckflow.site:8001/api/jobs/${params.id}/pdf?token=${token}`
+    
+    // Build message with job details and PDF link
+    const date = new Date(job.scheduled_date).toLocaleDateString('he-IL')
+    const customerName = customer?.name || `לקוח #${job.customer_id}`
+    const fromSiteName = fromSite?.name || `אתר #${job.from_site_id}`
+    const toSiteName = toSite?.name || `אתר #${job.to_site_id}`
+    const materialName = material?.name_hebrew || material?.name || `חומר #${job.material_id}`
+    const qty = job.actual_qty || job.planned_qty
+    
+    const message = `🚛 *תעודת משלוח #${job.id}*
+
+📅 תאריך: ${date}
+👤 לקוח: ${customerName}
+📍 מסלול: ${fromSiteName} ← ${toSiteName}
+📦 חומר: ${materialName}
+⚖️ כמות: ${qty} ${billingUnitLabels[job.unit] || job.unit}
+
+📄 לצפייה והורדת תעודת המשלוח:
+${pdfUrl}
+
+_נשלח מ-TruckFlow_`
+
     // Get customer phone if available
     const phone = customer?.phone?.replace(/[^0-9]/g, '') || ''
     
     // Open WhatsApp Web
-    const whatsappUrl = phone 
-      ? `https://wa.me/972${phone}?text=${encodedMessage}`  // With phone number (remove leading 0)
-      : `https://web.whatsapp.com/send?text=${encodedMessage}`  // Without phone (user selects contact)
+    const whatsappUrl = phone && phone.length >= 9
+      ? `https://wa.me/972${phone.replace(/^0/, '')}?text=${encodeURIComponent(message)}`
+      : `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`
     
     window.open(whatsappUrl, '_blank')
   }
@@ -524,11 +556,20 @@ ${job.notes ? `📝 הערות: ${job.notes}` : ''}
               שלח ב-WhatsApp
             </button>
             <button
-              onClick={handleSavePDF}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2 print:hidden"
+              onClick={handleOpenPDFInBrowser}
+              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-2 print:hidden"
+              title="פתח PDF בדפדפן"
             >
               <FileText className="w-4 h-4" />
-              שמור כ-PDF
+              צפה ב-PDF
+            </button>
+            <button
+              onClick={handleSavePDF}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2 print:hidden"
+              title="הורד PDF"
+            >
+              <FileText className="w-4 h-4" />
+              הורד PDF
             </button>
             <button
               onClick={handlePrint}
@@ -603,7 +644,7 @@ ${job.notes ? `📝 הערות: ${job.notes}` : ''}
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">כמות מתוכננת</p>
-                  <p className="font-medium text-lg">{job.planned_qty} {t(`units.${job.unit}`)}</p>
+                  <p className="font-medium text-lg">{job.planned_qty} {billingUnitLabels[job.unit] || t(`units.${job.unit}`)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-600 mb-1">כמות בפועל</p>
@@ -636,7 +677,7 @@ ${job.notes ? `📝 הערות: ${job.notes}` : ''}
                   ) : (
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-lg">
-                        {job.actual_qty ? `${job.actual_qty} ${t(`units.${job.unit}`)}` : '-'}
+                        {job.actual_qty ? `${job.actual_qty} ${billingUnitLabels[job.unit] || t(`units.${job.unit}`)}` : '-'}
                       </p>
                       <button
                         onClick={startEditingActualQty}
@@ -675,7 +716,7 @@ ${job.notes ? `📝 הערות: ${job.notes}` : ''}
                   {/* Base Price */}
                   {pricingPreview.details && (
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-gray-600">מחיר בסיס ({pricingPreview.details.unit})</span>
+                      <span className="text-gray-600">מחיר בסיס ({billingUnitLabels[pricingPreview.details.unit] || pricingPreview.details.unit})</span>
                       <span className="font-medium text-gray-900">
                         ₪{Number(pricingPreview.details.unit_price || 0).toFixed(2)}
                       </span>
@@ -687,7 +728,7 @@ ${job.notes ? `📝 הערות: ${job.notes}` : ''}
                     <div className="flex justify-between items-center text-sm">
                       <span className="text-gray-600">כמות</span>
                       <span className="font-medium text-gray-900">
-                        {Number(pricingPreview.details.quantity || 0).toFixed(2)} {pricingPreview.details.unit}
+                        {Number(pricingPreview.details.quantity || 0).toFixed(2)} {billingUnitLabels[pricingPreview.details.unit] || pricingPreview.details.unit}
                       </span>
                     </div>
                   )}

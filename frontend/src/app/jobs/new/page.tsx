@@ -7,6 +7,7 @@ import Combobox from '@/components/ui/Combobox'
 import { useI18n } from '@/lib/i18n'
 import api from '@/lib/api'
 import { ArrowLeft, MapPin, Package, Truck, DollarSign } from 'lucide-react'
+import { billingUnitLabels } from '@/lib/utils'
 
 export default function NewJobPage() {
   const router = useRouter()
@@ -324,7 +325,7 @@ export default function NewJobPage() {
                 <div className="space-y-3">
                   {/* Base Price */}
                   <div className="flex justify-between items-center py-2 border-b border-blue-200">
-                    <span className="text-gray-700">מחיר בסיס ({pricingPreview.details?.unit || formData.unit})</span>
+                    <span className="text-gray-700">מחיר בסיס ({billingUnitLabels[pricingPreview.details?.unit || formData.unit] || pricingPreview.details?.unit || formData.unit})</span>
                     <span className="font-semibold text-gray-900">
                       ₪{Number(pricingPreview.details?.unit_price || 0).toFixed(2)}
                     </span>
@@ -334,7 +335,7 @@ export default function NewJobPage() {
                   <div className="flex justify-between items-center py-2 border-b border-blue-200">
                     <span className="text-gray-700">כמות</span>
                     <span className="font-semibold text-gray-900">
-                      {pricingPreview.details?.quantity || formData.planned_qty} {pricingPreview.details?.unit || formData.unit}
+                      {pricingPreview.details?.quantity || formData.planned_qty} {billingUnitLabels[pricingPreview.details?.unit || formData.unit] || pricingPreview.details?.unit || formData.unit}
                     </span>
                   </div>
                   
