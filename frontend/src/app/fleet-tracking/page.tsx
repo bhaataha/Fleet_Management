@@ -97,10 +97,22 @@ export default function FleetTrackingPage() {
 
   function initializeMap() {
     try {
+      console.log('Initializing map...');
       const mapElement = document.getElementById('fleet-map');
-      if (!mapElement || !(window as any).L) return;
+      console.log('Map element:', mapElement);
+      
+      if (!mapElement) {
+        console.error('Map element not found');
+        return;
+      }
+      
+      if (!(window as any).L) {
+        console.error('Leaflet not loaded');
+        return;
+      }
 
       const L = (window as any).L;
+      console.log('Creating map instance...');
       const map = L.map('fleet-map').setView([31.5, 34.75], 8);
       
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -109,14 +121,20 @@ export default function FleetTrackingPage() {
       }).addTo(map);
 
       (window as any).fleetMap = map;
-      console.log('Map initialized');
+      console.log('✅ Map initialized successfully');
+      
+      // Force map to invalidate size after a short delay
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 500);
     } catch (err) {
-      console.error('Failed to initialize map:', err);
+      console.error('❌ Failed to initialize map:', err);
     }
   }
 
   async function loadFleetLocations() {
     try {
+      console.log('🔄 Loading fleet locations...');
       setLoading(true);
       
       const [driversRes, jobsRes, sitesRes] = await Promise.all([
@@ -128,6 +146,8 @@ export default function FleetTrackingPage() {
       const drivers: Driver[] = driversRes.data;
       const jobs: Job[] = jobsRes.data;
       const sites: Site[] = sitesRes.data;
+      
+      console.log(`📊 Loaded: ${drivers.length} drivers, ${jobs.length} jobs, ${sites.length} sites`);
       
       const driverLocations: DriverLocation[] = [];
       
@@ -145,17 +165,21 @@ export default function FleetTrackingPage() {
             const eventsRes = await api.get(`/jobs/${activeJob.id}/status-events`);
             const events: JobStatusEvent[] = eventsRes.data;
             
+            console.log(`📍 Driver ${driver.name} has ${events.length} events`);
+            
             lastEvent = events
               .filter(e => e.lat !== null && e.lng !== null)
               .sort((a, b) => new Date(b.event_time).getTime() - new Date(a.event_time).getTime())[0] || null;
-          } catch (err) {
-            console.error(`Failed to load events for job ${activeJob.id}`);
-          }
-          
-          if (activeJob.status === 'ENROUTE_PICKUP' || activeJob.status === 'ASSIGNED') {
-            site = sites.find(s => s.id === activeJob.from_site_id) || null;
-          } else {
+            
+            if (lastEvent) {
+              console.log(`🎯 Driver ${driver.name} last GPS: ${lastEvent.lat}, ${lastEvent.lng}`);
+            } else {
+              console.log(`⚠️ Driver ${driver.name} has no GPS data`);
+            }
+            
             site = sites.find(s => s.id === activeJob.to_site_id) || null;
+          } catch (err) {
+            console.error(`Failed to load events for job ${activeJob.id}:`, err);
           }
         }
         
@@ -167,20 +191,35 @@ export default function FleetTrackingPage() {
         });
       }
       
+      console.log(`✅ Processed ${driverLocations.length} driver locations`);
+      const driversWithGPS = driverLocations.filter(loc => loc.lastEvent?.lat && loc.lastEvent?.lng);
+      console.log(`📍 Drivers with GPS: ${driversWithGPS.length}/${driverLocations.length}`);
+      
       setLocations(driverLocations);
       updateMapMarkers(driverLocations, sites);
-    } catch (error) {
-      console.error('Failed to load fleet locations:', error);
+    } catch (err) {
+      console.error('❌ Failed to load fleet locations:', err);
     } finally {
       setLoading(false);
     }
   }
 
   function updateMapMarkers(locations: DriverLocation[], sites: Site[]) {
+    console.log('🗺️ Updating map markers...');
     const map = (window as any).fleetMap;
     const L = (window as any).L;
-    if (!map || !L) return;
+    
+    if (!map) {
+      console.warn('⚠️ Map not available');
+      return;
+    }
+    
+    if (!L) {
+      console.warn('⚠️ Leaflet not available');
+      return;
+    }
 
+    console.log('🧹 Clearing existing markers...');
     // Clear existing markers
     map.eachLayer((layer: any) => {
       if (layer instanceof L.Marker) {
@@ -189,8 +228,10 @@ export default function FleetTrackingPage() {
     });
 
     // Add driver markers
+    let markersAdded = 0;
     locations.forEach(loc => {
       if (loc.lastEvent?.lat && loc.lastEvent?.lng) {
+        console.log(`📍 Adding marker for ${loc.driver.name} at ${loc.lastEvent.lat}, ${loc.lastEvent.lng}`);
         const icon = L.divIcon({
           html: `<div style="background:${loc.job ? '#2563eb' : '#6b7280'};color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🚛</div>`,
           className: '',
@@ -201,10 +242,15 @@ export default function FleetTrackingPage() {
         L.marker([loc.lastEvent.lat, loc.lastEvent.lng], { icon })
           .addTo(map)
           .bindPopup(`<b>${loc.driver.name}</b><br>${getStatusLabel(loc.job?.status || 'N/A')}<br>${loc.site?.name || ''}`);
+        
+        markersAdded++;
       }
     });
+    
+    console.log(`✅ Added ${markersAdded} driver markers`);
 
     // Add site markers
+    let siteMarkersAdded = 0;
     sites.forEach(site => {
       if (site.lat && site.lng) {
         const icon = L.divIcon({
@@ -217,8 +263,12 @@ export default function FleetTrackingPage() {
         L.marker([site.lat, site.lng], { icon })
           .addTo(map)
           .bindPopup(`<b>${site.name}</b>`);
+        
+        siteMarkersAdded++;
       }
     });
+    
+    console.log(`✅ Added ${siteMarkersAdded} site markers`);
   }
 
   function getStatusLabel(status: string): string {
@@ -277,7 +327,17 @@ export default function FleetTrackingPage() {
             {/* Map Section */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-lg shadow-md p-4">
-                <div id="fleet-map" className="w-full h-[600px] rounded-lg"></div>
+                <div 
+                  id="fleet-map" 
+                  className="w-full h-[600px] rounded-lg" 
+                  style={{ 
+                    height: '600px', 
+                    width: '100%', 
+                    minHeight: '600px',
+                    backgroundColor: '#f3f4f6',
+                    border: '2px solid #e5e7eb'
+                  }}
+                ></div>
               </div>
             </div>
 

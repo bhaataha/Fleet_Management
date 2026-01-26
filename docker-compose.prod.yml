@@ -1,0 +1,162 @@
+version: '3.8'
+
+services:
+  # Traefik Reverse Proxy with SSL
+  traefik:
+    image: traefik:v2.11
+    container_name: fleet_traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/traefik.yml:ro
+      - ./traefik/acme.json:/acme.json
+      - ./traefik/config.yml:/config.yml:ro
+    labels:
+      - "traefik.enable=true"
+      # Dashboard disabled - enable later with proper subdomain DNS
+      # - "traefik.http.routers.traefik.entrypoints=http"
+      # - "traefik.http.routers.traefik.rule=Host(`traefik.truckflow.site`)"
+      # - "traefik.http.middlewares.traefik-auth.basicauth.users=admin:$$apr1$$8eVJKBbr$$4g0zYQRnN9vXGKJQBQvOK1"
+      # - "traefik.http.middlewares.traefik-https-redirect.redirectscheme.scheme=https"
+      # - "traefik.http.middlewares.sslheader.headers.customrequestheaders.X-Forwarded-Proto=https"
+      # - "traefik.http.routers.traefik.middlewares=traefik-https-redirect"
+      # - "traefik.http.routers.traefik-secure.entrypoints=https"
+      # - "traefik.http.routers.traefik-secure.rule=Host(`traefik.truckflow.site`)"
+      # - "traefik.http.routers.traefik-secure.middlewares=traefik-auth"
+      # - "traefik.http.routers.traefik-secure.tls=true"
+      # - "traefik.http.routers.traefik-secure.tls.certresolver=letsencrypt"
+      # - "traefik.http.routers.traefik-secure.service=api@internal"
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: fleet_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: fleet_management
+      POSTGRES_USER: fleet_user
+      POSTGRES_PASSWORD: fleet_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fleet_user -d fleet_management"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fleet-network
+
+  # Backend API (FastAPI)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fleet_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://fleet_user:fleet_password@postgres:5432/fleet_management
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev-secret-key-change-in-production}
+      ENVIRONMENT: production
+      S3_BUCKET: ${S3_BUCKET:-fleet-uploads}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      BACKEND_CORS_ORIGINS: '["https://truckflow.site","http://truckflow.site"]'
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    networks:
+      - fleet-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`truckflow.site`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend.entrypoints=https"
+      - "traefik.http.routers.backend.tls=true"
+      - "traefik.http.routers.backend.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.backend.priority=100"
+      - "traefik.http.services.backend.loadbalancer.server.port=8000"
+      # HTTP to HTTPS redirect
+      - "traefik.http.routers.backend-http.rule=Host(`truckflow.site`) && PathPrefix(`/api`)"
+      - "traefik.http.routers.backend-http.entrypoints=http"
+      - "traefik.http.routers.backend-http.priority=100"
+      - "traefik.http.routers.backend-http.middlewares=https-redirect"
+      - "traefik.http.middlewares.https-redirect.redirectscheme.scheme=https"
+
+  # Frontend Web Admin (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: fleet_frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: https://truckflow.site/api
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - backend
+    networks:
+      - fleet-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`truckflow.site`)"
+      - "traefik.http.routers.frontend.entrypoints=https"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      - "traefik.http.services.frontend.loadbalancer.server.port=3000"
+      # HTTP to HTTPS redirect
+      - "traefik.http.routers.frontend-http.rule=Host(`truckflow.site`)"
+      - "traefik.http.routers.frontend-http.entrypoints=http"
+      - "traefik.http.routers.frontend-http.middlewares=https-redirect"
+
+  # MinIO (S3-compatible storage)
+  # MinIO - disabled until subdomain DNS is configured
+  # minio:
+  #   image: minio/minio:latest
+  #   container_name: fleet_minio
+  #   restart: unless-stopped
+  #   environment:
+  #     MINIO_ROOT_USER: minioadmin
+  #     MINIO_ROOT_PASSWORD: minioadmin
+  #   volumes:
+  #     - minio-data:/data
+  #   command: server /data --console-address ":9001"
+  #   networks:
+  #     - fleet-network
+  #   labels:
+  #     - "traefik.enable=true"
+  #     # MinIO API
+  #     - "traefik.http.routers.minio.rule=Host(`s3.truckflow.site`)"
+  #     - "traefik.http.routers.minio.entrypoints=https"
+  #     - "traefik.http.routers.minio.tls=true"
+  #     - "traefik.http.routers.minio.tls.certresolver=letsencrypt"
+  #     - "traefik.http.routers.minio.service=minio"
+  #     - "traefik.http.services.minio.loadbalancer.server.port=9000"
+  #     # MinIO Console
+  #     - "traefik.http.routers.minio-console.rule=Host(`console.truckflow.site`)"
+  #     - "traefik.http.routers.minio-console.entrypoints=https"
+  #     - "traefik.http.routers.minio-console.tls=true"
+  #     - "traefik.http.routers.minio-console.tls.certresolver=letsencrypt"
+  #     - "traefik.http.routers.minio-console.service=minio-console"
+  #     - "traefik.http.services.minio-console.loadbalancer.server.port=9001"
+
+volumes:
+  postgres-data:
+  minio-data:
+
+networks:
+  fleet-network:
+    name: fleet-network
+    driver: bridge

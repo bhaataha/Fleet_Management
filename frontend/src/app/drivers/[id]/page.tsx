@@ -20,6 +20,7 @@ export default function EditDriverPage() {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    password: '',
     license_type: 'C',
     is_active: true
   })
@@ -35,6 +36,7 @@ export default function EditDriverPage() {
       setFormData({
         name: driver.name || '',
         phone: driver.phone || '',
+        password: '', // Don't populate existing password for security
         license_type: driver.license_type || 'C',
         is_active: driver.is_active !== false
       })
@@ -51,7 +53,19 @@ export default function EditDriverPage() {
     setError('')
 
     try {
-      await driversApi.update(driverId, formData)
+      // Only include password if it was provided
+      const updateData: any = {
+        name: formData.name,
+        phone: formData.phone,
+        license_type: formData.license_type,
+        is_active: formData.is_active
+      }
+      
+      if (formData.password && formData.password.trim()) {
+        updateData.password = formData.password
+      }
+      
+      await driversApi.update(driverId, updateData)
       router.push('/drivers')
     } catch (err: any) {
       const errorMsg = err.response?.data?.detail || err.message || 'Failed to update driver'
@@ -140,6 +154,22 @@ export default function EditDriverPage() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="050-1234567"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              סיסמה חדשה
+            </label>
+            <input
+              type="password"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="השאר ריק אם לא רוצה לשנות"
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              השאר ריק כדי לשמור את הסיסמה הנוכחית
+            </p>
           </div>
 
           <div>

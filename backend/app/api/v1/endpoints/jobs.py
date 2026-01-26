@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from decimal import Decimal
 from app.core.database import get_db
-from app.models import Job, JobStatus, JobStatusEvent, BillingUnit
+from app.models import Job, JobStatus, JobStatusEvent, BillingUnit, ShareUrl
 from app.middleware.tenant import get_current_org_id, get_current_user_info
+from app.core.security import create_access_token
 from app.services.pdf_generator import DeliveryNotePDF
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
 router = APIRouter()
@@ -323,6 +324,61 @@ async def get_job_status_events(
         .all()
     
     return events
+
+
+@router.get("/{job_id}/share")
+async def create_share_url(
+    job_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Create short shareable URL for job PDF
+    Returns a short link like /share/abc123xy
+    """
+    org_id = get_current_org_id(request)
+    user_info = get_current_user_info(request)
+    
+    # Verify job exists and belongs to org
+    db_job = db.query(Job).filter(
+        Job.id == job_id,
+        Job.org_id == org_id
+    ).first()
+    
+    if not db_job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    
+    # Check if active share URL already exists for this job
+    existing_share = db.query(ShareUrl).filter(
+        ShareUrl.job_id == job_id,
+        ShareUrl.org_id == org_id,
+        ShareUrl.is_active == True
+    ).first()
+    
+    if existing_share:
+        return {"short_url": f"https://truckflow.site/share/{existing_share.short_id}"}
+    
+    # Generate short ID (8 characters)
+    import random
+    import string
+    short_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    
+    # Ensure uniqueness
+    while db.query(ShareUrl).filter(ShareUrl.short_id == short_id).first():
+        short_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    
+    # Create share URL record
+    share_url = ShareUrl(
+        short_id=short_id,
+        job_id=job_id,
+        org_id=org_id,
+        created_by=user_info["user_id"],
+        expires_at=datetime.utcnow() + timedelta(days=30)  # Expires in 30 days
+    )
+    db.add(share_url)
+    db.commit()
+    
+    return {"short_url": f"https://truckflow.site/api/share/{short_id}"}
 
 
 @router.get("/{job_id}/pdf")

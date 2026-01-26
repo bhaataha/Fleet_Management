@@ -104,6 +104,27 @@
       font-weight: 600;
     }
     
+    .logout-btn {
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      font-size: 13px;
+      border-radius: 20px;
+      margin-top: 8px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .logout-btn:active {
+      background: rgba(255, 255, 255, 0.25);
+      transform: scale(0.95);
+    }
+    
     .toggle-btn {
       background: rgba(255, 255, 255, 0.2);
       border: 2px solid rgba(255, 255, 255, 0.3);
@@ -120,6 +141,119 @@
     .toggle-btn:active {
       background: rgba(255, 255, 255, 0.3);
       transform: scale(0.95);
+    }
+    
+    /* Login Screen Styles */
+    .login-screen {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(180deg, #f0f4ff 0%, #e5edff 100%);
+      z-index: 9999;
+    }
+    
+    .login-screen.active {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    
+    .login-logo {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    
+    .login-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1e40af;
+      margin-bottom: 8px;
+    }
+    
+    .login-subtitle {
+      font-size: 16px;
+      color: #64748b;
+      margin-bottom: 32px;
+    }
+    
+    .login-form {
+      background: white;
+      border-radius: 20px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+    
+    .login-input-group {
+      margin-bottom: 20px;
+    }
+    
+    .login-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 8px;
+    }
+    
+    .login-input {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      transition: all 0.3s;
+      direction: ltr;
+      text-align: right;
+    }
+    
+    .login-input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    
+    .login-button {
+      width: 100%;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: white;
+      border: none;
+      padding: 16px;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 8px;
+    }
+    
+    .login-button:active {
+      transform: scale(0.98);
+    }
+    
+    .login-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .login-error {
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 16px;
+      display: none;
+    }
+    
+    .login-error.active {
+      display: block;
     }
     
     .job-card {
@@ -401,9 +535,181 @@
       color: #2563eb;
       font-weight: 600;
     }
+    
+    /* Login Screen Styles */
+    .login-screen {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(180deg, #f0f4ff 0%, #e5edff 100%);
+      z-index: 9999;
+    }
+    
+    .login-screen.active {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    
+    .login-logo {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+    
+    .login-title {
+      font-size: 32px;
+      font-weight: 700;
+      color: #1e40af;
+      margin-bottom: 8px;
+    }
+    
+    .login-subtitle {
+      font-size: 18px;
+      color: #64748b;
+      margin-bottom: 40px;
+    }
+    
+    .login-form {
+      background: white;
+      border-radius: 20px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+    
+    .login-input-group {
+      margin-bottom: 20px;
+    }
+    
+    .login-label {
+      display: block;
+      font-size: 15px;
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: 8px;
+      text-align: right;
+    }
+    
+    .login-input {
+      width: 100%;
+      padding: 16px;
+      font-size: 17px;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      transition: all 0.3s;
+      direction: ltr;
+      text-align: left;
+      box-sizing: border-box;
+    }
+    
+    .login-input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    
+    .login-button {
+      width: 100%;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: white;
+      border: none;
+      padding: 18px;
+      font-size: 18px;
+      font-weight: 600;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 8px;
+    }
+    
+    .login-button:active {
+      transform: scale(0.98);
+    }
+    
+    .login-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    
+    .login-error {
+      background: #fee2e2;
+      color: #991b1b;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 15px;
+      margin-bottom: 20px;
+      display: none;
+      text-align: right;
+    }
+    
+    .login-error.active {
+      display: block;
+    }
+    
+    .logout-btn {
+      background: rgba(255, 255, 255, 0.15);
+      border: none;
+      color: white;
+      padding: 10px 18px;
+      font-size: 14px;
+      border-radius: 22px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    
+    .logout-btn:active {
+      background: rgba(255, 255, 255, 0.25);
+      transform: scale(0.95);
+    }
   </style>
 </head>
 <body>
+  <!-- Login Screen -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-logo">🚛</div>
+    <div class="login-title">אפליקצייט נהג</div>
+    <div class="login-subtitle">התחבר כדי להמשיך</div>
+    
+    <div class="login-form">
+      <div class="login-error" id="loginError"></div>
+      
+      <div class="login-input-group">
+        <label class="login-label" for="phoneInput">מספר טלפון</label>
+        <input 
+          type="tel" 
+          id="phoneInput" 
+          class="login-input" 
+          placeholder="050-1234567"
+          autocomplete="tel"
+        />
+      </div>
+      
+      <div class="login-input-group">
+        <label class="login-label" for="passwordInput">סיסמה</label>
+        <input 
+          type="password" 
+          id="passwordInput" 
+          class="login-input" 
+          placeholder="הזן סיסמה"
+          autocomplete="current-password"
+        />
+      </div>
+      
+      <button class="login-button" id="loginButton" onclick="handleLogin()">התחבר</button>
+    </div>
+  </div>
+
   <div class="header">
     <div class="header-content">
       <h1>
@@ -420,8 +726,15 @@
           ⏳
         </div>
       </div>
+      <button class="logout-btn" onclick="handleLogout()">
+        <span>🚪</span>
+        <span>יציאה</span>
+      </button>
       <button id="toggle-view" class="toggle-btn">
         📋 הצג את כל המשימות
+      </button>
+      <button id="test-location" class="toggle-btn" onclick="testLocation()">
+        📍 בדוק מיקום
       </button>
     </div>
   </div>
@@ -443,7 +756,7 @@
   </div>
 
   <script>
-    const API_URL = 'http://truckflow.site:8001/api';
+    const API_URL = 'https://truckflow.site/api';
     let token = localStorage.getItem('access_token');
     let currentUser = null;
     let sites = [];
@@ -454,11 +767,87 @@
 
     // Check if logged in
     if (!token) {
-      // Auto-login with test driver credentials for testing
-      login('050-1111111', 'driver123');
+      showLoginScreen();
     } else {
       init();
     }
+    
+    function showLoginScreen() {
+      document.getElementById('loginScreen').classList.add('active');
+      // Focus on phone input
+      setTimeout(() => {
+        document.getElementById('phoneInput').focus();
+      }, 100);
+    }
+    
+    function hideLoginScreen() {
+      document.getElementById('loginScreen').classList.remove('active');
+    }
+    
+    function showLoginError(message) {
+      const errorEl = document.getElementById('loginError');
+      errorEl.textContent = message;
+      errorEl.classList.add('active');
+    }
+    
+    function hideLoginError() {
+      const errorEl = document.getElementById('loginError');
+      errorEl.classList.remove('active');
+    }
+    
+    async function handleLogin() {
+      const phone = document.getElementById('phoneInput').value.trim();
+      const password = document.getElementById('passwordInput').value;
+      const loginButton = document.getElementById('loginButton');
+      
+      if (!phone || !password) {
+        showLoginError('נא למלא את כל השדות');
+        return;
+      }
+      
+      hideLoginError();
+      loginButton.disabled = true;
+      loginButton.textContent = 'מתחבר...';
+      
+      try {
+        await login(phone, password);
+      } catch (err) {
+        loginButton.disabled = false;
+        loginButton.textContent = 'התחבר';
+      }
+    }
+    
+    function handleLogout() {
+      if (confirm('האם אתה בטוח שברצונך להתנתק?')) {
+        localStorage.removeItem('access_token');
+        token = null;
+        currentUser = null;
+        showLoginScreen();
+        // Clear inputs
+        document.getElementById('phoneInput').value = '';
+        document.getElementById('passwordInput').value = '';
+        document.getElementById('loginButton').disabled = false;
+        document.getElementById('loginButton').textContent = 'התחבר';
+      }
+    }
+    
+    // Handle Enter key in login form
+    document.addEventListener('DOMContentLoaded', () => {
+      const phoneInput = document.getElementById('phoneInput');
+      const passwordInput = document.getElementById('passwordInput');
+      
+      phoneInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          passwordInput.focus();
+        }
+      });
+      
+      passwordInput?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          handleLogin();
+        }
+      });
+    });
 
     async function login(phone, password) {
       try {
@@ -470,20 +859,26 @@
         
         if (!res.ok) {
           const error = await res.json();
-          alert('שגיאה בהתחברות: ' + (error.detail || 'פרטים שגויים'));
+          const errorMsg = error.detail || 'פרטים שגויים';
+          showLoginError('שגיאה בהתחברות: ' + errorMsg);
           localStorage.removeItem('access_token');
-          location.reload();
-          return;
+          throw new Error(errorMsg);
         }
         
         const data = await res.json();
         token = data.access_token;
         localStorage.setItem('access_token', token);
         currentUser = data.user;
+        hideLoginScreen();
         init();
       } catch (err) {
-        alert('שגיאה בהתחברות: ' + err.message);
+        if (err.message !== 'Failed to fetch') {
+          showLoginError('שגיאה בהתחברות: ' + err.message);
+        } else {
+          showLoginError('שגיאה בחיבור לשרת');
+        }
         localStorage.removeItem('access_token');
+        throw err;
       }
     }
 
@@ -898,32 +1293,56 @@
         let lat, lng;
         if (navigator.geolocation) {
           try {
+            console.log('🔍 Attempting to get GPS location...');
             const pos = await new Promise((resolve, reject) => {
               navigator.geolocation.getCurrentPosition(resolve, reject, {
-                timeout: 5000,
-                enableHighAccuracy: false
+                timeout: 15000,  // Increased timeout
+                enableHighAccuracy: true,  // Better accuracy
+                maximumAge: 60000  // Cache for 1 minute
               });
             });
             lat = pos.coords.latitude;
             lng = pos.coords.longitude;
-            console.log('📍 Location captured:', lat, lng);
+            console.log('📍 Location captured successfully:', lat, lng);
+            
+            // Update location status in header
+            const statusEl = document.getElementById('location-status');
+            if (statusEl) {
+              statusEl.innerHTML = '✅';
+              statusEl.title = `מיקום התקבל: ${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+            }
           } catch (geoErr) {
-            console.log('⚠️ Location not available (denied or timeout), continuing without location');
+            console.warn('⚠️ Location error:', geoErr.message);
+            const statusEl = document.getElementById('location-status');
+            if (statusEl) {
+              statusEl.innerHTML = '❌';
+              statusEl.title = 'מיקום לא זמין: ' + geoErr.message;
+            }
             // Continue without location - it's optional
           }
+        } else {
+          console.warn('⚠️ Geolocation not supported by browser');
         }
 
+        console.log('📤 Sending status update...', { jobId, newStatus, lat, lng });
+        
         const response = await fetch(`${API_URL}/jobs/${jobId}/status`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ status: newStatus, lat, lng })
+          body: JSON.stringify({ 
+            status: newStatus, 
+            lat: lat || null, 
+            lng: lng || null,
+            note: lat && lng ? `GPS: ${lat.toFixed(6)}, ${lng.toFixed(6)}` : 'No GPS available'
+          })
         });
 
         if (!response.ok) {
-          throw new Error('Failed to update status');
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
         console.log('✅ Status updated successfully');
@@ -985,6 +1404,64 @@
         }
       };
       input.click();
+    }
+
+    async function testLocation() {
+      const btn = document.getElementById('test-location');
+      const statusEl = document.getElementById('location-status');
+      
+      if (!navigator.geolocation) {
+        alert('הדפדפן לא תומך במיקום GPS');
+        return;
+      }
+      
+      btn.disabled = true;
+      btn.textContent = '⏳ בודק מיקום...';
+      statusEl.innerHTML = '⏳';
+      statusEl.title = 'מבקש מיקום...';
+      
+      try {
+        console.log('🔍 Testing GPS location...');
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 15000,
+            enableHighAccuracy: true,
+            maximumAge: 0
+          });
+        });
+        
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const accuracy = pos.coords.accuracy;
+        
+        console.log('📍 Location test successful:', { lat, lng, accuracy });
+        
+        statusEl.innerHTML = '✅';
+        statusEl.title = `מיקום: ${lat.toFixed(6)}, ${lng.toFixed(6)} (דיוק: ${Math.round(accuracy)}מ')`;
+        
+        alert(`מיקום התקבל בהצלחה!\nקו רוחב: ${lat.toFixed(6)}\nקו אורך: ${lng.toFixed(6)}\nדיוק: ${Math.round(accuracy)} מטר`);
+        
+      } catch (err) {
+        console.error('❌ Location test failed:', err);
+        statusEl.innerHTML = '❌';
+        statusEl.title = 'מיקום נכשל: ' + err.message;
+        
+        let message = 'לא ניתן לקבל מיקום:\n';
+        if (err.code === 1) {
+          message += 'ההרשאה נדחתה. אנא אפשר גישה למיקום בהגדרות הדפדפן.';
+        } else if (err.code === 2) {
+          message += 'מיקום לא זמין. בדוק שה-GPS פעיל.';
+        } else if (err.code === 3) {
+          message += 'תם הזמן הקצוב. נסה שוב במקום עם קליטה טובה יותר.';
+        } else {
+          message += err.message;
+        }
+        alert(message);
+        
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📍 בדוק מיקום';
+      }
     }
 
   </script>

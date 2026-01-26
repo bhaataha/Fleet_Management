@@ -119,6 +119,7 @@ class Organization(Base):
     drivers = relationship("Driver", back_populates="organization")
     trucks = relationship("Truck", back_populates="organization")
     materials = relationship("Material", back_populates="organization")
+    share_urls = relationship("ShareUrl", back_populates="organization")
 
 
 class User(Base):
@@ -352,6 +353,7 @@ class Job(Base):
     status_events = relationship("JobStatusEvent", back_populates="job")
     delivery_note = relationship("DeliveryNote", back_populates="job", uselist=False)
     files = relationship("JobFile", back_populates="job")
+    share_urls = relationship("ShareUrl", back_populates="job")
 
 
 class JobStatusEvent(Base):
@@ -539,3 +541,21 @@ class AuditLog(Base):
     before_json = Column(JSON)
     after_json = Column(JSON)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ShareUrl(Base):
+    """Short URLs for PDF sharing (like bit.ly for job PDFs)"""
+    __tablename__ = "share_urls"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    short_id = Column(String(8), unique=True, nullable=False, index=True)  # e.g., "abc123xy"
+    job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    created_by = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(DateTime(timezone=True))  # Optional expiration
+    is_active = Column(Boolean, default=True)
+    
+    # Relationships
+    job = relationship("Job", back_populates="share_urls")
+    organization = relationship("Organization", back_populates="share_urls")

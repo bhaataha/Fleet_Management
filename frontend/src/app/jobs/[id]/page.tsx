@@ -459,7 +459,7 @@ export default function JobDetailPage() {
     setEditingActualQty(true)
   }
 
-  const handleSendWhatsApp = () => {
+  const handleSendWhatsApp = async () => {
     // Get token for authenticated PDF access
     const token = localStorage.getItem('access_token')
     if (!token) {
@@ -468,39 +468,41 @@ export default function JobDetailPage() {
       return
     }
     
-    // Direct API link with token for PDF download (opens in browser)
-    const pdfUrl = `http://truckflow.site:8001/api/jobs/${params.id}/pdf?token=${token}`
-    
-    // Build message with job details and PDF link
-    const date = new Date(job.scheduled_date).toLocaleDateString('he-IL')
-    const customerName = customer?.name || `לקוח #${job.customer_id}`
-    const fromSiteName = fromSite?.name || `אתר #${job.from_site_id}`
-    const toSiteName = toSite?.name || `אתר #${job.to_site_id}`
-    const materialName = material?.name_hebrew || material?.name || `חומר #${job.material_id}`
-    const qty = job.actual_qty || job.planned_qty
-    
-    const message = `🚛 *תעודת משלוח #${job.id}*
+    try {
+      // Create share URL via API
+      const response = await fetch(`/api/jobs/${params.id}/share`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to create share link')
+      }
+      
+      const data = await response.json()
+      const shareUrl = data.short_url
+      
+      const message = `🚛 *תעודת משלוח #${job.id}*
 
-📅 תאריך: ${date}
-👤 לקוח: ${customerName}
-📍 מסלול: ${fromSiteName} ← ${toSiteName}
-📦 חומר: ${materialName}
-⚖️ כמות: ${qty} ${billingUnitLabels[job.unit] || job.unit}
-
-📄 לצפייה והורדת תעודת המשלוח:
-${pdfUrl}
+📄 צפה כאן: ${shareUrl}
 
 _נשלח מ-TruckFlow_`
 
-    // Get customer phone if available
-    const phone = customer?.phone?.replace(/[^0-9]/g, '') || ''
-    
-    // Open WhatsApp Web
-    const whatsappUrl = phone && phone.length >= 9
-      ? `https://wa.me/972${phone.replace(/^0/, '')}?text=${encodeURIComponent(message)}`
-      : `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`
-    
-    window.open(whatsappUrl, '_blank')
+      // Get customer phone if available
+      const phone = customer?.phone?.replace(/[^0-9]/g, '') || ''
+      
+      // Open WhatsApp Web
+      const whatsappUrl = phone && phone.length >= 9
+        ? `https://wa.me/972${phone.replace(/^0/, '')}?text=${encodeURIComponent(message)}`
+        : `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`
+      
+      window.open(whatsappUrl, '_blank')
+      
+    } catch (error) {
+      console.error('Error creating share link:', error)
+      alert('שגיאה ביצירת קישור שיתוף')
+    }
   }
 
   if (loading) {

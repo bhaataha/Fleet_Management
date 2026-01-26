@@ -139,7 +139,7 @@ export default function JobsPage() {
     }
   }
 
-  function handleShareWhatsApp(jobId: number) {
+  async function handleShareWhatsApp(jobId: number) {
     const job = jobs.find(j => j.id === jobId)
     if (!job) return
     
@@ -151,31 +151,34 @@ export default function JobsPage() {
       return
     }
     
-    const customerName = getCustomerName(job.customer_id)
-    const fromSite = getSiteName(job.from_site_id)
-    const toSite = getSiteName(job.to_site_id)
-    const material = getMaterialName(job.material_id)
-    const qty = job.actual_qty || job.planned_qty
-    const date = new Date(job.scheduled_date).toLocaleDateString('he-IL')
-    
-    // Direct API link with token for PDF download (opens in browser)
-    const pdfUrl = `http://truckflow.site:8001/api/jobs/${jobId}/pdf?token=${token}`
-    
-    const message = `🚛 *תעודת משלוח #${jobId}*
+    try {
+      // Create share URL via API
+      const response = await fetch(`/api/jobs/${jobId}/share`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to create share link')
+      }
+      
+      const data = await response.json()
+      const shareUrl = data.short_url
+      
+      const message = `🚛 *תעודת משלוח #${jobId}*
 
-📅 תאריך: ${date}
-👤 לקוח: ${customerName}
-📍 מסלול: ${fromSite} ← ${toSite}
-📦 חומר: ${material}
-⚖️ כמות: ${qty} ${billingUnitLabels[job.unit] || job.unit}
-
-📄 לצפייה והורדת תעודת המשלוח:
-${pdfUrl}
+📄 צפה כאן: ${shareUrl}
 
 _נשלח מ-TruckFlow_`
-    
-    const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`
-    window.open(whatsappUrl, '_blank')
+      
+      const whatsappUrl = `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`
+      window.open(whatsappUrl, '_blank')
+      
+    } catch (error) {
+      console.error('Error creating share link:', error)
+      alert('שגיאה ביצירת קישור שיתוף')
+    }
   }
 
   // Filter jobs

@@ -32,11 +32,20 @@ async def tenant_middleware(request: Request, call_next):
         "/health",
         "/api/health",  # Health endpoint with API prefix
         "/docs",
+        "/api/docs",  # Swagger docs with API prefix
         "/openapi.json",
+        "/api/openapi.json",  # OpenAPI schema with prefix
         "/redoc",
+        "/api/redoc",  # ReDoc with prefix
         "/api/auth/login",  # Actual route path (API_V1_PREFIX = /api)
+        "/api/auth/driver-login",  # Driver phone login
         "/api/v1/auth/login",  # Just in case
+        "/api/v1/auth/driver-login",  # Driver phone login v1
     ]
+    
+    # Allow all share URLs (public PDF sharing)
+    if request.url.path.startswith("/api/share/") or request.url.path.startswith("/share/"):
+        return await call_next(request)
     
     if request.url.path in public_paths or request.url.path.startswith("/static"):
         return await call_next(request)
