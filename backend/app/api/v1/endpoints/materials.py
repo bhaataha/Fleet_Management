@@ -23,7 +23,7 @@ class MaterialCreate(MaterialBase):
 
 class MaterialResponse(MaterialBase):
     id: int
-    org_id: int
+    org_id: UUID
     is_active: bool
     created_at: datetime
     

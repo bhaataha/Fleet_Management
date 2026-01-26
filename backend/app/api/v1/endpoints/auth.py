@@ -6,6 +6,7 @@ from app.core.security import verify_password, create_access_token, create_acces
 from app.models import User, Driver, Organization
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from uuid import UUID
 
 router = APIRouter()
 security = HTTPBearer()
@@ -27,7 +28,7 @@ class UserInfo(BaseModel):
     id: int
     name: str
     email: str
-    org_id: int
+    org_id: UUID
     roles: list[str]
 
 

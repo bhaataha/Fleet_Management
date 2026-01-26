@@ -1,6 +1,6 @@
 # 🚀 Phase 2: Tenant Isolation - IN PROGRESS
 
-## תאריך: 25 ינואר 2026
+## תאריך: 26 ינואר 2026
 
 ---
 
@@ -62,28 +62,59 @@
 
 **Security Impact**: בידוד מלא בין אתרים של ארגונים שונים!
 
+### 7. Drivers / Trucks / Materials / Jobs ✅ (100%)
+**קבצים**:
+- `backend/app/api/v1/endpoints/drivers.py`
+- `backend/app/api/v1/endpoints/trucks.py`
+- `backend/app/api/v1/endpoints/materials.py`
+- `backend/app/api/v1/endpoints/jobs.py`
+
+- ✅ סינון לפי org_id בכל query
+- ✅ auto-assign org_id ב-POST
+- ✅ בדיקות 404 לנתונים של ארגון אחר
+
+### 8. Pricing + Statements ✅ (100%)
+**קבצים**:
+- `backend/app/api/v1/endpoints/pricing.py`
+- `backend/app/api/v1/endpoints/statements.py`
+
+- ✅ שימוש ב-current_user.org_id לכל query
+- ✅ בידוד מלא למחירונים/חשבוניות
+
+### 9. Super Admin Endpoints ✅ (100%)
+**קובץ**: `backend/app/api/v1/endpoints/super_admin.py`
+
+- ✅ CRUD organizations
+- ✅ System stats
+- ✅ Impersonation (X-Org-Id)
+- ✅ Path params תואמים UUID
+
+### 10. UUID Alignment ✅ (100%)
+**קבצים**:
+- `backend/app/models/__init__.py`
+- `backend/app/middleware/tenant.py`
+- `backend/app/api/v1/endpoints/auth.py`
+
+- ✅ org_id ו-organization.id תואמים UUID
+- ✅ JWT מכיל org_id כ-UUID string
+
+### 11. Share URLs Migration ✅ (100%)
+**קובץ**: `backend/upgrade_share_urls.sql`
+
+- ✅ יצירת הטבלה share_urls
+- ✅ תיקון 500 במחיקת ארגון
+
 ---
 
 ## 🚧 מה נותר לעשות:
 
-### Endpoints שצריכים עדכון (7 קבצים):
+### Endpoints שצריכים עדכון:
 
-1. ⬜ `drivers.py` - נהגים
-2. ⬜ `trucks.py` - משאיות
-3. ⬜ `materials.py` - חומרים
-4. ⬜ `jobs.py` - נסיעות (קריטי!)
-5. ⬜ `pricing.py` - מחירונים
-6. ⬜ `statements.py` - חשבוניות
-7. ⬜ `users.py` - משתמשים (צריך טיפול מיוחד)
+1. ⬜ `users.py` - משתמשים (צריך טיפול מיוחד)
 
 ### תכונות נוספות:
 
-8. ⬜ Super Admin Endpoints (`/api/super-admin/...`)
-   - CRUD organizations
-   - Impersonation helper
-   - System stats
-
-9. ⬜ Testing Multi-Tenant Isolation
+2. ⬜ Testing Multi-Tenant Isolation
    - יצירת ארגון שני
    - בדיקה שמשתמש מארגון 1 לא רואה נתונים מארגון 2
 
@@ -95,11 +126,12 @@
 **Middleware**: ✅ 100%  
 **JWT**: ✅ 100%  
 **Auth**: ✅ 100%  
-**Endpoints**: 🟡 28.5% (2 מתוך 7)  
-**Super Admin**: ⬜ 0%  
-**Testing**: ⬜ 0%  
+**Endpoints**: ✅ 100% (7 מתוך 7)  
+**Super Admin**: ✅ 100%  
+**Users**: ⬜ 0%  
+**Testing**: 🟡 25%  
 
-**סה"כ Phase 2**: 🟡 **45%**
+**סה"כ Phase 2**: 🟡 **85%**
 
 ---
 
@@ -108,41 +140,27 @@
 ### ⚠️ מה שכבר מאובטח:
 - ✅ Customers - בידוד מלא
 - ✅ Sites - בידוד מלא
+- ✅ Drivers/Trucks/Jobs/Materials - בידוד מלא
+- ✅ Pricing/Statements - בידוד מלא
 
 ### ⚠️ מה שעדיין לא מאובטח:
-- ❌ Drivers - ללא סינון org_id!
-- ❌ Trucks - ללא סינון org_id!
-- ❌ Jobs - ללא סינון org_id! (הכי קריטי!)
-- ❌ Materials - ללא סינון org_id!
-- ❌ Price Lists - ללא סינון org_id!
-- ❌ Statements - ללא סינון org_id!
+- ❌ Users - דורש טיפול נפרד (RBAC)
 
 ### 🚨 סיכון אבטחתי:
-כרגע משתמש מארגון אחד יכול:
-- לראות נהגים של ארגונים אחרים
-- לראות משאיות של ארגונים אחרים
-- **לראות ולערוך נסיעות של ארגונים אחרים!** ← קריטי ביותר!
-- לראות מחירונים של ארגונים אחרים
-
-**המלצה**: להמשיך מיידית עם Jobs, Drivers, Trucks!
+כרגע משתמש יכול לגשת לנתוני משתמשים ללא בידוד מלא אם endpoint משתמשים לא מעודכן.
 
 ---
 
 ## 🎯 עדיפויות להמשך
 
 ### Priority 1 (קריטי):
-1. **Jobs** - נסיעות (מידע פיננסי רגיש!)
-2. **Drivers** - נהגים
-3. **Trucks** - משאיות
+1. **Users** - בידוד והרשאות
 
 ### Priority 2 (חשוב):
-4. **Materials** - חומרים
-5. **Pricing** - מחירונים
-6. **Statements** - חשבוניות
+2. **Testing** - בדיקות Multi-Tenant
 
 ### Priority 3 (אופציונלי ל-MVP):
-7. **Users** - משתמשים (טיפול מיוחד)
-8. **Super Admin** - ניהול מערכתי
+3. **Documentation cleanup**
 
 ---
 
@@ -163,32 +181,32 @@ async def function_name(
     request: Request,  # ← הוסף
     # ... פרמטרים אחרים
 ):
-    org_id = get_current_org_id(request)  # ← שורה ראשונה
+    org_id = get_current_org_id(request)  # ← UUID
 ```
 
 3. **GET (list)**:
 ```python
-query = db.query(Model).filter(Model.org_id == UUID(org_id))
+query = db.query(Model).filter(Model.org_id == org_id)
 ```
 
 4. **GET (single)**:
 ```python
 item = db.query(Model).filter(
     Model.id == item_id,
-    Model.org_id == UUID(org_id)
+    Model.org_id == org_id
 ).first()
 ```
 
 5. **POST (create)**:
 ```python
-new_item = Model(org_id=UUID(org_id), **data.dict())
+new_item = Model(org_id=org_id, **data.dict())
 ```
 
 6. **PATCH/DELETE**:
 ```python
 item = db.query(Model).filter(
     Model.id == item_id,
-    Model.org_id == UUID(org_id)
+    Model.org_id == org_id
 ).first()
 ```
 
@@ -201,8 +219,8 @@ item = db.query(Model).filter(
 - [ ] Import `Request` + `UUID` + `get_current_org_id`
 - [ ] כל פונקציה מקבלת `request: Request`
 - [ ] שורה ראשונה: `org_id = get_current_org_id(request)`
-- [ ] כל query כולל `.filter(Model.org_id == UUID(org_id))`
-- [ ] POST/CREATE משתמש ב-`org_id=UUID(org_id)`
+- [ ] כל query כולל `.filter(Model.org_id == org_id)`
+- [ ] POST/CREATE משתמש ב-`org_id=org_id`
 - [ ] אין hardcoded `org_id=1` או `org_id=...`
 - [ ] אין TODO comments על org_id
 
@@ -232,19 +250,10 @@ item = db.query(Model).filter(
 
 ## 📈 זמן משוער להשלמה
 
-- ✅ Customers: 15 דקות (בוצע)
-- ✅ Sites: 15 דקות (בוצע)
-- ⏱️ Drivers: 15 דקות
-- ⏱️ Trucks: 15 דקות
-- ⏱️ Materials: 15 דקות
-- ⏱️ Jobs: 30 דקות (מורכב יותר - status updates)
-- ⏱️ Pricing: 20 דקות
-- ⏱️ Statements: 20 דקות
-
-**סה"כ נותר**: ~2.5 שעות
+**נותר**: Users + Testing (~1-2 שעות)
 
 ---
 
-**עודכן לאחרונה**: 25 ינואר 2026, 21:30  
-**מבצע**: Copilot Agent  
-**סטטוס**: 🟡 In Progress - 45% Complete
+**עודכן לאחרונה**: 26 ינואר 2026, 18:30  
+**מבצע**: Codex Agent  
+**סטטוס**: 🟡 In Progress - 85% Complete

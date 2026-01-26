@@ -25,7 +25,12 @@ class Settings(BaseSettings):
     # API
     API_V1_PREFIX: str = "/api"
     BACKEND_CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001",
         "http://localhost:3010",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:3010",
         "http://truckflow.site:3010",
         "http://64.176.173.36:3010",
         "http://truckflow.site",

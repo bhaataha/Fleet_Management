@@ -5,7 +5,7 @@ from typing import List, Optional
 from decimal import Decimal
 from app.core.database import get_db
 from app.models import Job, JobStatus, JobStatusEvent, BillingUnit, ShareUrl
-from app.middleware.tenant import get_current_org_id, get_current_user_info
+from app.middleware.tenant import get_current_org_id, get_current_user_id
 from app.core.security import create_access_token
 from app.services.pdf_generator import DeliveryNotePDF
 from pydantic import BaseModel
@@ -63,7 +63,7 @@ class JobUpdate(BaseModel):
 
 class JobResponse(JobBase):
     id: int
-    org_id: int
+    org_id: UUID
     driver_id: Optional[int]
     truck_id: Optional[int]
     trailer_id: Optional[int]
@@ -155,9 +155,8 @@ async def create_job(
     Create new job (Dispatcher creates job in PLANNED status)
     Auto-assigned to current org from JWT
     """
-    user_info = get_current_user_info(request)
-    org_id = int(user_info["org_id"])
-    user_id = user_info["user_id"]
+    org_id = get_current_org_id(request)
+    user_id = get_current_user_id(request)
     
     db_job = Job(
         org_id=org_id,
@@ -193,9 +192,8 @@ async def update_job(
     Update job (assign driver/truck, update quantities, status, etc.)
     Filtered by org_id from JWT
     """
-    user_info = get_current_user_info(request)
-    org_id = int(user_info["org_id"])
-    user_id = user_info["user_id"]
+    org_id = get_current_org_id(request)
+    user_id = get_current_user_id(request)
     
     db_job = db.query(Job).filter(
         Job.id == job_id,
@@ -250,9 +248,8 @@ async def update_job_status(
     Update job status (driver updates from mobile app)
     Filtered by org_id from JWT
     """
-    user_info = get_current_user_info(request)
-    org_id = int(user_info["org_id"])
-    user_id = user_info["user_id"]
+    org_id = get_current_org_id(request)
+    user_id = get_current_user_id(request)
     
     db_job = db.query(Job).filter(
         Job.id == job_id,
@@ -337,7 +334,7 @@ async def create_share_url(
     Returns a short link like /share/abc123xy
     """
     org_id = get_current_org_id(request)
-    user_info = get_current_user_info(request)
+    user_id = get_current_user_id(request)
     
     # Verify job exists and belongs to org
     db_job = db.query(Job).filter(
@@ -372,7 +369,7 @@ async def create_share_url(
         short_id=short_id,
         job_id=job_id,
         org_id=org_id,
-        created_by=user_info["user_id"],
+        created_by=user_id,
         expires_at=datetime.utcnow() + timedelta(days=30)  # Expires in 30 days
     )
     db.add(share_url)

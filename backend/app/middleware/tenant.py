@@ -2,13 +2,24 @@
 Tenant Middleware - Extract org_id from JWT and inject into request.state
 """
 from fastapi import Request, HTTPException, status
+from fastapi.responses import JSONResponse
 from jose import jwt, JWTError
 from app.core.config import settings
 from uuid import UUID
-from typing import Union
+from typing import Optional, Dict
 import logging
 
 logger = logging.getLogger(__name__)
+
+def _error_response(
+    status_code: int,
+    detail: str,
+    headers: Optional[Dict[str, str]] = None
+) -> JSONResponse:
+    content = {"detail": detail}
+    if headers:
+        return JSONResponse(status_code=status_code, content=content, headers=headers)
+    return JSONResponse(status_code=status_code, content=content)
 
 
 async def tenant_middleware(request: Request, call_next):
@@ -29,6 +40,7 @@ async def tenant_middleware(request: Request, call_next):
     
     # Skip public endpoints
     public_paths = [
+        "/",  # Root path
         "/health",
         "/api/health",  # Health endpoint with API prefix
         "/docs",
@@ -61,7 +73,7 @@ async def tenant_middleware(request: Request, call_next):
         token = request.query_params.get("token")
     
     if not token:
-        raise HTTPException(
+        return _error_response(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Missing or invalid authorization header",
             headers={"WWW-Authenticate": "Bearer"},
@@ -81,37 +93,29 @@ async def tenant_middleware(request: Request, call_next):
         
         if org_id_value is None:
             logger.error(f"Token missing org_id for user {user_id}")
-            raise HTTPException(
+            return _error_response(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Token missing org_id - please login again"
             )
         
-        # Convert to appropriate type (Integer or UUID)
-        # Try Integer first (current schema), then UUID (future schema)
+        # Convert to UUID (current schema)
         try:
-            org_id = int(org_id_value)
+            org_id = UUID(org_id_value)
         except (ValueError, TypeError):
-            try:
-                org_id = UUID(org_id_value)
-            except (ValueError, TypeError):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Invalid org_id format in token"
-                )
+            return _error_response(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid org_id format in token"
+            )
         
         # Super Admin impersonation: Check X-Org-Id header
         if is_super_admin:
             impersonate_org_id = request.headers.get("X-Org-Id")
             if impersonate_org_id:
                 try:
-                    # Try Integer first, then UUID
-                    try:
-                        org_id = int(impersonate_org_id)
-                    except (ValueError, TypeError):
-                        org_id = UUID(impersonate_org_id)
+                    org_id = UUID(impersonate_org_id)
                     logger.info(f"Super Admin {user_id} impersonating org {org_id}")
                 except (ValueError, TypeError):
-                    raise HTTPException(
+                    return _error_response(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail="Invalid X-Org-Id header format"
                     )
@@ -126,20 +130,20 @@ async def tenant_middleware(request: Request, call_next):
         
     except JWTError as e:
         logger.error(f"JWT decode error: {e}")
-        raise HTTPException(
+        return _error_response(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token - please login again",
             headers={"WWW-Authenticate": "Bearer"},
         )
     except ValueError as e:
         logger.error(f"UUID conversion error: {e}")
-        raise HTTPException(
+        return _error_response(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid org_id format in token"
         )
     except Exception as e:
         logger.error(f"Unexpected error in tenant middleware: {e}", exc_info=True)
-        raise HTTPException(
+        return _error_response(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Authentication error: {str(e)}"
         )
@@ -147,7 +151,7 @@ async def tenant_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-def get_current_org_id(request: Request) -> Union[int, UUID]:
+def get_current_org_id(request: Request) -> UUID:
     """
     Extract org_id from request state (set by tenant_middleware)
     
@@ -156,7 +160,7 @@ def get_current_org_id(request: Request) -> Union[int, UUID]:
         customers = db.query(Customer).filter(Customer.org_id == org_id).all()
     
     Returns:
-        Union[int, UUID]: Current organization ID (Integer in current schema, UUID in future)
+        UUID: Current organization ID
         
     Raises:
         HTTPException 403: If org_id not found in request state

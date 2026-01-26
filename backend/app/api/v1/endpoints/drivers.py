@@ -37,7 +37,7 @@ class DriverUpdate(BaseModel):
 
 class DriverResponse(DriverBase):
     id: int
-    org_id: int
+    org_id: UUID
     user_id: Optional[int] = None
     is_active: bool
     created_at: datetime

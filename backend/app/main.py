@@ -27,7 +27,13 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS middleware for API
+# Add tenant middleware (auth context for API routes)
+app.add_middleware(BaseHTTPMiddleware, dispatch=tenant_middleware)
+
+# Add CORS for static files
+app.add_middleware(CORSStaticFilesMiddleware)
+
+# CORS middleware for API (outermost, so it wraps auth errors)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.BACKEND_CORS_ORIGINS,
@@ -37,12 +43,6 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=3600,  # Cache preflight for 1 hour
 )
-
-# Add CORS for static files
-app.add_middleware(CORSStaticFilesMiddleware)
-
-# Add tenant middleware (must be AFTER CORS, BEFORE routes)
-app.middleware("http")(tenant_middleware)
 
 # Mount static files for uploads (MVP: local storage)
 uploads_dir = Path("/app/uploads")

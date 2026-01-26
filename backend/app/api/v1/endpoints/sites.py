@@ -45,7 +45,7 @@ class SiteUpdate(BaseModel):
 
 class SiteResponse(SiteBase):
     id: int
-    org_id: int
+    org_id: UUID
     is_active: bool
     created_at: datetime
     updated_at: Optional[datetime]
