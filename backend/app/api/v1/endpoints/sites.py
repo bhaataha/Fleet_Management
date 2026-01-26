@@ -13,7 +13,7 @@ router = APIRouter()
 
 
 class SiteBase(BaseModel):
-    customer_id: int
+    customer_id: Optional[int] = None  # אופציונלי - אתרים כלליים
     name: str
     address: Optional[str] = None
     lat: Optional[Decimal] = None
@@ -22,6 +22,7 @@ class SiteBase(BaseModel):
     access_notes: Optional[str] = None
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
+    site_type: Optional[str] = "general"  # general, customer_project
 
 
 class SiteCreate(SiteBase):
@@ -29,6 +30,7 @@ class SiteCreate(SiteBase):
 
 
 class SiteUpdate(BaseModel):
+    customer_id: Optional[int] = None
     name: Optional[str] = None
     address: Optional[str] = None
     lat: Optional[Decimal] = None
@@ -37,6 +39,7 @@ class SiteUpdate(BaseModel):
     access_notes: Optional[str] = None
     contact_name: Optional[str] = None
     contact_phone: Optional[str] = None
+    site_type: Optional[str] = None
     is_active: Optional[bool] = None
 
 

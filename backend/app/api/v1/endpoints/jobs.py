@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from decimal import Decimal
 from app.core.database import get_db
@@ -10,6 +10,19 @@ from datetime import datetime
 from uuid import UUID
 
 router = APIRouter()
+
+
+class JobStatusEventResponse(BaseModel):
+    id: int
+    job_id: int
+    status: JobStatus
+    event_time: datetime
+    lat: Optional[float]
+    lng: Optional[float]
+    note: Optional[str]
+    
+    class Config:
+        from_attributes = True
 
 
 class JobBase(BaseModel):
@@ -56,6 +69,7 @@ class JobResponse(JobBase):
     pricing_total: Optional[float]
     is_billable: bool
     created_at: datetime
+    status_events: List[JobStatusEventResponse] = []
     
     class Config:
         from_attributes = True
@@ -87,7 +101,9 @@ async def list_jobs(
     """
     org_id = get_current_org_id(request)
     
-    query = db.query(Job).filter(Job.org_id == org_id)
+    query = db.query(Job).options(
+        joinedload(Job.status_events)
+    ).filter(Job.org_id == org_id)
     
     if date:
         query = query.filter(Job.scheduled_date >= date, 
@@ -113,7 +129,9 @@ async def get_job(
     """
     org_id = get_current_org_id(request)
     
-    job = db.query(Job).filter(
+    job = db.query(Job).options(
+        joinedload(Job.status_events)
+    ).filter(
         Job.id == job_id,
         Job.org_id == org_id
     ).first()

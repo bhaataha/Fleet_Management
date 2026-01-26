@@ -186,7 +186,7 @@ class Site(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
-    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)  # Nullable for general sites
     name = Column(String(255), nullable=False)
     address = Column(Text)
     lat = Column(Numeric(10, 7))
@@ -195,6 +195,7 @@ class Site(Base):
     access_notes = Column(Text)  # הערות גישה/אישורים
     contact_name = Column(String(255))
     contact_phone = Column(String(50))
+    site_type = Column(String(50), default="general")  # general, customer_project
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())

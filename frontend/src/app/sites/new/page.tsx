@@ -19,13 +19,14 @@ export default function NewSitePage() {
   
   const [formData, setFormData] = useState({
     name: '',
-    customer_id: 0,
+    customer_id: null as number | null,
     address: '',
     lat: null as number | null,
     lng: null as number | null,
     opening_hours: '',
     contact_name: '',
-    contact_phone: ''
+    contact_phone: '',
+    site_type: 'general' as 'general' | 'customer_project'
   })
 
   useEffect(() => {
@@ -50,8 +51,8 @@ export default function NewSitePage() {
     e.preventDefault()
     setError('')
     
-    if (!formData.customer_id) {
-      setError('יש לבחור לקוח')
+    if (formData.site_type === 'customer_project' && !formData.customer_id) {
+      setError('יש לבחור לקוח עבור אתר לקוח')
       return
     }
 
@@ -60,6 +61,7 @@ export default function NewSitePage() {
     try {
       await sitesApi.create({
         ...formData,
+        customer_id: formData.site_type === 'general' ? null : formData.customer_id,
         lat: formData.lat || undefined,
         lng: formData.lng || undefined,
       })
@@ -139,22 +141,39 @@ export default function NewSitePage() {
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    לקוח <span className="text-red-500">*</span>
+                    סוג אתר <span className="text-red-500">*</span>
                   </label>
                   <select
                     required
-                    value={formData.customer_id}
-                    onChange={(e) => setFormData({ ...formData, customer_id: parseInt(e.target.value) })}
+                    value={formData.site_type}
+                    onChange={(e) => setFormData({ ...formData, site_type: e.target.value as 'general' | 'customer_project', customer_id: e.target.value === 'general' ? null : formData.customer_id })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="">בחר לקוח</option>
-                    {customers.map(customer => (
-                      <option key={customer.id} value={customer.id}>
-                        {customer.name}
-                      </option>
-                    ))}
+                    <option value="general">🏭 אתר כללי (מחצבה, תחנת העמסה, וכו')</option>
+                    <option value="customer_project">👤 אתר לקוח (פרויקט/אתר בניה)</option>
                   </select>
                 </div>
+
+                {formData.site_type === 'customer_project' && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      לקוח <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required={formData.site_type === 'customer_project'}
+                      value={formData.customer_id || ''}
+                      onChange={(e) => setFormData({ ...formData, customer_id: e.target.value ? parseInt(e.target.value) : null })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">בחר לקוח</option>
+                      {customers.map(customer => (
+                        <option key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">

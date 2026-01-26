@@ -74,3 +74,86 @@ async def create_material(
     db.commit()
     db.refresh(db_material)
     return db_material
+
+
+@router.post("/seed-defaults", status_code=201)
+async def seed_default_materials(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    יצירת חומרים סטנדרטיים לארגון (עפר, חצץ, מצע, חול, פסולת בניין, אספלט)
+    """
+    org_id = get_current_org_id(request)
+    
+    # בדיקה אם כבר יש חומרים
+    existing_count = db.query(Material).filter(Material.org_id == org_id).count()
+    if existing_count > 0:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Organization already has {existing_count} materials"
+        )
+    
+    default_materials = [
+        {"name": "עפר", "name_hebrew": "עפר", "billing_unit": BillingUnit.TON},
+        {"name": "חצץ", "name_hebrew": "חצץ", "billing_unit": BillingUnit.TON},
+        {"name": "מצע", "name_hebrew": "מצע", "billing_unit": BillingUnit.TON},
+        {"name": "חול", "name_hebrew": "חול", "billing_unit": BillingUnit.TON},
+        {"name": "פסולת בניין", "name_hebrew": "פסולת בניין", "billing_unit": BillingUnit.TON},
+        {"name": "אספלט", "name_hebrew": "אספלט", "billing_unit": BillingUnit.TON},
+    ]
+    
+    created_materials = []
+    for mat_data in default_materials:
+        db_material = Material(org_id=org_id, **mat_data, is_active=True)
+        db.add(db_material)
+        created_materials.append(db_material)
+    
+    db.commit()
+    
+    return {
+        "message": f"Created {len(created_materials)} default materials",
+        "materials": [m.name for m in created_materials]
+    }
+
+
+@router.patch("/{material_id}", response_model=MaterialResponse)
+async def update_material(
+    material_id: int,
+    material: MaterialBase,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    org_id = get_current_org_id(request)
+    db_material = db.query(Material).filter(
+        Material.id == material_id,
+        Material.org_id == org_id
+    ).first()
+    if not db_material:
+        raise HTTPException(status_code=404, detail="Material not found")
+    
+    for key, value in material.dict().items():
+        setattr(db_material, key, value)
+    
+    db.commit()
+    db.refresh(db_material)
+    return db_material
+
+
+@router.delete("/{material_id}", status_code=204)
+async def delete_material(
+    material_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    org_id = get_current_org_id(request)
+    db_material = db.query(Material).filter(
+        Material.id == material_id,
+        Material.org_id == org_id
+    ).first()
+    if not db_material:
+        raise HTTPException(status_code=404, detail="Material not found")
+    
+    db.delete(db_material)
+    db.commit()
+    return None

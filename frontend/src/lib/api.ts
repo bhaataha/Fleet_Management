@@ -171,6 +171,9 @@ export const materialsApi = {
   
   delete: (id: number) =>
     api.delete(`/materials/${id}`),
+  
+  seedDefaults: () =>
+    api.post('/materials/seed-defaults'),
 }
 
 // Jobs API

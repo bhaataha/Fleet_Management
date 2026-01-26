@@ -60,10 +60,14 @@ export default function NewJobPage() {
     loadData()
   }, [])
 
-  // Filter sites by selected customer
-  const availableSites = formData.customer_id 
-    ? sites.filter(s => s.customer_id === parseInt(formData.customer_id))
-    : sites
+  // Filter sites: Always show general sites + customer sites if customer selected
+  const availableSites = sites.filter(s => {
+    // Always show general sites (no customer_id)
+    if (!s.customer_id) return true
+    // Show customer sites only if customer is selected and matches
+    if (formData.customer_id && s.customer_id === parseInt(formData.customer_id)) return true
+    return false
+  })
     
   // Auto-calculate pricing when relevant fields change
   useEffect(() => {
@@ -214,18 +218,15 @@ export default function NewJobPage() {
                   label="מאתר"
                   required
                   placeholder="חפש אתר מקור..."
-                  disabled={!formData.customer_id}
                   options={availableSites.map(s => ({
                     value: s.id,
-                    label: s.name,
+                    label: s.name + (s.customer_id ? '' : ' 🏭'),
                     subLabel: s.address
                   }))}
                   value={formData.from_site_id}
                   onChange={(value) => setFormData(prev => ({ ...prev, from_site_id: value.toString() }))}
                 />
-                {!formData.customer_id && (
-                  <p className="text-xs text-gray-500 mt-1">תחילה בחר לקוח</p>
-                )}
+                <p className="text-xs text-gray-500 mt-1">🏭 = אתר כללי</p>
               </div>
 
               <div>
@@ -233,10 +234,9 @@ export default function NewJobPage() {
                   label="לאתר"
                   required
                   placeholder="חפש אתר יעד..."
-                  disabled={!formData.customer_id}
                   options={availableSites.map(s => ({
                     value: s.id,
-                    label: s.name,
+                    label: s.name + (s.customer_id ? '' : ' 🏭'),
                     subLabel: s.address
                   }))}
                   value={formData.to_site_id}

@@ -36,15 +36,25 @@ class OrganizationCreate(BaseModel):
     timezone: str = "Asia/Jerusalem"
     locale: str = "he"
     currency: str = "ILS"
+    # Admin User Fields
+    admin_name: Optional[str] = None
+    admin_phone: Optional[str] = None
+    admin_email: Optional[EmailStr] = None
+    admin_password: Optional[str] = None
 
 
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = None
     display_name: Optional[str] = None
+    slug: Optional[str] = None
     contact_name: Optional[str] = None
     contact_email: Optional[EmailStr] = None
     contact_phone: Optional[str] = None
     vat_id: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    country: Optional[str] = None
     plan_type: Optional[str] = None
     plan_start_date: Optional[date] = None
     plan_end_date: Optional[date] = None
@@ -164,7 +174,6 @@ def create_organization(
     
     # Create organization
     org = Organization(
-        id=uuid4(),
         name=data.name,
         slug=data.slug,
         display_name=data.display_name or data.name,
@@ -197,6 +206,29 @@ def create_organization(
     db.add(org)
     db.commit()
     db.refresh(org)
+    
+    # Create admin user if credentials provided
+    if data.admin_email and data.admin_password:
+        try:
+            admin_user = User(
+                org_id=org.id,
+                name=data.admin_name or data.contact_name or "Admin",
+                phone=data.admin_phone or data.contact_phone or "N/A",
+                email=data.admin_email,
+                password_hash=get_password_hash(data.admin_password),
+                is_super_admin=False,
+                is_active=True,
+                created_at=datetime.utcnow()
+            )
+            db.add(admin_user)
+            db.commit()
+        except Exception as e:
+            # Rollback organization if user creation fails
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to create admin user: {str(e)}"
+            )
     
     # Get stats
     stats = get_org_stats(db, org.id)

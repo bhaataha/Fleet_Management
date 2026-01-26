@@ -40,7 +40,8 @@ export default function SitesPage() {
     site.address?.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  const getCustomerName = (customerId: number) => {
+  const getCustomerName = (customerId: number | null) => {
+    if (!customerId) return '🏭 כללי'
     return customers.find(c => c.id === customerId)?.name || '-'
   }
 

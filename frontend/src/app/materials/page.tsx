@@ -30,6 +30,20 @@ export default function MaterialsPage() {
     }
   }
 
+  const seedDefaultMaterials = async () => {
+    if (!confirm('האם ליצור חומרים סטנדרטיים? (עפר, חצץ, מצע, חול, פסולת בניין, אספלט)')) {
+      return
+    }
+    
+    try {
+      await materialsApi.seedDefaults()
+      alert('החומרים הסטנדרטיים נוצרו בהצלחה!')
+      loadMaterials()
+    } catch (error: any) {
+      alert('שגיאה: ' + (error.response?.data?.detail || error.message))
+    }
+  }
+
   const filteredMaterials = materials.filter(material =>
     material.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -42,13 +56,24 @@ export default function MaterialsPage() {
             <h1 className="text-3xl font-bold text-gray-900">{t('materials.title')}</h1>
             <p className="text-gray-600 mt-1">סוגי חומרים להובלה</p>
           </div>
-          <Link
-            href="/materials/new"
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            {t('materials.addMaterial')}
-          </Link>
+          <div className="flex gap-2">
+            {materials.length === 0 && !loading && (
+              <button
+                onClick={seedDefaultMaterials}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+              >
+                <Package className="w-5 h-5" />
+                הוסף חומרים סטנדרטיים
+              </button>
+            )}
+            <Link
+              href="/materials/new"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <Plus className="w-5 h-5" />
+              {t('materials.addMaterial')}
+            </Link>
+          </div>
         </div>
 
         <div className="bg-white rounded-lg shadow">

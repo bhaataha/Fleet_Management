@@ -24,7 +24,13 @@ class Settings(BaseSettings):
     
     # API
     API_V1_PREFIX: str = "/api"
-    BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3010"]
+    BACKEND_CORS_ORIGINS: List[str] = [
+        "http://localhost:3010",
+        "http://truckflow.site:3010",
+        "http://64.176.173.36:3010",
+        "http://truckflow.site",
+        "http://64.176.173.36",
+    ]
     
     # File Upload
     MAX_FILE_SIZE_MB: int = 10

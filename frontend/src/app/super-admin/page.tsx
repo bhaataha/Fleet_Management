@@ -531,22 +531,45 @@ function CreateOrganizationModal({ onClose, onSuccess }: { onClose: () => void; 
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
+    contact_name: '',
+    contact_email: '',
+    contact_phone: '',
+    address: '',
+    city: '',
+    vat_id: '',
     plan_type: 'trial',
     max_users: 10,
     max_trucks: 10,
     max_drivers: 10,
     max_customers: 50,
-    trial_days: 30
+    trial_days: 30,
+    admin_name: '',
+    admin_phone: '',
+    admin_email: '',
+    admin_password: '',
+    admin_password_confirm: ''
   })
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // בדיקת תקינות סיסמאות
+    if (formData.admin_password !== formData.admin_password_confirm) {
+      alert('הסיסמאות לא תואמות')
+      return
+    }
+    
+    if (formData.admin_password.length < 6) {
+      alert('הסיסמה חייבת להכיל לפחות 6 תווים')
+      return
+    }
+    
     setLoading(true)
     
     try {
       await superAdminApi.createOrganization(formData)
-      alert('הארגון נוצר בהצלחה!')
+      alert('הארגון והמשתמש נוצרו בהצלחה!')
       onSuccess()
     } catch (error: any) {
       alert('שגיאה ביצירת הארגון: ' + (error.response?.data?.detail || error.message))
@@ -584,12 +607,82 @@ function CreateOrganizationModal({ onClose, onSuccess }: { onClose: () => void; 
                   <input
                     type="text"
                     required
-                    pattern="[a-z0-9-]+"
+                    pattern="[a-z0-9\-]+"
                     value={formData.slug}
                     onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     placeholder="my-company"
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">איש קשר</label>
+                    <input
+                      type="text"
+                      value={formData.contact_name}
+                      onChange={(e) => setFormData({ ...formData, contact_name: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      placeholder="שם מלא"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">טלפון ארגון</label>
+                    <input
+                      type="tel"
+                      value={formData.contact_phone}
+                      onChange={(e) => setFormData({ ...formData, contact_phone: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      placeholder="050-1234567"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">אימייל ארגון</label>
+                  <input
+                    type="email"
+                    value={formData.contact_email}
+                    onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="info@company.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">כתובת</label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    placeholder="רחוב עיר מיקוד"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">עיר</label>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      placeholder="תל אביב"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">ח.פ / ע.מ</label>
+                    <input
+                      type="text"
+                      value={formData.vat_id}
+                      onChange={(e) => setFormData({ ...formData, vat_id: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      placeholder="123456789"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -650,6 +743,80 @@ function CreateOrganizationModal({ onClose, onSuccess }: { onClose: () => void; 
                       onChange={(e) => setFormData({ ...formData, max_customers: parseInt(e.target.value) })}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
+                  </div>
+                </div>
+
+                <div className="border-t border-gray-200 pt-6 mt-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">👤 משתמש מנהל ראשוני</h3>
+                  <p className="text-sm text-gray-500 mb-4">
+                    פרטי המשתמש הראשון שיוכל להתחבר למערכת
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">שם מלא *</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.admin_name}
+                        onChange={(e) => setFormData({ ...formData, admin_name: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        placeholder="ישראל ישראלי"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">טלפון (להתחברות) *</label>
+                      <input
+                        type="tel"
+                        required
+                        value={formData.admin_phone}
+                        onChange={(e) => setFormData({ ...formData, admin_phone: e.target.value })}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        placeholder="050-1234567"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">אימייל משתמש *</label>
+                    <input
+                      type="email"
+                      required
+                      value={formData.admin_email}
+                      onChange={(e) => setFormData({ ...formData, admin_email: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      placeholder="admin@example.com"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">זה לא אותו דבר כמו אימייל הארגון - זה אימייל אישי של המנהל</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">סיסמה *</label>
+                    <input
+                      type="password"
+                      required
+                      minLength={6}
+                      value={formData.admin_password}
+                      onChange={(e) => setFormData({ ...formData, admin_password: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      placeholder="לפחות 6 תווים"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">אימות סיסמה *</label>
+                    <input
+                      type="password"
+                      required
+                      value={formData.admin_password_confirm}
+                      onChange={(e) => setFormData({ ...formData, admin_password_confirm: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      placeholder="הקלד שוב את הסיסמה"
+                    />
+                    {formData.admin_password !== formData.admin_password_confirm && formData.admin_password_confirm && (
+                      <p className="mt-1 text-xs text-red-600">הסיסמאות לא תואמות</p>
+                    )}
                   </div>
                 </div>
 

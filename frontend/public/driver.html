@@ -416,6 +416,9 @@
           <div class="driver-info-label">נהג</div>
           <div class="driver-info-value" id="driver-name">טוען...</div>
         </div>
+        <div id="location-status" style="display: flex; align-items: center; gap: 8px; font-size: 20px;">
+          ⏳
+        </div>
       </div>
       <button id="toggle-view" class="toggle-btn">
         📋 הצג את כל המשימות
@@ -489,6 +492,9 @@
       await loadReferenceData();
       await loadJobs();
       
+      // Check location permission
+      checkLocationPermission();
+      
       // Update button text based on current state
       updateToggleButton();
       
@@ -499,6 +505,94 @@
         updateToggleButton();
         loadJobs();
       });
+    }
+    
+    async function checkLocationPermission() {
+      const statusEl = document.getElementById('location-status');
+      
+      if (!navigator.geolocation) {
+        statusEl.innerHTML = '❌';
+        statusEl.title = 'Geolocation לא נתמך בדפדפן זה';
+        console.warn('Geolocation not supported');
+        return;
+      }
+      
+      // Check if we're on HTTPS or localhost
+      const isSecure = window.location.protocol === 'https:' || 
+                       window.location.hostname === 'localhost' ||
+                       window.location.hostname === '127.0.0.1';
+      
+      if (!isSecure) {
+        statusEl.innerHTML = '⚠️';
+        statusEl.title = 'מיקום דורש HTTPS - מיקום לא יישמר';
+        statusEl.style.cursor = 'pointer';
+        statusEl.onclick = () => {
+          alert('⚠️ אזהרה: האתר לא מאובטח (HTTP)\n\nלשליחת מיקום GPS נדרש HTTPS.\nהמערכת תמשיך לעבוד, אך ללא מעקב מיקום.\n\nצור קשר עם מנהל המערכת להפעלת HTTPS.');
+        };
+        console.warn('⚠️ Not HTTPS - Geolocation may not work');
+        return;
+      }
+      
+      // Try to get permission
+      try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+        
+        if (permission.state === 'granted') {
+          statusEl.innerHTML = '📍';
+          statusEl.title = 'מיקום מאושר ✓';
+          console.log('✅ Location permission granted');
+        } else if (permission.state === 'denied') {
+          statusEl.innerHTML = '🚫';
+          statusEl.title = 'הרשאת מיקום נדחתה - לחץ לפרטים';
+          statusEl.style.cursor = 'pointer';
+          statusEl.onclick = () => {
+            alert('🚫 הרשאת מיקום נדחתה\n\nכדי לאפשר מעקב מיקום:\n1. לחץ על סמל המנעול/הגדרות בשורת הכתובת\n2. מצא "מיקום" או "Location"\n3. בחר "אפשר" או "Allow"\n4. רענן את הדף');
+          };
+          console.warn('❌ Location permission denied');
+        } else {
+          statusEl.innerHTML = '❓';
+          statusEl.title = 'המתן לאישור הרשאת מיקום';
+          console.log('⏳ Location permission prompt');
+          
+          // Try to trigger permission request
+          requestLocationPermission(statusEl);
+        }
+        
+        // Listen for permission changes
+        permission.onchange = () => {
+          checkLocationPermission();
+        };
+      } catch (err) {
+        // Fallback for browsers that don't support permissions API
+        console.log('Permissions API not supported, will try on first use');
+        statusEl.innerHTML = '📍';
+        statusEl.title = 'מיקום יתבקש בעדכון ראשון';
+      }
+    }
+    
+    async function requestLocationPermission(statusEl) {
+      try {
+        statusEl.innerHTML = '⏳';
+        const pos = await new Promise((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 10000,
+            enableHighAccuracy: false
+          });
+        });
+        
+        statusEl.innerHTML = '✅';
+        statusEl.title = 'מיקום התקבל בהצלחה!';
+        console.log('✅ Initial location received:', pos.coords.latitude, pos.coords.longitude);
+        
+        setTimeout(() => {
+          statusEl.innerHTML = '📍';
+          statusEl.title = 'מיקום פעיל';
+        }, 2000);
+      } catch (err) {
+        statusEl.innerHTML = '⚠️';
+        statusEl.title = 'לא ניתן לקבל מיקום - המערכת תמשיך לעבוד בלעדיו';
+        console.warn('Could not get initial location:', err.message);
+      }
     }
     
     function updateToggleButton() {
