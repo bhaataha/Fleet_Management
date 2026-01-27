@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { subcontractorsApi, materialsApi } from '@/lib/api'
+import { formatDate } from '@/lib/utils'
 import { ArrowLeft, Plus, Edit2, Trash2, Calendar, DollarSign, AlertCircle, Copy } from 'lucide-react'
 import Link from 'next/link'
 
@@ -311,10 +312,10 @@ export default function SubcontractorPricesPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {new Date(price.valid_from).toLocaleDateString('he-IL')}
+                        {formatDate(price.valid_from)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {price.valid_to ? new Date(price.valid_to).toLocaleDateString('he-IL') : '∞'}
+                        {price.valid_to ? formatDate(price.valid_to) : '∞'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {isActive(price.valid_from, price.valid_to) ? (

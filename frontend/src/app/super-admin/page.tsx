@@ -312,7 +312,7 @@ export default function SuperAdminPage() {
                           </span>
                           {org.trial_ends_at && (
                             <div className="text-xs text-gray-500 mt-1">
-                              נסיון עד {new Date(org.trial_ends_at).toLocaleDateString('he-IL')}
+                              נסיון עד {formatDate(org.trial_ends_at)}
                             </div>
                           )}
                         </td>
@@ -330,7 +330,7 @@ export default function SuperAdminPage() {
                           <div>לקוחות: {org.max_customers}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(org.created_at).toLocaleDateString('he-IL')}
+                          {formatDate(org.created_at)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2 space-x-reverse">
                           <button

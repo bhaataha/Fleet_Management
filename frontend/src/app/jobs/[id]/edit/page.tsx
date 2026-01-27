@@ -174,7 +174,7 @@ export default function EditJobPage() {
         material_id: parseInt(formData.material_id),
         planned_qty: parseFloat(formData.planned_qty),
         unit: formData.unit,
-        scheduled_date: new Date(formData.scheduled_date).toISOString(),
+        scheduled_date: formData.scheduled_date + 'T12:00:00Z', // שמירת התאריך עם שעה קבועה בצהריים UTC
         driver_id: formData.driver_id ? parseInt(formData.driver_id) : null,
         truck_id: formData.truck_id ? parseInt(formData.truck_id) : null,
         is_subcontractor: isSubcontractor,
@@ -197,7 +197,8 @@ export default function EditJobPage() {
       await jobsApi.update(jobId, payload)
       
       alert('הנסיעה עודכנה בהצלחה!')
-      router.push(`/jobs/${jobId}`)
+      // חזרה לרשימת נסיעות במקום לדף הצפייה
+      router.push('/jobs')
     } catch (error) {
       console.error('Failed to update job:', error)
       alert('שגיאה בעדכון הנסיעה')

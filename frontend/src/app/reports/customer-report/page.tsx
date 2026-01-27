@@ -154,7 +154,7 @@ export default function CustomerReportPage() {
       const pricing = getJobPricing(job.id)
       return [
         job.id,
-        new Date(job.scheduled_date).toLocaleDateString('he-IL'),
+        formatDate(job.scheduled_date),
         getSiteName(job.from_site_id),
         getSiteName(job.to_site_id),
         getMaterialName(job.material_id),
@@ -258,7 +258,7 @@ export default function CustomerReportPage() {
             <div className="hidden print:block mb-8">
               <h1 className="text-3xl font-bold text-center mb-2">דוח לקוח - {selectedCustomer?.name}</h1>
               <p className="text-center text-gray-600">
-                תקופה: {new Date(dateFrom).toLocaleDateString('he-IL')} - {new Date(dateTo).toLocaleDateString('he-IL')}
+                תקופה: {formatDate(dateFrom)} - {formatDate(dateTo)}
               </p>
               {selectedCustomer?.contact_name && (
                 <p className="text-center text-gray-600 text-sm mt-1">
@@ -371,7 +371,7 @@ export default function CustomerReportPage() {
                           <tr key={job.id} className="hover:bg-gray-50">
                             <td className="px-3 py-2 text-xs font-medium text-gray-900">#{job.id}</td>
                             <td className="px-3 py-2 text-xs text-gray-700">
-                              {new Date(job.scheduled_date).toLocaleDateString('he-IL')}
+                              {formatDate(job.scheduled_date)}
                             </td>
                             <td className="px-3 py-2 text-xs text-gray-700">{getSiteName(job.from_site_id)}</td>
                             <td className="px-3 py-2 text-xs text-gray-700">{getSiteName(job.to_site_id)}</td>

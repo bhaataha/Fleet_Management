@@ -6,7 +6,7 @@ import { useI18n } from '@/lib/i18n'
 import { jobsApi, sitesApi, materialsApi, driversApi, customersApi, trucksApi, subcontractorsApi } from '@/lib/api'
 import { Truck, Calendar, User, Package, Plus, Search, Filter, Building2, FileText, Share2 } from 'lucide-react'
 import type { Job, Site, Material, Driver, Customer, Truck as TruckType } from '@/types'
-import { billingUnitLabels } from '@/lib/utils'
+import { billingUnitLabels, formatDate } from '@/lib/utils'
 
 const STATUS_COLORS: Record<string, string> = {
   PLANNED: 'bg-gray-100 text-gray-800',
@@ -40,16 +40,51 @@ export default function JobsPage() {
 
   useEffect(() => {
     loadData()
-  }, [statusFilter])
+  }, [statusFilter, dateFrom, dateTo])  // טעינה מחדש כש-dateFrom או dateTo משתנים
 
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, dateFrom, dateTo, statusFilter])
 
+  // רענון אוטומטי כשהדף נטען (אחרי עריכה/יצירה)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData()
+      }
+    }
+    
+    // רענון גם כש-focus חוזר לחלון
+    const handleFocus = () => {
+      loadData()
+    }
+    
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [statusFilter, dateFrom, dateTo])  // מחובר ל-dependencies של loadData
+
   async function loadData() {
     try {
       setLoading(true)
-      const params: any = { limit: 200 }
+      
+      // חישוב טווח תאריכים: ±10 ימים מהיום (אם לא נבחר ידנית)
+      const today = new Date()
+      const defaultFromDate = new Date(today)
+      defaultFromDate.setDate(today.getDate() - 10)
+      const defaultToDate = new Date(today)
+      defaultToDate.setDate(today.getDate() + 10)
+      
+      const params: any = { 
+        limit: 1000,  // limit גבוה כי יש סינון תאריכים
+        from_date: dateFrom || defaultFromDate.toISOString().split('T')[0],  // YYYY-MM-DD
+        to_date: dateTo || defaultToDate.toISOString().split('T')[0]
+      }
+      
       if (statusFilter !== 'all') {
         params.status = statusFilter
       }
@@ -360,7 +395,7 @@ _נשלח מ-TruckFlow_`
                         <td className="px-6 py-4 text-sm">
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-gray-400" />
-                            {new Date(job.scheduled_date).toLocaleDateString('he-IL')}
+                            {formatDate(job.scheduled_date)}
                           </div>
                         </td>
                         <td className="px-6 py-4 text-sm">

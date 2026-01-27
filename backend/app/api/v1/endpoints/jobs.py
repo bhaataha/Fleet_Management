@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse, RedirectResponse
 from sqlalchemy.orm import Session, joinedload
-from typing import List, Optional
+from typing import List, Optional, Union
 from decimal import Decimal
 from app.core.database import get_db
 from app.models import Job, JobStatus, JobStatusEvent, BillingUnit, ShareUrl
@@ -9,7 +9,7 @@ from app.middleware.tenant import get_current_org_id, get_current_user_id
 from app.core.security import create_access_token
 from app.services.pdf_generator import DeliveryNotePDF
 from pydantic import BaseModel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from uuid import UUID
 
 router = APIRouter()
@@ -161,8 +161,10 @@ class JobStatusUpdate(BaseModel):
 async def list_jobs(
     request: Request,
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
-    date: Optional[datetime] = None,
+    limit: int = Query(50, ge=1, le=1000),  # הגדלה ל-1000 כדי לתמוך במערכות גדולות
+    date: Optional[str] = None,  # תאריך ספציפי (יום בודד) - YYYY-MM-DD
+    from_date: Optional[str] = None,  # תאריך התחלה (טווח) - YYYY-MM-DD
+    to_date: Optional[str] = None,  # תאריך סיום (טווח) - YYYY-MM-DD
     status: Optional[JobStatus] = None,
     customer_id: Optional[int] = None,
     driver_id: Optional[int] = None,
@@ -170,6 +172,11 @@ async def list_jobs(
 ):
     """
     List jobs with filters for dispatch board (filtered by org_id from JWT)
+    
+    Date Filtering:
+    - date: Single day (ignores from_date/to_date) - format: YYYY-MM-DD
+    - from_date & to_date: Date range (recommended for performance) - format: YYYY-MM-DD
+    - If no dates provided: Returns last 50 jobs by default
     """
     org_id = get_current_org_id(request)
     
@@ -183,9 +190,22 @@ async def list_jobs(
         joinedload(Job.truck)
     ).filter(Job.org_id == org_id)
     
+    # סינון תאריכים: date מנצח על from_date/to_date
     if date:
-        query = query.filter(Job.scheduled_date >= date, 
-                           Job.scheduled_date < date.replace(hour=23, minute=59))
+        # תאריך בודד - כל היום
+        date_obj = datetime.strptime(date, '%Y-%m-%d')
+        query = query.filter(Job.scheduled_date >= date_obj, 
+                           Job.scheduled_date < date_obj.replace(hour=23, minute=59))
+    elif from_date or to_date:
+        # טווח תאריכים
+        if from_date:
+            from_date_obj = datetime.strptime(from_date, '%Y-%m-%d')
+            query = query.filter(Job.scheduled_date >= from_date_obj)
+        if to_date:
+            # כולל את כל היום האחרון
+            to_date_obj = datetime.strptime(to_date, '%Y-%m-%d')
+            query = query.filter(Job.scheduled_date < to_date_obj.replace(hour=23, minute=59, second=59))
+    
     if status:
         query = query.filter(Job.status == status)
     if customer_id:

@@ -96,7 +96,26 @@ export default function DispatchPage() {
       loadData()
     }, 30000)
     
-    return () => clearInterval(interval)
+    // רענון אוטומטי כשהדף נטען (אחרי עריכה/יצירה)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData()
+      }
+    }
+    
+    // רענון גם כש-focus חוזר לחלון
+    const handleFocus = () => {
+      loadData()
+    }
+    
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [selectedDate])
 
   // Convert vertical scroll to horizontal scroll
@@ -161,8 +180,19 @@ export default function DispatchPage() {
   const loadData = async () => {
     setLoading(true)
     try {
+      // חישוב טווח תאריכים: ±10 ימים מהתאריך הנבחר
+      const selected = new Date(selectedDate)
+      const fromDate = new Date(selected)
+      fromDate.setDate(selected.getDate() - 10)
+      const toDate = new Date(selected)
+      toDate.setDate(selected.getDate() + 10)
+      
       const [jobsRes, driversRes, trucksRes, subcontractorsRes, sitesRes, materialsRes] = await Promise.all([
-        jobsApi.getAll(),
+        jobsApi.getAll({
+          limit: 1000,
+          from_date: fromDate.toISOString().split('T')[0],
+          to_date: toDate.toISOString().split('T')[0]
+        }),
         driversApi.getAll(),
         trucksApi.getAll(),
         subcontractorsApi.getAll(),
@@ -170,21 +200,12 @@ export default function DispatchPage() {
         materialsApi.getAll(),
       ])
       
-      console.log('📊 Total jobs from API:', jobsRes.data?.length || 0)
-      console.log('🗓️ Selected date:', selectedDate)
-      
       // Filter jobs by selected date on client side
       const filteredJobs = jobsRes.data.filter((job: Job) => {
         if (!job.scheduled_date) return false
         const jobDate = job.scheduled_date.split('T')[0]
-        const matches = jobDate === selectedDate
-        if (!matches) {
-          console.log(`❌ Job #${job.id} date ${jobDate} !== ${selectedDate}`)
-        }
-        return matches
+        return jobDate === selectedDate
       })
-      
-      console.log('✅ Filtered jobs:', filteredJobs.length)
       
       setJobs(filteredJobs)
       setDrivers(driversRes.data.filter((d: Driver) => d.is_active))

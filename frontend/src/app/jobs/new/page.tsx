@@ -139,11 +139,9 @@ export default function NewJobPage() {
       
       try {
         setLoadingSubcontractorPricing(true)
-        const response = await api.get(`/subcontractors/${formData.subcontractor_id}/pricing-preview`, {
-          params: {
-            qty: parseFloat(formData.planned_qty),
-            unit: formData.unit
-          }
+        const response = await api.post(`/subcontractors/${formData.subcontractor_id}/pricing-preview`, {
+          qty: parseFloat(formData.planned_qty),
+          unit: formData.unit
         })
         setSubcontractorPricing(response.data)
       } catch (error: any) {
@@ -172,8 +170,8 @@ export default function NewJobPage() {
     try {
       setLoading(true)
       
-      // Convert date to datetime with default time
-      const scheduledDateTime = new Date(formData.scheduled_date + 'T08:00:00').toISOString()
+      // Convert date to datetime with fixed time at noon UTC to avoid timezone issues
+      const scheduledDateTime = formData.scheduled_date + 'T12:00:00Z'
       
       const payload: any = {
         customer_id: parseInt(formData.customer_id),

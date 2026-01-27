@@ -181,13 +181,23 @@ export const materialsApi = {
 
 // Jobs API
 export const jobsApi = {
-  getAll: (params?: { limit?: number }) => 
-    api.get<Job[]>('/jobs', { params: { limit: params?.limit || 200 } }),
+  getAll: (params?: { 
+    limit?: number
+    from_date?: string  // YYYY-MM-DD
+    to_date?: string    // YYYY-MM-DD
+  }) => 
+    api.get<Job[]>('/jobs', { params: { 
+      limit: params?.limit || 500,
+      from_date: params?.from_date,
+      to_date: params?.to_date
+    } }),  // הגדלה ל-500 כדי לכלול את כל הנסיעות
   
   list: (params?: { 
     skip?: number
     limit?: number
     date?: string
+    from_date?: string  // YYYY-MM-DD - טווח תאריכים
+    to_date?: string    // YYYY-MM-DD - טווח תאריכים
     status?: string
     customer_id?: number
     driver_id?: number

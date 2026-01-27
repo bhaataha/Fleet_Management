@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from datetime import date as DateType
+from typing import List, Optional, Union
+from datetime import datetime, date
 
 from app.core.database import get_db
 from app.core.security import get_current_user
@@ -29,8 +29,8 @@ class PriceListCreate(BaseModel):
     trip_surcharge: Optional[Decimal] = None
     wait_fee_per_hour: Optional[Decimal] = None
     night_surcharge_pct: Optional[Decimal] = None
-    valid_from: DateType
-    valid_to: Optional[DateType] = None
+    valid_from: Union[date, datetime]
+    valid_to: Optional[Union[date, datetime]] = None
 
 
 class PriceListResponse(BaseModel):
@@ -45,8 +45,8 @@ class PriceListResponse(BaseModel):
     trip_surcharge: Optional[Decimal]
     wait_fee_per_hour: Optional[Decimal]
     night_surcharge_pct: Optional[Decimal]
-    valid_from: DateType
-    valid_to: Optional[DateType]
+    valid_from: datetime
+    valid_to: Optional[datetime]
 
     class Config:
         from_attributes = True
@@ -113,8 +113,15 @@ def create_price_list(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Convert date to datetime for database storage
+    data = price_list.model_dump()
+    if isinstance(data['valid_from'], date) and not isinstance(data['valid_from'], datetime):
+        data['valid_from'] = datetime.combine(data['valid_from'], datetime.min.time())
+    if data.get('valid_to') and isinstance(data['valid_to'], date) and not isinstance(data['valid_to'], datetime):
+        data['valid_to'] = datetime.combine(data['valid_to'], datetime.min.time())
+    
     db_price_list = PriceListModel(
-        org_id=current_user.org_id, **price_list.model_dump()
+        org_id=current_user.org_id, **data
     )
     db.add(db_price_list)
     db.commit()
@@ -159,8 +166,15 @@ def update_price_list(
     if not db_price_list:
         raise HTTPException(status_code=404, detail="Price list not found")
     
+    # Convert date to datetime for database storage
+    data = price_list.model_dump()
+    if isinstance(data['valid_from'], date) and not isinstance(data['valid_from'], datetime):
+        data['valid_from'] = datetime.combine(data['valid_from'], datetime.min.time())
+    if data.get('valid_to') and isinstance(data['valid_to'], date) and not isinstance(data['valid_to'], datetime):
+        data['valid_to'] = datetime.combine(data['valid_to'], datetime.min.time())
+    
     # Update fields
-    for key, value in price_list.model_dump().items():
+    for key, value in data.items():
         setattr(db_price_list, key, value)
     
     db.commit()
@@ -210,14 +224,15 @@ def preview_pricing(
         raise HTTPException(status_code=404, detail="Job not found")
 
     # Find applicable price list
+    now = datetime.now()
     price_list = (
         db.query(PriceListModel)
         .filter(
             PriceListModel.org_id == current_user.org_id,
             PriceListModel.material_id == job.material_id,
-            PriceListModel.valid_from <= DateType.today(),
+            PriceListModel.valid_from <= now,
             (PriceListModel.valid_to.is_(None))
-            | (PriceListModel.valid_to >= DateType.today()),
+            | (PriceListModel.valid_to >= now),
         )
         .filter(
             (PriceListModel.customer_id == job.customer_id)
@@ -283,15 +298,16 @@ def get_pricing_quote(
     Returns pricing breakdown based on customer, material, route, and quantity
     """
     # Find applicable price list
+    now = datetime.now()
     query = (
         db.query(PriceListModel)
         .filter(
             PriceListModel.org_id == current_user.org_id,
             PriceListModel.material_id == request.material_id,
             PriceListModel.unit == request.unit,
-            PriceListModel.valid_from <= DateType.today(),
+            PriceListModel.valid_from <= now,
             (PriceListModel.valid_to.is_(None))
-            | (PriceListModel.valid_to >= DateType.today()),
+            | (PriceListModel.valid_to >= now),
         )
         .filter(
             (PriceListModel.customer_id == request.customer_id)

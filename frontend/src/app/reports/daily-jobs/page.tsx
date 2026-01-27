@@ -179,12 +179,7 @@ export default function DailyJobsReportPage() {
         <div className="hidden print:block mb-8">
           <h1 className="text-3xl font-bold text-center mb-2">דוח נסיעות יומי</h1>
           <p className="text-center text-gray-600">
-            תאריך: {new Date(selectedDate).toLocaleDateString('he-IL', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}
+            תאריך: {formatDate(selectedDate)}
           </p>
         </div>
 

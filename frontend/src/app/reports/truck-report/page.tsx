@@ -100,7 +100,7 @@ export default function TruckReport() {
       [],
       ['תאריך', 'נסיעה #', 'נהג', 'לקוח', 'מאתר', 'לאתר', 'חומר', 'כמות', 'יחידה', 'הכנסה'],
       ...jobs.map(job => [
-        new Date(job.scheduled_date).toLocaleDateString('he-IL'),
+        formatDate(job.scheduled_date),
         job.id,
         drivers.find(d => d.id === job.driver_id)?.name || '',
         job.customer?.name || '',
@@ -223,8 +223,8 @@ export default function TruckReport() {
                   <p className="text-gray-600">{selectedTruck?.model || 'משאית'}</p>
                 </div>
                 <div className="text-left">
-                  <p className="text-sm text-gray-600">תקופה: {new Date(dateFrom).toLocaleDateString('he-IL')} - {new Date(dateTo).toLocaleDateString('he-IL')}</p>
-                  <p className="text-sm text-gray-600">תאריך הפקה: {new Date().toLocaleDateString('he-IL')}</p>
+                  <p className="text-sm text-gray-600">תקופה: {formatDate(dateFrom)} - {formatDate(dateTo)}</p>
+                  <p className="text-sm text-gray-600">תאריך הפקה: {formatDate(new Date())}</p>
                 </div>
               </div>
             </div>
@@ -270,7 +270,7 @@ export default function TruckReport() {
                     {jobs.map((job) => (
                       <tr key={job.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm text-gray-900">
-                          {new Date(job.scheduled_date).toLocaleDateString('he-IL')}
+                          {formatDate(job.scheduled_date)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900">#{job.id}</td>
                         <td className="px-4 py-3 text-sm text-gray-600">

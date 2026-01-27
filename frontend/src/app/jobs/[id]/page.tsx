@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useI18n } from '@/lib/i18n'
 import api, { customersApi, sitesApi, materialsApi, driversApi, trucksApi, subcontractorsApi } from '@/lib/api'
-import { billingUnitLabels } from '@/lib/utils'
+import { billingUnitLabels, formatDate } from '@/lib/utils'
 import { 
   ArrowLeft, 
   MapPin, 
@@ -536,7 +536,7 @@ _נשלח מ-TruckFlow_`
           <div className="print-title">תעודת משלוח</div>
           <div className="print-company">מערכת ניהול הובלות עפר</div>
           <div className="text-center text-gray-600 mt-2">
-            תאריך: {new Date(job.scheduled_date).toLocaleDateString('he-IL')} | מספר נסיעה: {job.id}
+            תאריך: {formatDate(job.scheduled_date)} | מספר נסיעה: {job.id}
           </div>
         </div>
 
@@ -552,7 +552,7 @@ _נשלח מ-TruckFlow_`
             <div>
               <h1 className="text-2xl font-bold text-gray-900">נסיעה #{job.id}</h1>
               <p className="text-gray-600 mt-1">
-                {new Date(job.scheduled_date).toLocaleDateString('he-IL')}
+                {formatDate(job.scheduled_date)}
               </p>
             </div>
           </div>

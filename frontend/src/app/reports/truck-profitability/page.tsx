@@ -188,7 +188,7 @@ export default function TruckProfitabilityReportPage() {
         <div className="hidden print:block mb-8">
           <h1 className="text-3xl font-bold text-center mb-2">דוח רווחיות לפי משאית</h1>
           <p className="text-center text-gray-600">
-            תקופה: {new Date(dateFrom).toLocaleDateString('he-IL')} - {new Date(dateTo).toLocaleDateString('he-IL')}
+            תקופה: {formatDate(dateFrom)} - {formatDate(dateTo)}
           </p>
         </div>
 

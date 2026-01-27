@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { jobsApi, subcontractorsApi } from '@/lib/api'
+import { formatDate } from '@/lib/utils'
 import { Download, Printer } from 'lucide-react'
 
 export default function SubcontractorPaymentReport() {
@@ -198,7 +199,7 @@ export default function SubcontractorPaymentReport() {
       [],
       ['תאריך', 'נסיעה #', 'לקוח', 'מאתר', 'לאתר', 'חומר', 'כמות', 'יחידת חיוב', 'מחיר מחושב', 'מחיר רשום'],
       ...jobs.map(job => [
-        new Date(job.scheduled_date).toLocaleDateString('he-IL'),
+        formatDate(job.scheduled_date),
         job.id,
         job.customer?.name || '',
         job.from_site?.name || '',
@@ -326,8 +327,8 @@ export default function SubcontractorPaymentReport() {
                   )}
                 </div>
                 <div className="text-left">
-                  <p className="text-sm text-gray-600">תקופה: {new Date(dateFrom).toLocaleDateString('he-IL')} - {new Date(dateTo).toLocaleDateString('he-IL')}</p>
-                  <p className="text-sm text-gray-600">תאריך הפקה: {new Date().toLocaleDateString('he-IL')}</p>
+                  <p className="text-sm text-gray-600">תקופה: {formatDate(dateFrom)} - {formatDate(dateTo)}</p>
+                  <p className="text-sm text-gray-600">תאריך הפקה: {formatDate(new Date())}</p>
                 </div>
               </div>
             </div>
@@ -376,7 +377,7 @@ export default function SubcontractorPaymentReport() {
                     {jobs.map((job) => (
                       <tr key={job.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm text-gray-900">
-                          {new Date(job.scheduled_date).toLocaleDateString('he-IL')}
+                          {formatDate(job.scheduled_date)}
                         </td>
                         <td className="px-4 py-3 text-sm font-medium text-blue-600">#{job.id}</td>
                         <td className="px-4 py-3 text-sm text-gray-900">{job.customer?.name || '-'}</td>

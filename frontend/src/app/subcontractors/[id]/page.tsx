@@ -381,12 +381,12 @@ function SubcontractorPricesTab({ subcontractorId, prices, onPricesUpdated }: { 
                 )}
                 <div>
                   <p className="text-gray-600">מ</p>
-                  <p className="font-medium">{new Date(price.valid_from).toLocaleDateString('he-IL')}</p>
+                  <p className="font-medium">{formatDate(price.valid_from)}</p>
                 </div>
                 <div>
                   <p className="text-gray-600">עד</p>
                   <p className="font-medium">
-                    {price.valid_to ? new Date(price.valid_to).toLocaleDateString('he-IL') : '∞'}
+                    {price.valid_to ? formatDate(price.valid_to) : '∞'}
                   </p>
                 </div>
               </div>
