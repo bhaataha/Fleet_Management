@@ -23,6 +23,12 @@ NC='\033[0m' # No Color
 PROJECT_NAME="TruckFlow"
 BACKUP_DIR="./backups"
 DEPLOYMENT_LOG="./deployment_$(date +%Y%m%d_%H%M%S).log"
+COMPOSE_FILE="docker-compose.production.yml"  # Use production by default
+
+# Fallback to dev compose if production doesn't exist
+if [ ! -f "$COMPOSE_FILE" ]; then
+    COMPOSE_FILE="docker-compose.yml"
+fi
 
 # Start logging
 exec > >(tee -a "$DEPLOYMENT_LOG")
@@ -102,9 +108,9 @@ create_backup() {
     mkdir -p "$BACKUP_DIR"
     
     # Backup database if running
-    if docker compose ps | grep -q "fleet_db.*Up"; then
+    if docker compose -f $COMPOSE_FILE ps | grep -q "fleet_db.*Up"; then
         BACKUP_FILE="$BACKUP_DIR/pre_deploy_$(date +%Y%m%d_%H%M%S).sql"
-        docker compose exec -T db pg_dump -U fleet_user -d fleet_management > "$BACKUP_FILE" 2>/dev/null || true
+        docker compose -f $COMPOSE_FILE exec -T db pg_dump -U fleet_user -d fleet_management > "$BACKUP_FILE" 2>/dev/null || true
         
         if [ -f "$BACKUP_FILE" ]; then
             log_success "Database backup created: $BACKUP_FILE"
@@ -118,15 +124,22 @@ create_backup() {
 
 stop_containers() {
     log_info "Stopping existing containers..."
-    docker compose down
+    docker compose -f $COMPOSE_FILE down
     log_success "Containers stopped"
 }
 
 build_containers() {
     log_info "Building Docker containers..."
     
+    # Use production compose file (supports Traefik)
+    COMPOSE_FILE="docker-compose.production.yml"
+    if [ ! -f "$COMPOSE_FILE" ]; then
+        log_warning "Production compose file not found, using default"
+        COMPOSE_FILE="docker-compose.yml"
+    fi
+    
     # Build all services
-    docker compose -f docker-compose.yml build --no-cache
+    docker compose -f $COMPOSE_FILE build --no-cache
     
     log_success "Containers built successfully"
 }
@@ -135,12 +148,12 @@ init_database() {
     log_info "Initializing database..."
     
     # Start database container first
-    docker compose up -d db
+    docker compose -f $COMPOSE_FILE up -d db
     
     # Wait for database to be ready
     log_info "Waiting for database to be ready..."
     for i in {1..30}; do
-        if docker compose exec -T db pg_isready -U fleet_user > /dev/null 2>&1; then
+        if docker compose -f $COMPOSE_FILE exec -T db pg_isready -U fleet_user > /dev/null 2>&1; then
             log_success "Database is ready"
             break
         fi
@@ -150,13 +163,13 @@ init_database() {
     echo ""
     
     # Check if database is empty (first time deployment)
-    TABLE_COUNT=$(docker compose exec -T db psql -U fleet_user -d fleet_management -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tr -d ' ' || echo "0")
+    TABLE_COUNT=$(docker compose -f $COMPOSE_FILE exec -T db psql -U fleet_user -d fleet_management -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tr -d ' ' || echo "0")
     
     if [ "$TABLE_COUNT" = "0" ]; then
         log_info "Database is empty, initializing schema..."
         
         # Run Alembic migrations
-        docker compose exec -T backend alembic upgrade head
+        docker compose -f $COMPOSE_FILE exec -T backend alembic upgrade head
         
         log_success "Database schema created"
     else
@@ -164,7 +177,7 @@ init_database() {
         
         # Run migrations to ensure latest schema
         log_info "Running migrations..."
-        docker compose exec -T backend alembic upgrade head
+        docker compose -f $COMPOSE_FILE exec -T backend alembic upgrade head
         
         log_success "Migrations applied"
     fi
@@ -173,13 +186,13 @@ init_database() {
 create_super_admin() {
     log_info "Checking for Super Admin user..."
     
-    SUPER_ADMIN_COUNT=$(docker compose exec -T db psql -U fleet_user -d fleet_management -t -c "SELECT COUNT(*) FROM users WHERE is_super_admin = true;" 2>/dev/null | tr -d ' ' || echo "0")
+    SUPER_ADMIN_COUNT=$(docker compose -f $COMPOSE_FILE exec -T db psql -U fleet_user -d fleet_management -t -c "SELECT COUNT(*) FROM users WHERE is_super_admin = true;" 2>/dev/null | tr -d ' ' || echo "0")
     
     if [ "$SUPER_ADMIN_COUNT" = "0" ]; then
         log_warning "No Super Admin found"
         log_info "Creating Super Admin user..."
         
-        docker compose exec -T backend python backend/setup/create_super_admin.py
+        docker compose -f $COMPOSE_FILE exec -T backend python backend/setup/create_super_admin.py
         
         log_success "Super Admin created"
     else
@@ -191,7 +204,7 @@ seed_default_data() {
     log_info "Seeding default data..."
     
     # Check if default organization exists
-    ORG_COUNT=$(docker compose exec -T db psql -U fleet_user -d fleet_management -t -c "SELECT COUNT(*) FROM organizations;" 2>/dev/null | tr -d ' ' || echo "0")
+    ORG_COUNT=$(docker compose -f $COMPOSE_FILE exec -T db psql -U fleet_user -d fleet_management -t -c "SELECT COUNT(*) FROM organizations;" 2>/dev/null | tr -d ' ' || echo "0")
     
     if [ "$ORG_COUNT" = "0" ]; then
         log_info "No organizations found, creating default organization..."
@@ -203,11 +216,11 @@ seed_default_data() {
     fi
     
     # Seed materials if table is empty
-    MATERIALS_COUNT=$(docker compose exec -T db psql -U fleet_user -d fleet_management -t -c "SELECT COUNT(*) FROM materials;" 2>/dev/null | tr -d ' ' || echo "0")
+    MATERIALS_COUNT=$(docker compose -f $COMPOSE_FILE exec -T db psql -U fleet_user -d fleet_management -t -c "SELECT COUNT(*) FROM materials;" 2>/dev/null | tr -d ' ' || echo "0")
     
     if [ "$MATERIALS_COUNT" = "0" ]; then
         log_info "Seeding default materials..."
-        docker compose exec -T backend python -c "
+        docker compose -f $COMPOSE_FILE exec -T backend python -c "
 from app.core.database import SessionLocal
 from app.api.v1.endpoints.materials import seed_default_materials
 db = SessionLocal()
@@ -226,7 +239,7 @@ finally:
 start_all_containers() {
     log_info "Starting all containers..."
     
-    docker compose up -d
+    docker compose -f $COMPOSE_FILE up -d
     
     log_success "All containers started"
 }
@@ -262,7 +275,7 @@ health_check() {
     echo ""
     
     # Check database
-    if docker compose exec -T db pg_isready -U fleet_user > /dev/null 2>&1; then
+    if docker compose -f $COMPOSE_FILE exec -T db pg_isready -U fleet_user > /dev/null 2>&1; then
         log_success "Database is healthy"
     else
         log_error "Database is not responding"
@@ -271,7 +284,7 @@ health_check() {
     # Show container status
     echo ""
     log_info "Container status:"
-    docker compose ps
+    docker compose -f $COMPOSE_FILE ps
 }
 
 show_summary() {
@@ -306,15 +319,15 @@ rollback() {
     log_info "Rolling back..."
     
     # Stop all containers
-    docker compose down
+    docker compose -f $COMPOSE_FILE down
     
     # Restore backup if exists
     LATEST_BACKUP=$(ls -t "$BACKUP_DIR"/pre_deploy_*.sql 2>/dev/null | head -1)
     if [ -f "$LATEST_BACKUP" ]; then
         log_info "Restoring database from: $LATEST_BACKUP"
-        docker compose up -d db
+        docker compose -f $COMPOSE_FILE up -d db
         sleep 5
-        cat "$LATEST_BACKUP" | docker compose exec -T db psql -U fleet_user -d fleet_management
+        cat "$LATEST_BACKUP" | docker compose -f $COMPOSE_FILE exec -T db psql -U fleet_user -d fleet_management
         log_success "Database restored"
     fi
     
