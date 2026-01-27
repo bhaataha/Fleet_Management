@@ -10,7 +10,7 @@ import uuid
 from app.models.alert import Alert, AlertType, AlertSeverity, AlertCategory, AlertStatus
 
 # Import Permission models
-from app.models.permissions import UserPermission, PhoneOTP, Permission
+from app.models.permissions import UserPermission, PhoneOTP, PermissionModel
 
 
 class UserRole(str, enum.Enum):
@@ -135,8 +135,8 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
-    email = Column(String(255), unique=True, index=True, nullable=False)
-    phone = Column(String(20))
+    email = Column(String(255), unique=False, index=True, nullable=True)  # Optional for drivers
+    phone = Column(String(20), index=True)  # Primary login for drivers
     name = Column(String(255), nullable=False)
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True)

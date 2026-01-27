@@ -6,6 +6,17 @@ import { expensesApi, trucksApi, driversApi } from '@/lib/api'
 import type { Expense, Truck, Driver } from '@/types'
 import { Plus, Trash2, Edit, Search, Filter, Download, Fuel, Wrench, FileText, DollarSign } from 'lucide-react'
 
+// Helper function to format dates
+const formatDate = (dateString: string) => {
+  if (!dateString) return 'N/A'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('he-IL', { 
+    year: 'numeric', 
+    month: '2-digit', 
+    day: '2-digit' 
+  })
+}
+
 const EXPENSE_CATEGORIES = [
   'דלק',
   'תיקונים',

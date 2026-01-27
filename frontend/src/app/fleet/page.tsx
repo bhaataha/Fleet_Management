@@ -372,7 +372,7 @@ export default function FleetPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-gray-600">
                               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {getVehicleTypeLabel(truck.truck_type)}
+                                {getVehicleTypeLabel(truck.truck_type || '')}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-gray-600">

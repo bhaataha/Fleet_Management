@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token, create_access_token_for_user, decode_access_token
 from app.models import User, Driver, Organization
+from app.models.permissions import PermissionModel, UserPermission
 from pydantic import BaseModel, EmailStr
 from typing import Optional
 from uuid import UUID
@@ -142,3 +143,50 @@ async def logout():
     Logout endpoint (client should discard token)
     """
     return {"message": "Successfully logged out"}
+
+
+@router.get("/my-permissions")
+async def get_my_permissions(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db)
+):
+    """
+    Get current user's permissions (no admin access required)
+    """
+    
+    token = credentials.credentials
+    payload = decode_access_token(token)
+    
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+    
+    user_id = int(payload.get("sub"))
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive"
+        )
+    
+    # Get all permissions and user's granted permissions
+    all_permissions = db.query(PermissionModel).all()
+    user_permissions = db.query(UserPermission).filter(
+        UserPermission.user_id == user_id,
+        UserPermission.granted == True
+    ).all()
+    user_permission_names = {up.permission_name for up in user_permissions}
+    
+    permissions_response = []
+    for perm in all_permissions:
+        permissions_response.append({
+            "permission_id": perm.id,
+            "permission_name": perm.name,
+            "permission_description": perm.description,
+            "granted": perm.name in user_permission_names
+        })
+    
+    return permissions_response

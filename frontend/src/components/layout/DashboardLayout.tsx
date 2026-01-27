@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/stores/auth'
+import { usePermissions, Permissions } from '@/lib/stores/permissions'
 import { useI18n } from '@/lib/i18n'
 import Logo from '@/components/ui/Logo'
 import Footer from '@/components/layout/Footer'
@@ -45,6 +46,7 @@ export default function DashboardLayout({
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuth()
+  const { hasPermission, hasAnyPermission, isLoaded: permissionsLoaded } = usePermissions()
   const { t, language, setLanguage } = useI18n()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -53,6 +55,23 @@ export default function DashboardLayout({
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false)
   const [organizations, setOrganizations] = useState<any[]>([])
   const [impersonatedOrgId, setImpersonatedOrgId] = useState<string | null>(null)
+
+  // Check if user is admin (full access)
+  const isAdmin = user?.is_super_admin || user?.org_role === 'admin' || user?.org_role === 'owner'
+  
+  // For non-admin users, wait for permissions to load before rendering menu
+  const showMenu = isAdmin || permissionsLoaded
+
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 DashboardLayout Debug:', {
+      user: user?.email,
+      role: user?.org_role,
+      isAdmin,
+      permissionsLoaded,
+      showMenu
+    })
+  }, [user, isAdmin, permissionsLoaded, showMenu])
 
   useEffect(() => {
     setMounted(true)
@@ -160,92 +179,149 @@ export default function DashboardLayout({
 
           {/* Navigation */}
           <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
-            {/* Super Admin Link */}
-            {user?.is_super_admin && (
-              <Link
-                href="/super-admin"
-                className={`
-                  flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
-                  transition-colors mb-2 border-2 border-purple-200
-                  ${
-                    pathname === '/super-admin'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
-                  }
-                `}
-              >
-                <Shield className="w-5 h-5" />
-                <span>Super Admin</span>
-              </Link>
+            {!showMenu && (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+              </div>
             )}
             
-            {/* Dashboard - Always visible */}
-            <MenuItem href="/dashboard" icon="📊">
-              {t('nav.dashboard')}
-            </MenuItem>
+            {showMenu && (
+              <>
+                {/* Super Admin Link */}
+                {user?.is_super_admin && (
+                  <Link
+                    href="/super-admin"
+                    className={`
+                      flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                      transition-colors mb-2 border-2 border-purple-200
+                      ${
+                        pathname === '/super-admin'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
+                      }
+                    `}
+                  >
+                    <Shield className="w-5 h-5" />
+                    <span>Super Admin</span>
+                  </Link>
+                )}
             
-            {/* Alerts - New */}
+            {/* Dashboard - Always visible OR with permission */}
+            {(isAdmin || hasPermission(Permissions.DASHBOARD_VIEW)) && (
+              <MenuItem href="/dashboard" icon="📊">
+                {t('nav.dashboard')}
+              </MenuItem>
+            )}
+            
+            {/* Alerts - Always visible */}
             <MenuItem href="/alerts" icon="🔔">
               התראות
             </MenuItem>
 
             {/* Operations Group */}
-            <MenuGroup icon="🚚" label="תפעול" defaultOpen={true}>
-              <MenuItem href="/dispatch" icon="📅">
-                {t('nav.dispatch')}
-              </MenuItem>
-              <MenuItem href="/jobs" icon="🚛">
-                {t('nav.jobs')}
-              </MenuItem>
-              <MenuItem href="/fleet-tracking" icon="📍">
-                מעקב צי
-              </MenuItem>
-              <MenuItem href="/materials" icon="📦">
-                {t('nav.materials')}
-              </MenuItem>
-            </MenuGroup>
+            {(isAdmin || hasAnyPermission([
+              Permissions.JOBS_VIEW, 
+              Permissions.JOBS_CREATE,
+              Permissions.JOBS_ASSIGN
+            ])) && (
+              <MenuGroup icon="🚚" label="תפעול" defaultOpen={true}>
+                {(isAdmin || hasPermission(Permissions.JOBS_ASSIGN)) && (
+                  <MenuItem href="/dispatch" icon="📅">
+                    {t('nav.dispatch')}
+                  </MenuItem>
+                )}
+                {(isAdmin || hasPermission(Permissions.JOBS_VIEW)) && (
+                  <MenuItem href="/jobs" icon="🚛">
+                    {t('nav.jobs')}
+                  </MenuItem>
+                )}
+                {(isAdmin || hasPermission(Permissions.FLEET_VIEW)) && (
+                  <MenuItem href="/fleet-tracking" icon="📍">
+                    מעקב צי
+                  </MenuItem>
+                )}
+                <MenuItem href="/materials" icon="📦">
+                  {t('nav.materials')}
+                </MenuItem>
+              </MenuGroup>
+            )}
 
             {/* Management Group */}
-            <MenuGroup icon="👥" label="ניהול">
-              <MenuItem href="/customers" icon="👨‍💼">
-                {t('nav.customers')}
-              </MenuItem>
-              <MenuItem href="/sites" icon="🏗️">
-                {t('nav.sites')}
-              </MenuItem>
-              <MenuItem href="/fleet" icon="🚛">
-                {t('nav.fleet')}
-              </MenuItem>
-              <MenuItem href="/truck-types" icon="🏷️">
-                סוגי רכב
-              </MenuItem>
-              <MenuItem href="/pricing" icon="💵">
-                {t('nav.pricing')}
-              </MenuItem>
-              <MenuItem href="/subcontractors" icon="👷">
-                קבלני משנה
-              </MenuItem>
-            </MenuGroup>
+            {(isAdmin || hasAnyPermission([
+              Permissions.CUSTOMERS_VIEW,
+              Permissions.SITES_VIEW,
+              Permissions.FLEET_VIEW,
+              Permissions.PRICING_VIEW
+            ])) && (
+              <MenuGroup icon="👥" label="ניהול">
+                {(isAdmin || hasPermission(Permissions.CUSTOMERS_VIEW)) && (
+                  <MenuItem href="/customers" icon="👨‍💼">
+                    {t('nav.customers')}
+                  </MenuItem>
+                )}
+                {(isAdmin || hasPermission(Permissions.SITES_VIEW)) && (
+                  <MenuItem href="/sites" icon="🏗️">
+                    {t('nav.sites')}
+                  </MenuItem>
+                )}
+                {(isAdmin || hasPermission(Permissions.FLEET_VIEW)) && (
+                  <>
+                    <MenuItem href="/fleet" icon="🚛">
+                      {t('nav.fleet')}
+                    </MenuItem>
+                    <MenuItem href="/truck-types" icon="🏷️">
+                      סוגי רכב
+                    </MenuItem>
+                  </>
+                )}
+                {(isAdmin || hasPermission(Permissions.PRICING_VIEW)) && (
+                  <MenuItem href="/pricing" icon="💵">
+                    {t('nav.pricing')}
+                  </MenuItem>
+                )}
+                {isAdmin && (
+                  <MenuItem href="/subcontractors" icon="👷">
+                    קבלני משנה
+                  </MenuItem>
+                )}
+              </MenuGroup>
+            )}
 
             {/* Finance Group */}
-            <MenuGroup icon="💰" label="פיננסים">
-              <MenuItem href="/billing" icon="📄">
-                {t('nav.billing')}
-              </MenuItem>
-              <MenuItem href="/expenses" icon="🧾">
-                הוצאות
-              </MenuItem>
-            </MenuGroup>
+            {(isAdmin || hasAnyPermission([
+              Permissions.BILLING_VIEW,
+              Permissions.PAYMENTS_VIEW
+            ])) && (
+              <MenuGroup icon="💰" label="פיננסים">
+                {(isAdmin || hasPermission(Permissions.BILLING_VIEW)) && (
+                  <MenuItem href="/billing" icon="📄">
+                    {t('nav.billing')}
+                  </MenuItem>
+                )}
+                <MenuItem href="/expenses" icon="🧾">
+                  הוצאות
+                </MenuItem>
+              </MenuGroup>
+            )}
 
             {/* Reports Group */}
-            <MenuGroup icon="📊" label="דוחות">
-              <MenuItem href="/reports" icon="📈">
-                {t('nav.reports')}
-              </MenuItem>
-              <MenuItem href="/reports/financial" icon="💰">
-                דוחות פיננסיים
-              </MenuItem>
-            </MenuGroup>
+            {(isAdmin || hasAnyPermission([
+              Permissions.REPORTS_VIEW,
+              Permissions.REPORTS_FINANCIAL
+            ])) && (
+              <MenuGroup icon="📊" label="דוחות">
+                {(isAdmin || hasPermission(Permissions.REPORTS_VIEW)) && (
+                  <MenuItem href="/reports" icon="📈">
+                    {t('nav.reports')}
+                  </MenuItem>
+                )}
+                {(isAdmin || hasPermission(Permissions.REPORTS_FINANCIAL)) && (
+                  <MenuItem href="/reports/financial" icon="💰">
+                    דוחות פיננסיים
+                  </MenuItem>
+                )}
+              </MenuGroup>
+            )}
 
             {/* Help Group */}
             <MenuGroup icon="📚" label="עזרה">
@@ -255,11 +331,15 @@ export default function DashboardLayout({
             </MenuGroup>
 
             {/* Settings Group */}
-            <MenuGroup icon="⚙️" label="הגדרות">
-              <MenuItem href="/settings" icon="⚙️">
-                {t('nav.settings')}
-              </MenuItem>
-            </MenuGroup>
+            {(isAdmin || hasPermission(Permissions.SYSTEM_SETTINGS)) && (
+              <MenuGroup icon="⚙️" label="הגדרות">
+                <MenuItem href="/settings" icon="⚙️">
+                  {t('nav.settings')}
+                </MenuItem>
+              </MenuGroup>
+            )}
+            </>
+            )}
           </nav>
 
           {/* User section */}

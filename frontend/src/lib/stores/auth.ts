@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import type { User } from '@/types'
+import { usePermissions } from './permissions'
 
 interface AuthStore {
   user: User | null
@@ -29,6 +30,19 @@ export const useAuth = create<AuthStore>()((set) => ({
       try {
         const user = JSON.parse(userStr)
         set({ user, token, isAuthenticated: true, isInitialized: true })
+        
+        // Load user permissions only for non-admin users
+        // Admin, owner, and super_admin see everything without permission checks
+        const isAdminRole = user.org_role === 'admin' || user.org_role === 'owner' || user.is_super_admin
+        console.log('👤 Auth initialized:', {
+          email: user.email,
+          role: user.org_role,
+          isAdminRole,
+          willLoadPermissions: !isAdminRole
+        })
+        if (user.id && !isAdminRole) {
+          usePermissions.getState().loadPermissions(user.id)
+        }
       } catch (e) {
         localStorage.removeItem('access_token')
         localStorage.removeItem('user')
@@ -45,6 +59,12 @@ export const useAuth = create<AuthStore>()((set) => ({
       localStorage.setItem('user', JSON.stringify(user))
     }
     set({ user, token, isAuthenticated: true, isInitialized: true })
+    
+    // Load user permissions only for non-admin users
+    const isAdminRole = user.org_role === 'admin' || user.org_role === 'owner' || user.is_super_admin
+    if (user.id && !isAdminRole) {
+      usePermissions.getState().loadPermissions(user.id)
+    }
   },
   
   logout: () => {
@@ -52,6 +72,7 @@ export const useAuth = create<AuthStore>()((set) => ({
       localStorage.removeItem('access_token')
       localStorage.removeItem('user')
     }
+    usePermissions.getState().clearPermissions()
     set({ user: null, token: null, isAuthenticated: false, isInitialized: true })
   },
 }))

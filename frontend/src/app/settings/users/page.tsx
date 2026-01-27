@@ -24,11 +24,13 @@ function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUserModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('📝 Creating user with data:', formData);
     setIsLoading(true);
     setError('');
 
     try {
-      await adminUsersApi.create(formData);
+      const response = await adminUsersApi.create(formData);
+      console.log('✅ User created successfully:', response);
       onSuccess();
       onClose();
       setFormData({
@@ -39,7 +41,28 @@ function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUserModalProps) {
         org_role: 'driver'
       });
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'שגיאה ביצירת המשתמש');
+      console.error('❌ Error creating user:', err);
+      console.error('Response:', err.response?.data);
+      console.error('Full error:', {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data,
+        message: err.message
+      });
+      
+      let errorMessage = 'שגיאה ביצירת המשתמש';
+      
+      if (err.response?.status === 400) {
+        errorMessage = err.response?.data?.detail || 'נתונים לא תקינים';
+      } else if (err.response?.status === 401) {
+        errorMessage = 'אין הרשאה - אנא התחבר מחדש';
+      } else if (err.response?.status === 403) {
+        errorMessage = 'אין הרשאה ליצור משתמשים';
+      } else if (err.response?.data?.detail) {
+        errorMessage = err.response.data.detail;
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -90,14 +113,14 @@ function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUserModalProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              אימייל
+              אימייל (אופציונלי - נהגים משתמשים בטלפון)
             </label>
             <input
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
+              placeholder="example@email.com"
               dir="ltr"
             />
           </div>
@@ -143,6 +166,268 @@ function CreateUserModal({ isOpen, onClose, onSuccess }: CreateUserModalProps) {
             <button
               type="button"
               onClick={onClose}
+              className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300"
+            >
+              ביטול
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+interface EditUserModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  user: User | null;
+  onSuccess: () => void;
+}
+
+function EditUserModal({ isOpen, onClose, user, onSuccess }: EditUserModalProps) {
+  const [formData, setFormData] = useState<UpdateUserRequest>({
+    name: '',
+    phone: '',
+    org_role: 'driver'
+  });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name,
+        phone: user.phone || '',
+        org_role: user.org_role
+      });
+    }
+  }, [user]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      await adminUsersApi.update(user.id, formData);
+      onSuccess();
+      onClose();
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'שגיאה בעדכון המשתמש');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen || !user) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium mb-4">עריכת משתמש</h3>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              שם מלא
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+              dir="rtl"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              מספר טלפון
+            </label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              placeholder="050-1234567"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              dir="ltr"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              אימייל (לא ניתן לשינוי)
+            </label>
+            <input
+              type="email"
+              value={user.email}
+              disabled
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+              dir="ltr"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              תפקיד
+            </label>
+            <select
+              value={formData.org_role}
+              onChange={(e) => setFormData({ ...formData, org_role: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="driver">נהג</option>
+              <option value="dispatcher">סדרן</option>
+              <option value="accounting">הנהלת חשבונות</option>
+              <option value="admin">מנהל</option>
+            </select>
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isLoading ? 'שומר...' : 'שמור שינויים'}
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300"
+            >
+              ביטול
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+interface PasswordResetModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  user: User | null;
+  onSuccess: () => void;
+}
+
+function PasswordResetModal({ isOpen, onClose, user, onSuccess }: PasswordResetModalProps) {
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (newPassword.length < 8) {
+      setError('הסיסמה חייבת להכיל לפחות 8 תווים');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError('הסיסמאות אינן תואמות');
+      return;
+    }
+
+    if (!user) return;
+
+    setIsLoading(true);
+    try {
+      await adminUsersApi.resetPassword(user.id, { new_password: newPassword });
+      onSuccess();
+      onClose();
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'שגיאה באיפוס הסיסמה');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isOpen || !user) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium mb-4">איפוס סיסמה - {user.name}</h3>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              סיסמה חדשה
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required
+                minLength={8}
+                dir="ltr"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">לפחות 8 תווים</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              אימות סיסמה
+            </label>
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              required
+              minLength={8}
+              dir="ltr"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isLoading ? 'משנה סיסמה...' : 'שנה סיסמה'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                setNewPassword('');
+                setConfirmPassword('');
+                setError('');
+              }}
               className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-300"
             >
               ביטול
@@ -207,9 +492,24 @@ function PermissionsModal({ isOpen, onClose, user, onSuccess }: PermissionsModal
 
   if (!isOpen || !user) return null;
 
+  // Category display names in Hebrew
+  const categoryNames: Record<string, string> = {
+    dashboard: 'דשבורד',
+    reports: 'דוחות',
+    jobs: 'נסיעות',
+    customers: 'לקוחות',
+    sites: 'אתרים',
+    fleet: 'צי רכבים',
+    billing: 'חשבוניות',
+    pricing: 'מחירונים',
+    system: 'מערכת',
+    payments: 'תשלומים'
+  };
+
   // Group permissions by category for better display
   const groupedPermissions = permissions.reduce((acc, perm) => {
-    const category = perm.permission_name.split('_')[0] || 'אחר';
+    // Extract category from permission name (e.g., "jobs.view" -> "jobs")
+    const category = perm.permission_name.split('.')[0] || 'other';
     if (!acc[category]) acc[category] = [];
     acc[category].push(perm);
     return acc;
@@ -217,11 +517,16 @@ function PermissionsModal({ isOpen, onClose, user, onSuccess }: PermissionsModal
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[85vh] overflow-y-auto">
         <div className="p-6">
-          <h3 className="text-lg font-medium mb-4">
-            הרשאות עבור {user.name}
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-gray-900">
+              ניהול הרשאות - {user.name}
+            </h3>
+            <div className="text-sm text-gray-600">
+              {permissions.filter(p => p.granted).length} מתוך {permissions.length} הרשאות
+            </div>
+          </div>
           
           {error && (
             <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
@@ -229,30 +534,36 @@ function PermissionsModal({ isOpen, onClose, user, onSuccess }: PermissionsModal
             </div>
           )}
 
+          {permissions.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              אין הרשאות זמינות במערכת
+            </div>
+          )}
+
           <div className="space-y-6">
-            {Object.entries(groupedPermissions).map(([category, categoryPermissions]) => (
-              <div key={category}>
-                <h4 className="font-medium text-gray-900 mb-3 capitalize">
-                  {category}
+            {Object.entries(groupedPermissions).sort().map(([category, categoryPermissions]) => (
+              <div key={category} className="border rounded-lg p-4 bg-gray-50">
+                <h4 className="font-bold text-gray-900 mb-3 text-base">
+                  {categoryNames[category] || category}
                 </h4>
-                <div className="space-y-2">
+                <div className="space-y-2 bg-white rounded p-3">
                   {categoryPermissions.map((permission) => (
                     <label
                       key={permission.permission_id}
-                      className="flex items-start gap-3 cursor-pointer"
+                      className="flex items-start gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded transition-colors"
                     >
                       <input
                         type="checkbox"
                         checked={permission.granted}
                         onChange={() => handlePermissionToggle(permission.permission_id)}
-                        className="mt-1"
+                        className="mt-1 w-4 h-4"
                       />
-                      <div>
-                        <div className="font-medium text-sm">
-                          {permission.permission_name.replace(/_/g, ' ')}
+                      <div className="flex-1">
+                        <div className="font-medium text-sm text-gray-900">
+                          {permission.permission_description || permission.permission_name}
                         </div>
-                        <div className="text-sm text-gray-600">
-                          {permission.permission_description}
+                        <div className="text-xs text-gray-500 font-mono">
+                          {permission.permission_name}
                         </div>
                       </div>
                     </label>
@@ -293,7 +604,9 @@ export default function UsersManagementPage() {
   const [roleFilter, setRoleFilter] = useState('all');
   const [showInactive, setShowInactive] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
+  const [passwordResetModalOpen, setPasswordResetModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
   // Check if current user is admin
@@ -514,16 +827,36 @@ export default function UsersManagementPage() {
                     <button
                       onClick={() => {
                         setSelectedUser(user);
-                        setPermissionsModalOpen(true);
+                        setEditModalOpen(true);
                       }}
                       className="text-blue-600 hover:text-blue-900"
+                      title="ערוך"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setPermissionsModalOpen(true);
+                      }}
+                      className="text-purple-600 hover:text-purple-900"
                       title="נהל הרשאות"
                     >
                       <Shield className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setPasswordResetModalOpen(true);
+                      }}
+                      className="text-indigo-600 hover:text-indigo-900"
+                      title="שנה סיסמה"
+                    >
+                      <Key className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => handleToggleActive(user)}
-                      className={user.is_active ? "text-red-600 hover:text-red-900" : "text-green-600 hover:text-green-900"}
+                      className={user.is_active ? "text-orange-600 hover:text-orange-900" : "text-green-600 hover:text-green-900"}
                       title={user.is_active ? "השבת" : "הפעל"}
                     >
                       {user.is_active ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -559,6 +892,20 @@ export default function UsersManagementPage() {
         }}
       />
 
+      <EditUserModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false);
+          setSelectedUser(null);
+        }}
+        user={selectedUser}
+        onSuccess={() => {
+          loadUsers();
+          setEditModalOpen(false);
+          setSelectedUser(null);
+        }}
+      />
+
       <PermissionsModal
         isOpen={permissionsModalOpen}
         onClose={() => {
@@ -572,6 +919,17 @@ export default function UsersManagementPage() {
           setSelectedUser(null);
         }}
       />
-    </div>
+      <PasswordResetModal
+        isOpen={passwordResetModalOpen}
+        onClose={() => {
+          setPasswordResetModalOpen(false);
+          setSelectedUser(null);
+        }}
+        user={selectedUser}
+        onSuccess={() => {
+          setPasswordResetModalOpen(false);
+          setSelectedUser(null);
+        }}
+      />    </div>
   );
 }

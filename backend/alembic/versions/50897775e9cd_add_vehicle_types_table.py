@@ -35,7 +35,11 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_vehicle_types_id'), 'vehicle_types', ['id'], unique=False)
     op.create_index(op.f('ix_vehicle_types_org_id'), 'vehicle_types', ['org_id'], unique=False)
-    op.drop_table('schema_versions')
+    # Drop schema_versions only if it exists
+    try:
+        op.drop_table('schema_versions')
+    except:
+        pass
     op.drop_index('idx_audit_logs_org_id', table_name='audit_logs')
     op.create_index(op.f('ix_audit_logs_org_id'), 'audit_logs', ['org_id'], unique=False)
     op.drop_constraint('audit_logs_org_id_fkey', 'audit_logs', type_='foreignkey')

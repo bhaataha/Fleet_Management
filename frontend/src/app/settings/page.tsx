@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/stores/auth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import dynamic from 'next/dynamic'
+import UsersManagementPage from './users/page'
 import { 
   User, 
   Bell, 
@@ -16,9 +16,6 @@ import {
   Building2,
   Users
 } from 'lucide-react'
-
-// Dynamically import the Users Management component
-const UsersManagementPage = dynamic(() => import('./users/page'), { ssr: false })
 
 type SettingsTab = 'profile' | 'organization' | 'users' | 'notifications' | 'security' | 'system'
 

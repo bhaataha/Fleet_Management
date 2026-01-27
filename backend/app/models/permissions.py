@@ -92,6 +92,19 @@ class PhoneOTP(Base):
         self.used_at = func.now()
 
 
+class PermissionModel(Base):
+    """Database model for permissions"""
+    __tablename__ = "permissions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), unique=True, nullable=False, index=True)
+    display_name = Column(String(200), nullable=True)
+    description = Column(Text, nullable=True)
+    category = Column(String(50), nullable=True)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
 # Available Permissions Enum/Constants
 class Permission:
     """Available system permissions"""

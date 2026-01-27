@@ -22,12 +22,14 @@ permissions_router = APIRouter(prefix="/permissions", tags=["Permissions"])
 class PhoneLoginRequest(BaseModel):
     phone: str = Field(..., description="מספר טלפון", example="050-1234567")
     org_slug: Optional[str] = Field(None, description="שם הארגון (אופציונלי)", example="demo")
+    password: Optional[str] = Field(None, description="סיסמה (אופציונלי - לפיתוח)", example="demo123")
 
 
 class OTPRequest(BaseModel):
     phone: str = Field(..., description="מספר טלפון")
     otp_code: str = Field(..., description="קוד אימות", example="123456")
     org_slug: Optional[str] = Field(None, description="שם הארגון")
+    password: Optional[str] = Field(None, description="סיסמה (במקום OTP - לפיתוח)")
 
 
 class PhoneAuthResponse(BaseModel):
@@ -151,9 +153,10 @@ async def verify_otp_and_login(
 ):
     """
     אימות קוד OTP והתחברות למערכת
+    תמיכה גם בהתחברות עם סיסמה (לפיתוח)
     
     Steps:
-    1. מאמת את הקוד
+    1. מאמת את הקוד או סיסמה
     2. מחזיר JWT token
     3. מחזיר הרשאות המשתמש
     """
@@ -171,21 +174,7 @@ async def verify_otp_and_login(
                 detail="Organization not found"
             )
         
-        # Verify OTP
-        is_valid = PermissionService.verify_otp(
-            db=db,
-            phone=request_data.phone,
-            otp_code=request_data.otp_code,
-            org_id=org.id
-        )
-        
-        if not is_valid:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid or expired OTP code"
-            )
-        
-        # Find user
+        # Find user first
         user = PermissionService.find_user_by_phone(
             db=db,
             phone=request_data.phone,
@@ -197,6 +186,30 @@ async def verify_otp_and_login(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
+        
+        # Check if password provided (dev mode)
+        if request_data.password:
+            # Verify password instead of OTP
+            from app.core.security import verify_password
+            if not verify_password(request_data.password, user.password_hash):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid password"
+                )
+        else:
+            # Verify OTP (production mode)
+            is_valid = PermissionService.verify_otp(
+                db=db,
+                phone=request_data.phone,
+                otp_code=request_data.otp_code,
+                org_id=org.id
+            )
+            
+            if not is_valid:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid or expired OTP code"
+                )
         
         # Get user permissions
         permissions = PermissionService.get_user_permissions(user)
@@ -240,6 +253,101 @@ async def resend_otp(
     שליחה מחדש של קוד OTP
     """
     return await send_otp(request_data, request, db)
+
+
+@router.post("/login-with-password", response_model=LoginResponse)
+async def login_with_password(
+    request_data: PhoneLoginRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    התחברות ישירה עם סיסמה (ללא OTP)
+    מיועד לפיתוח ובדיקות
+    
+    Args:
+        request_data: PhoneLoginRequest עם phone + password
+        
+    Returns:
+        LoginResponse עם access token והרשאות
+    """
+    try:
+        # Validate password provided
+        if not request_data.password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password is required"
+            )
+        
+        # Find organization
+        org = None
+        if request_data.org_slug:
+            org = db.query(Organization).filter(Organization.slug == request_data.org_slug).first()
+        else:
+            org = db.query(Organization).filter(Organization.status == "active").first()
+        
+        if not org:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Organization not found"
+            )
+        
+        # Find user by phone
+        user = PermissionService.find_user_by_phone(
+            db=db,
+            phone=request_data.phone,
+            org_id=org.id
+        )
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found with this phone number"
+            )
+        
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is disabled"
+            )
+        
+        # Verify password
+        from app.core.security import verify_password
+        if not verify_password(request_data.password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid password"
+            )
+        
+        # Get user permissions
+        permissions = PermissionService.get_user_permissions(user)
+        
+        # Create access token
+        access_token = create_access_token_for_user(user)
+        
+        return LoginResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user={
+                "id": user.id,
+                "name": user.name,
+                "phone": user.phone,
+                "email": user.email,
+                "org_id": str(user.org_id),
+                "org_name": org.name,
+                "org_slug": org.slug,
+                "org_role": user.org_role,
+                "is_super_admin": user.is_super_admin
+            },
+            permissions=permissions
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error logging in: {str(e)}"
+        )
 
 
 # ============ Permissions Management Endpoints ============

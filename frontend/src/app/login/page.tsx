@@ -24,6 +24,8 @@ export default function LoginPage() {
   const [authStep, setAuthStep] = useState<AuthStep>('phone')
   const [otpSent, setOtpSent] = useState(false)
   const [countdown, setCountdown] = useState(0)
+  const [usePassword, setUsePassword] = useState(true) // Dev mode: use password by default
+  const [password, setPassword] = useState('demo123')
 
   useEffect(() => {
     setMounted(true)
@@ -58,15 +60,34 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      await phoneAuthApi.sendOTP({ phone, org_slug: orgSlug })
-      setAuthStep('otp')
-      setOtpSent(true)
-      setCountdown(60) // 60 seconds until resend allowed
+      // If using password mode, login directly
+      if (usePassword) {
+        const response = await phoneAuthApi.loginWithPassword({ 
+          phone, 
+          password,
+          org_slug: orgSlug 
+        })
+        
+        const { access_token, user } = response.data
+        
+        if (!user || !access_token) {
+          throw new Error('Invalid response from server')
+        }
+        
+        setAuth(user, access_token)
+        router.push('/dashboard')
+      } else {
+        // OTP mode
+        await phoneAuthApi.sendOTP({ phone, org_slug: orgSlug })
+        setAuthStep('otp')
+        setOtpSent(true)
+        setCountdown(60) // 60 seconds until resend allowed
+      }
     } catch (err: any) {
       if (err.response?.data?.detail) {
         setError(err.response.data.detail)
       } else {
-        setError('שגיאה בשליחת קוד אימות')
+        setError(usePassword ? 'שגיאה בהתחברות' : 'שגיאה בשליחת קוד אימות')
       }
     } finally {
       setLoading(false)
@@ -210,6 +231,32 @@ export default function LoginPage() {
           {/* Login Form */}
           {authStep === 'phone' ? (
             <form onSubmit={handleSendOTP} className="space-y-6">
+              {/* Toggle Password/OTP Mode */}
+              <div className="flex items-center justify-center gap-4 p-3 bg-gray-50 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setUsePassword(true)}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    usePassword 
+                      ? 'bg-blue-600 text-white shadow' 
+                      : 'text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  🔑 סיסמה
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUsePassword(false)}
+                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                    !usePassword 
+                      ? 'bg-blue-600 text-white shadow' 
+                      : 'text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  📱 קוד SMS
+                </button>
+              </div>
+
               {/* Phone Field */}
               <div>
                 <label 
@@ -230,20 +277,45 @@ export default function LoginPage() {
                   disabled={loading}
                   dir="ltr"
                 />
-                {phone && (
+                {phone && !usePassword && (
                   <p className="text-sm text-gray-500 mt-1">
                     יישלח ל: {formatPhone(phone)}
                   </p>
                 )}
               </div>
 
+              {/* Password Field (only in password mode) */}
+              {usePassword && (
+                <div>
+                  <label 
+                    htmlFor="password" 
+                    className="block text-sm font-medium text-gray-700 mb-2"
+                  >
+                    🔒 סיסמה
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="הזן סיסמה"
+                    disabled={loading}
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 למשתמשי דמו: demo123
+                  </p>
+                </div>
+              )}
+
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={loading || !phone}
+                disabled={loading || !phone || (usePassword && !password)}
                 className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'שולח...' : 'שלח קוד אימות'}
+                {loading ? 'מתחבר...' : (usePassword ? '🔓 התחבר' : '📨 שלח קוד אימות')}
               </button>
             </form>
           ) : (

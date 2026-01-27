@@ -86,6 +86,9 @@ export const phoneAuthApi = {
     
   resendOTP: (data: { phone: string; org_slug?: string }) =>
     api.post<import('@/types').PhoneAuthResponse>('/phone-auth/resend-otp', data),
+    
+  loginWithPassword: (data: { phone: string; password: string; org_slug?: string }) =>
+    api.post<LoginResponse>('/phone-auth/login-with-password', data),
 }
 
 // Customers API

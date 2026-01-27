@@ -5,7 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_
 from app.core.database import get_db
-from app.models import User, UserPermission, Permission
+from app.models import User, UserPermission
+from app.models.permissions import PermissionModel
 from app.core.tenant import get_org_id, get_user_id, require_super_admin, is_super_admin
 from app.core.security import get_password_hash
 from app.services.permission_service import PermissionService
@@ -29,7 +30,7 @@ class UserPermissionResponse(BaseModel):
 class UserResponse(BaseModel):
     id: int
     name: str
-    email: str
+    email: Optional[str] = None  # Optional for drivers
     phone: Optional[str]
     org_role: str
     is_active: bool
@@ -41,7 +42,7 @@ class UserResponse(BaseModel):
 
 class UserCreateRequest(BaseModel):
     name: str
-    email: EmailStr
+    email: Optional[EmailStr] = None  # Optional - drivers use phone login
     phone: str
     password: str
     org_role: str = "driver"  # admin, dispatcher, accounting, driver
@@ -93,7 +94,7 @@ async def list_organization_users(
     org_id = get_org_id(request)
     
     query = db.query(User).options(
-        joinedload(User.permissions).joinedload(UserPermission.permission)
+        joinedload(User.permissions)
     ).filter(User.org_id == org_id)
     
     if not include_inactive:
@@ -105,8 +106,8 @@ async def list_organization_users(
     user_responses = []
     for user in users:
         # Get all permissions for the organization
-        all_permissions = db.query(Permission).all()
-        user_permission_ids = {up.permission_id for up in user.permissions}
+        all_permissions = db.query(PermissionModel).all()
+        user_permission_names = {up.permission_name for up in user.permissions if up.granted}
         
         permissions_response = []
         for perm in all_permissions:
@@ -114,7 +115,7 @@ async def list_organization_users(
                 permission_id=perm.id,
                 permission_name=perm.name,
                 permission_description=perm.description,
-                granted=perm.id in user_permission_ids
+                granted=perm.name in user_permission_names
             ))
         
         user_responses.append(UserResponse(
@@ -147,21 +148,32 @@ async def create_user(
     if not normalized_phone.startswith('0'):
         normalized_phone = '0' + normalized_phone
     
+    # Generate email if not provided (for drivers)
+    if not user_data.email:
+        # Use phone number as email: 0501234567@drivers.local
+        user_data.email = f"{normalized_phone}@drivers.local"
+    
     # Check for existing user
+    conditions = [User.org_id == org_id]
+    
+    # Check phone (always required)
+    conditions.append(User.phone == normalized_phone)
+    
+    # Check email only if it's a real email (not auto-generated)
+    if user_data.email and not user_data.email.endswith('@drivers.local'):
+        conditions.append(User.email == user_data.email)
+    
     existing_user = db.query(User).filter(
         and_(
             User.org_id == org_id,
-            or_(
-                User.email == user_data.email,
-                User.phone == normalized_phone
-            )
+            or_(*conditions[1:])  # Skip org_id from OR conditions
         )
     ).first()
     
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User with this email or phone already exists"
+            detail="User with this phone or email already exists"
         )
     
     # Create user
@@ -184,11 +196,11 @@ async def create_user(
     PermissionService.set_default_permissions(db, user.id, user_data.org_role)
     
     # Return user with permissions
-    all_permissions = db.query(Permission).all()
+    all_permissions = db.query(PermissionModel).all()
     user_permissions = db.query(UserPermission).filter(
         UserPermission.user_id == user.id
     ).all()
-    user_permission_ids = {up.permission_id for up in user_permissions}
+    user_permission_names = {up.permission_name for up in user_permissions if up.granted}
     
     permissions_response = []
     for perm in all_permissions:
@@ -196,7 +208,7 @@ async def create_user(
             permission_id=perm.id,
             permission_name=perm.name,
             permission_description=perm.description,
-            granted=perm.id in user_permission_ids
+            granted=perm.name in user_permission_names
         ))
     
     return UserResponse(
@@ -234,11 +246,11 @@ async def get_user(
         )
     
     # Get permissions
-    all_permissions = db.query(Permission).all()
+    all_permissions = db.query(PermissionModel).all()
     user_permissions = db.query(UserPermission).filter(
         UserPermission.user_id == user_id
     ).all()
-    user_permission_ids = {up.permission_id for up in user_permissions}
+    user_permission_names = {up.permission_name for up in user_permissions if up.granted}
     
     permissions_response = []
     for perm in all_permissions:
@@ -246,7 +258,7 @@ async def get_user(
             permission_id=perm.id,
             permission_name=perm.name,
             permission_description=perm.description,
-            granted=perm.id in user_permission_ids
+            granted=perm.name in user_permission_names
         ))
     
     return UserResponse(
@@ -335,11 +347,11 @@ async def update_user(
     db.refresh(user)
     
     # Return updated user with permissions
-    all_permissions = db.query(Permission).all()
+    all_permissions = db.query(PermissionModel).all()
     user_permissions = db.query(UserPermission).filter(
         UserPermission.user_id == user_id
     ).all()
-    user_permission_ids = {up.permission_id for up in user_permissions}
+    user_permission_names = {up.permission_name for up in user_permissions if up.granted}
     
     permissions_response = []
     for perm in all_permissions:
@@ -347,7 +359,7 @@ async def update_user(
             permission_id=perm.id,
             permission_name=perm.name,
             permission_description=perm.description,
-            granted=perm.id in user_permission_ids
+            granted=perm.name in user_permission_names
         ))
     
     return UserResponse(
@@ -429,14 +441,17 @@ async def update_user_permissions(
     # Add new permissions
     for permission_id in permissions_data.permission_ids:
         # Verify permission exists
-        permission = db.query(Permission).filter(
-            Permission.id == permission_id
+        permission = db.query(PermissionModel).filter(
+            PermissionModel.id == permission_id
         ).first()
         
         if permission:
             user_permission = UserPermission(
                 user_id=user_id,
-                permission_id=permission_id
+                org_id=org_id,
+                permission_name=permission.name,
+                granted=True,
+                granted_by=admin_user.id
             )
             db.add(user_permission)
     
@@ -497,11 +512,12 @@ async def get_user_permissions(
         )
     
     # Get all permissions and user's granted permissions
-    all_permissions = db.query(Permission).all()
+    all_permissions = db.query(PermissionModel).all()
     user_permissions = db.query(UserPermission).filter(
-        UserPermission.user_id == user_id
+        UserPermission.user_id == user_id,
+        UserPermission.granted == True
     ).all()
-    user_permission_ids = {up.permission_id for up in user_permissions}
+    user_permission_names = {up.permission_name for up in user_permissions}
     
     permissions_response = []
     for perm in all_permissions:
@@ -509,7 +525,7 @@ async def get_user_permissions(
             permission_id=perm.id,
             permission_name=perm.name,
             permission_description=perm.description,
-            granted=perm.id in user_permission_ids
+            granted=perm.name in user_permission_names
         ))
     
     return permissions_response

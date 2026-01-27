@@ -56,6 +56,7 @@ async def tenant_middleware(request: Request, call_next):
         "/api/phone-auth/send-otp",  # Phone OTP sending
         "/api/phone-auth/verify-otp",  # Phone OTP verification
         "/api/phone-auth/resend-otp",  # Phone OTP resend
+        "/api/phone-auth/login-with-password",  # Password login (dev mode)
     ]
     
     # Allow all share URLs (public PDF sharing)

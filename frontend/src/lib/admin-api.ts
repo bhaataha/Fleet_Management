@@ -13,7 +13,7 @@ export interface UserPermission {
 export interface User {
   id: number;
   name: string;
-  email: string;
+  email?: string;  // Optional for drivers
   phone?: string;
   org_role: string;
   is_active: boolean;
@@ -23,7 +23,7 @@ export interface User {
 
 export interface CreateUserRequest {
   name: string;
-  email: string;
+  email?: string;  // Optional - drivers use phone login
   phone: string;
   password: string;
   org_role: string;
