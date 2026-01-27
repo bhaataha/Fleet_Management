@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Union
 from decimal import Decimal
 from app.core.database import get_db
 from app.models import Truck
 from app.middleware.tenant import get_current_org_id
-from pydantic import BaseModel
-from datetime import datetime
+from pydantic import BaseModel, field_validator
+from datetime import datetime, date
 from uuid import UUID
 
 router = APIRouter()
@@ -18,10 +18,31 @@ class TruckBase(BaseModel):
     truck_type: Optional[str] = None
     capacity_ton: Optional[Decimal] = None
     capacity_m3: Optional[Decimal] = None
-    insurance_expiry: Optional[datetime] = None
-    test_expiry: Optional[datetime] = None
+    insurance_expiry: Optional[Union[datetime, date]] = None
+    test_expiry: Optional[Union[datetime, date]] = None
     primary_driver_id: Optional[int] = None
     secondary_driver_ids: Optional[List[int]] = []
+    
+    @field_validator('insurance_expiry', 'test_expiry', mode='before')
+    @classmethod
+    def parse_date_or_datetime(cls, v):
+        """Accept both date and datetime formats"""
+        if v is None:
+            return v
+        if isinstance(v, (datetime, date)):
+            return v
+        if isinstance(v, str):
+            # Try parsing as date first (YYYY-MM-DD)
+            try:
+                return datetime.strptime(v, '%Y-%m-%d')
+            except ValueError:
+                pass
+            # Try parsing as datetime
+            try:
+                return datetime.fromisoformat(v.replace('Z', '+00:00'))
+            except ValueError:
+                raise ValueError(f"Invalid date/datetime format: {v}")
+        return v
 
 
 class TruckCreate(TruckBase):
@@ -34,11 +55,32 @@ class TruckUpdate(BaseModel):
     truck_type: Optional[str] = None
     capacity_ton: Optional[Decimal] = None
     capacity_m3: Optional[Decimal] = None
-    insurance_expiry: Optional[datetime] = None
-    test_expiry: Optional[datetime] = None
+    insurance_expiry: Optional[Union[datetime, date]] = None
+    test_expiry: Optional[Union[datetime, date]] = None
     primary_driver_id: Optional[int] = None
     secondary_driver_ids: Optional[List[int]] = None
     is_active: Optional[bool] = None
+    
+    @field_validator('insurance_expiry', 'test_expiry', mode='before')
+    @classmethod
+    def parse_date_or_datetime(cls, v):
+        """Accept both date and datetime formats"""
+        if v is None:
+            return v
+        if isinstance(v, (datetime, date)):
+            return v
+        if isinstance(v, str):
+            # Try parsing as date first (YYYY-MM-DD)
+            try:
+                return datetime.strptime(v, '%Y-%m-%d')
+            except ValueError:
+                pass
+            # Try parsing as datetime
+            try:
+                return datetime.fromisoformat(v.replace('Z', '+00:00'))
+            except ValueError:
+                raise ValueError(f"Invalid date/datetime format: {v}")
+        return v
 
 
 class TruckResponse(TruckBase):

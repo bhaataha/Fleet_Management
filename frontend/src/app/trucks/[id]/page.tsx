@@ -173,9 +173,10 @@ export default function EditTruckPage() {
               value={formData.truck_type}
               onChange={(e) => setFormData({ ...formData, truck_type: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={vehicleTypesLoading}
             >
               <option value="">בחר סוג משאית</option>
-              {TRUCK_TYPES.map(type => (
+              {getVehicleTypeOptions().map(type => (
                 <option key={type.value} value={type.value} title={type.description}>
                   {type.label}
                 </option>

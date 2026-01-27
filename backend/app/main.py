@@ -5,7 +5,11 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.config import settings
 from app.api.v1.api import api_router
 from app.middleware.tenant import tenant_middleware
+from app.scheduler import init_scheduler, shutdown_scheduler
 from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class CORSStaticFilesMiddleware(BaseHTTPMiddleware):
@@ -66,3 +70,20 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+# Lifecycle events
+@app.on_event("startup")
+async def startup_event():
+    """Initialize scheduler on application startup"""
+    logger.info("🚀 Application starting up...")
+    init_scheduler()
+    logger.info("✅ Startup complete - Alerts system active")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Shutdown scheduler gracefully"""
+    logger.info("🛑 Application shutting down...")
+    shutdown_scheduler()
+    logger.info("✅ Shutdown complete")

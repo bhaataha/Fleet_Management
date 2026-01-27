@@ -173,13 +173,12 @@ export default function ExpensesPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 max-w-7xl mx-auto" dir="rtl">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">ניהול הוצאות</h1>
-          <p className="text-gray-600 mt-1">מעקב אחר כל ההוצאות של הצי</p>
-        </div>
+        <div className="flex justify-between items-center">\n          <div>
+            <h1 className="text-3xl font-bold text-gray-900">ניהול הוצאות</h1>
+            <p className="text-gray-600 mt-1">מעקב אחר כל ההוצאות של הצי</p>
+          </div>
         <button
           onClick={() => {
             setEditingExpense(null)

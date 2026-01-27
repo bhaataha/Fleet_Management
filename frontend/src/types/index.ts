@@ -78,8 +78,10 @@ export interface User {
   id: number
   name: string
   email: string
+  phone?: string
   org_id: number
   roles: UserRole[]
+  permissions: string[]  // List of permission names (e.g., "dashboard.view", "jobs.create")
   is_super_admin?: boolean
   org_role?: string
 }
@@ -233,6 +235,27 @@ export interface LoginResponse {
   access_token: string
   token_type: string
   user: User
+}
+
+// Phone Authentication Types
+export interface PhoneAuthSendRequest {
+  phone: string
+  org_slug?: string
+}
+
+export interface PhoneAuthVerifyRequest {
+  phone: string
+  otp_code: string
+  org_slug?: string
+}
+
+export interface PhoneAuthResponse {
+  success: boolean
+  message: string
+  access_token?: string
+  token_type?: string
+  user?: User
+  expires_at?: string
 }
 
 export interface Expense {

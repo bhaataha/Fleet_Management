@@ -6,6 +6,12 @@ from app.core.database import Base
 import enum
 import uuid
 
+# Import Alert models
+from app.models.alert import Alert, AlertType, AlertSeverity, AlertCategory, AlertStatus
+
+# Import Permission models
+from app.models.permissions import UserPermission, PhoneOTP, Permission
+
 
 class UserRole(str, enum.Enum):
     """User roles for RBAC"""
@@ -143,6 +149,7 @@ class User(Base):
     organization = relationship("Organization", back_populates="users")
     roles = relationship("UserRoleModel", back_populates="user")
     driver_profile = relationship("Driver", back_populates="user", uselist=False)
+    permissions = relationship("UserPermission", foreign_keys="UserPermission.user_id", back_populates="user")
 
 
 class UserRoleModel(Base):

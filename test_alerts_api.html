@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Alerts API</title>
+</head>
+<body>
+    <h1>Test Alerts API</h1>
+    <button onclick="testLogin()">1. Login</button>
+    <button onclick="testUnreadCount()">2. Get Unread Count</button>
+    <button onclick="testAlerts()">3. Get Alerts</button>
+    <pre id="output"></pre>
+
+    <script>
+        let token = '';
+
+        async function testLogin() {
+            try {
+                const response = await fetch('http://localhost:8001/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: 'admin@demo.com',
+                        password: 'admin123'
+                    })
+                });
+                
+                const data = await response.json();
+                token = data.access_token;
+                document.getElementById('output').textContent = 
+                    'Login Success!\nToken: ' + token.substring(0, 50) + '...';
+            } catch (err) {
+                document.getElementById('output').textContent = 'Login Error: ' + err.message;
+            }
+        }
+
+        async function testUnreadCount() {
+            if (!token) {
+                alert('Please login first');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8001/api/alerts/unread-count', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                const data = await response.json();
+                document.getElementById('output').textContent = 
+                    'Unread Count: ' + JSON.stringify(data, null, 2);
+            } catch (err) {
+                document.getElementById('output').textContent = 'Error: ' + err.message;
+            }
+        }
+
+        async function testAlerts() {
+            if (!token) {
+                alert('Please login first');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8001/api/alerts?limit=5', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                const data = await response.json();
+                document.getElementById('output').textContent = 
+                    'Alerts: ' + JSON.stringify(data, null, 2);
+            } catch (err) {
+                document.getElementById('output').textContent = 'Error: ' + err.message;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -53,6 +53,9 @@ async def tenant_middleware(request: Request, call_next):
         "/api/auth/driver-login",  # Driver phone login
         "/api/v1/auth/login",  # Just in case
         "/api/v1/auth/driver-login",  # Driver phone login v1
+        "/api/phone-auth/send-otp",  # Phone OTP sending
+        "/api/phone-auth/verify-otp",  # Phone OTP verification
+        "/api/phone-auth/resend-otp",  # Phone OTP resend
     ]
     
     # Allow all share URLs (public PDF sharing)

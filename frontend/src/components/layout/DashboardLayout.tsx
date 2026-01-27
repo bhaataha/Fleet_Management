@@ -7,6 +7,8 @@ import { useAuth } from '@/lib/stores/auth'
 import { useI18n } from '@/lib/i18n'
 import Logo from '@/components/ui/Logo'
 import Footer from '@/components/layout/Footer'
+import NotificationBadge from '@/components/alerts/NotificationBadge'
+import NotificationPanel from '@/components/alerts/NotificationPanel'
 import { superAdminApi } from '@/lib/api'
 import { MenuGroup } from './MenuGroup'
 import { MenuItem } from './MenuItem'
@@ -48,6 +50,7 @@ export default function DashboardLayout({
   const [mounted, setMounted] = useState(false)
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false)
   const [orgSelectorOpen, setOrgSelectorOpen] = useState(false)
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false)
   const [organizations, setOrganizations] = useState<any[]>([])
   const [impersonatedOrgId, setImpersonatedOrgId] = useState<string | null>(null)
 
@@ -135,10 +138,10 @@ export default function DashboardLayout({
       <aside
         className={`
           fixed inset-y-0 ${language === 'he' ? 'right-0' : 'left-0'}
-          z-50 w-64 bg-white border-${language === 'he' ? 'l' : 'r'} border-gray-200
+          z-50 w-64 bg-white shadow-lg
+          ${language === 'he' ? 'border-l' : 'border-r'} border-gray-200
           transform transition-transform duration-300 ease-in-out
-          lg:translate-x-0
-          ${sidebarOpen ? 'translate-x-0' : language === 'he' ? 'translate-x-full' : '-translate-x-full'}
+          ${sidebarOpen ? 'translate-x-0' : language === 'he' ? 'translate-x-full lg:translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
         <div className="flex flex-col h-full">
@@ -179,6 +182,11 @@ export default function DashboardLayout({
             {/* Dashboard - Always visible */}
             <MenuItem href="/dashboard" icon="📊">
               {t('nav.dashboard')}
+            </MenuItem>
+            
+            {/* Alerts - New */}
+            <MenuItem href="/alerts" icon="🔔">
+              התראות
             </MenuItem>
 
             {/* Operations Group */}
@@ -328,6 +336,11 @@ export default function DashboardLayout({
           
           {/* Super Admin Controls */}
           <div className="flex-1 flex items-center justify-end gap-4">
+            {/* Notification Badge */}
+            <NotificationBadge 
+              onClick={() => setNotificationPanelOpen(true)}
+            />
+            
             {/* Impersonation Banner */}
             {user?.is_super_admin && impersonatedOrgId && (
               <div className="flex items-center gap-2 bg-yellow-50 border border-yellow-200 rounded-md px-3 py-1.5">
@@ -432,6 +445,12 @@ export default function DashboardLayout({
         {/* Footer */}
         <Footer variant="app" />
       </div>
+      
+      {/* Notification Panel */}
+      <NotificationPanel 
+        isOpen={notificationPanelOpen}
+        onClose={() => setNotificationPanelOpen(false)}
+      />
     </div>
   )
 }

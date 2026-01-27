@@ -76,6 +76,18 @@ export const authApi = {
     api.post('/auth/logout'),
 }
 
+// Phone Auth API
+export const phoneAuthApi = {
+  sendOTP: (data: { phone: string; org_slug?: string }) =>
+    api.post<import('@/types').PhoneAuthResponse>('/phone-auth/send-otp', data),
+    
+  verifyOTP: (data: { phone: string; otp_code: string; org_slug?: string }) =>
+    api.post<import('@/types').PhoneAuthResponse>('/phone-auth/verify-otp', data),
+    
+  resendOTP: (data: { phone: string; org_slug?: string }) =>
+    api.post<import('@/types').PhoneAuthResponse>('/phone-auth/resend-otp', data),
+}
+
 // Customers API
 export const customersApi = {
   getAll: () => api.get<Customer[]>('/customers'),
@@ -493,6 +505,35 @@ export const vehicleTypesApi = {
   
   seedDefaults: () =>
     api.post<{ message: string; seeded: number }>('/vehicle-types/seed-defaults'),
+}
+
+// Alerts API
+export const alertsApi = {
+  list: (params?: {
+    status?: string
+    category?: string
+    severity?: string
+    skip?: number
+    limit?: number
+  }) => api.get<import('@/types/alert').AlertListResponse>('/alerts', { params }),
+  
+  getUnreadCount: () => 
+    api.get<import('@/types/alert').UnreadCountResponse>('/alerts/unread-count'),
+  
+  getStats: () =>
+    api.get<import('@/types/alert').AlertStatsResponse>('/alerts/stats'),
+  
+  get: (id: number) =>
+    api.get<import('@/types/alert').Alert>(`/alerts/${id}`),
+  
+  markAsRead: (id: number) =>
+    api.post<import('@/types/alert').Alert>(`/alerts/${id}/read`),
+  
+  dismiss: (id: number) =>
+    api.post<import('@/types/alert').Alert>(`/alerts/${id}/dismiss`),
+  
+  resolve: (id: number) =>
+    api.post<import('@/types/alert').Alert>(`/alerts/${id}/resolve`),
 }
 
 export default api

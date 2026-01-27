@@ -4,10 +4,13 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Union
 from decimal import Decimal
 from app.core.database import get_db
-from app.models import Job, JobStatus, JobStatusEvent, BillingUnit, ShareUrl
+from app.models import Job, JobStatus, JobStatusEvent, BillingUnit, ShareUrl, Driver
+from app.models.alert import AlertType, AlertSeverity, AlertCategory
 from app.middleware.tenant import get_current_org_id, get_current_user_id
 from app.core.security import create_access_token
 from app.services.pdf_generator import DeliveryNotePDF
+from app.services.alert_service import AlertService
+from app.schemas.alert import AlertCreate
 from pydantic import BaseModel
 from datetime import datetime, timedelta, date
 from uuid import UUID
@@ -318,6 +321,7 @@ async def update_job(
     
     # Track if status changed
     old_status = db_job.status
+    old_driver_id = db_job.driver_id
     
     # Auto-assign status ONLY when assigning driver for FIRST time (was null before)
     # Don't auto-change status if just updating existing driver or if user explicitly set status
@@ -330,6 +334,11 @@ async def update_job(
             user_id=user_id
         )
         db.add(status_event)
+        
+        # Auto-resolve JOB_NOT_ASSIGNED alerts
+        AlertService.auto_resolve_outdated_alerts(
+            db, org_id, AlertType.JOB_NOT_ASSIGNED, "job", db_job.id
+        )
     
     # Update all provided fields
     for field, value in job_update.dict(exclude_unset=True).items():
@@ -347,6 +356,32 @@ async def update_job(
     
     db.commit()
     db.refresh(db_job)
+    
+    # Create real-time alert if driver was assigned
+    if job_update.driver_id and job_update.driver_id != old_driver_id:
+        try:
+            # Get driver details
+            driver = db.query(Driver).filter(Driver.id == job_update.driver_id).first()
+            if driver and driver.user_id:
+                alert_data = AlertCreate(
+                    org_id=org_id,
+                    alert_type=AlertType.JOB_ASSIGNED_TO_DRIVER.value,
+                    severity=AlertSeverity.INFO.value,
+                    category=AlertCategory.REALTIME.value,
+                    title=f"נסיעה חדשה #{db_job.id}",
+                    message=f"שובצת לך נסיעה חדשה ל-{db_job.scheduled_date.strftime('%d/%m/%Y %H:%M')}",
+                    action_url=f"/jobs/{db_job.id}",
+                    entity_type="job",
+                    entity_id=db_job.id,
+                    created_for_user_id=driver.user_id,
+                    expires_at=db_job.scheduled_date + timedelta(hours=48)
+                )
+                AlertService.create_alert(db, alert_data)
+        except Exception as e:
+            # Don't fail job update if alert creation fails
+            import logging
+            logging.error(f"Failed to create driver alert: {e}")
+    
     return db_job
 
 

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Auth Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-md mx-auto bg-white rounded-lg shadow p-6">
+        <h1 class="text-xl font-bold mb-4 text-center">בדיקת התחברות בטלפון</h1>
+        
+        <!-- Phone Input -->
+        <div class="mb-4">
+            <label class="block text-sm font-medium mb-2">מספר טלפון:</label>
+            <input 
+                type="text" 
+                id="phone" 
+                value="0507771111" 
+                class="w-full p-3 border rounded focus:ring-2 focus:ring-blue-500"
+                placeholder="0507771111"
+            />
+        </div>
+        
+        <!-- Send OTP Button -->
+        <button 
+            onclick="sendOTP()" 
+            class="w-full bg-blue-600 text-white p-3 rounded hover:bg-blue-700"
+            id="sendBtn"
+        >
+            שלח קוד אימות
+        </button>
+        
+        <!-- OTP Input (hidden initially) -->
+        <div id="otpSection" class="hidden mt-4">
+            <label class="block text-sm font-medium mb-2">קוד אימות:</label>
+            <input 
+                type="text" 
+                id="otp" 
+                maxlength="6" 
+                class="w-full p-3 border rounded text-center text-lg tracking-widest"
+                placeholder="123456"
+            />
+            <button 
+                onclick="verifyOTP()" 
+                class="w-full bg-green-600 text-white p-3 rounded hover:bg-green-700 mt-2"
+            >
+                אמת קוד
+            </button>
+        </div>
+        
+        <!-- Results -->
+        <div id="results" class="mt-4 p-3 rounded hidden"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8001/api';
+        let currentPhone = '';
+
+        function showResult(message, isError = false) {
+            const results = document.getElementById('results');
+            results.className = `mt-4 p-3 rounded ${isError ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`;
+            results.textContent = message;
+            results.classList.remove('hidden');
+        }
+
+        async function sendOTP() {
+            const phone = document.getElementById('phone').value;
+            const sendBtn = document.getElementById('sendBtn');
+            
+            if (!phone) {
+                showResult('אנא הזן מספר טלפון', true);
+                return;
+            }
+
+            currentPhone = phone;
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'שולח...';
+
+            try {
+                const response = await fetch(`${API_BASE}/phone-auth/send-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        phone: phone,
+                        org_slug: 'demo'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    showResult(`קוד אימות נשלח ל-${phone}`);
+                    document.getElementById('otpSection').classList.remove('hidden');
+                    
+                    // Check console for OTP code
+                    console.log('בדוק בקונסול Backend את הקוד - console logs');
+                } else {
+                    showResult(`שגיאה: ${data.detail || 'לא ניתן לשלוח קוד'}`, true);
+                }
+            } catch (error) {
+                showResult(`שגיאת רשת: ${error.message}`, true);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'שלח קוד אימות';
+            }
+        }
+
+        async function verifyOTP() {
+            const otp = document.getElementById('otp').value;
+            
+            if (!otp || otp.length !== 6) {
+                showResult('אנא הזן קוד אימות בן 6 ספרות', true);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/phone-auth/verify-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        phone: currentPhone,
+                        otp_code: otp,
+                        org_slug: 'demo'
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.access_token) {
+                    showResult(`התחברות הצליחה! שלום ${data.user.name}`);
+                    console.log('User data:', data.user);
+                    console.log('JWT Token:', data.access_token);
+                    console.log('Permissions:', data.user.permissions);
+                } else {
+                    showResult(`שגיאה: ${data.detail || 'קוד אימות שגוי'}`, true);
+                }
+            } catch (error) {
+                showResult(`שגיאת רשת: ${error.message}`, true);
+            }
+        }
+
+        // Demo phones
+        const demoPhones = ['0507771111', '0501234567', '0501234568', '0501234569'];
+        document.getElementById('phone').addEventListener('focus', function() {
+            if (!this.value) {
+                this.value = demoPhones[0];
+            }
+        });
+    </script>
+</body>
+</html>

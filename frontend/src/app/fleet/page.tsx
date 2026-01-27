@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useI18n } from '@/lib/i18n'
 import { trucksApi, driversApi } from '@/lib/api'
-import { getTruckTypeLabel, TRUCK_TYPES } from '@/lib/constants'
+import { useVehicleTypes } from '@/hooks/useVehicleTypes'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { formatDate } from '@/lib/utils'
-import { Truck, Users, Plus, Search, Edit, AlertTriangle, Shield, Wrench, FileText, Calendar } from 'lucide-react'
+import { Truck, Users, Plus, Search, Edit, AlertTriangle, Shield, Wrench, FileText, Calendar, Settings } from 'lucide-react'
 import type { Truck as TruckType, Driver } from '@/types'
 import Link from 'next/link'
 
@@ -14,6 +14,7 @@ type TabType = 'trucks' | 'drivers'
 
 export default function FleetPage() {
   const { t } = useI18n()
+  const { getVehicleTypeOptions, getVehicleTypeLabel } = useVehicleTypes()
   const [activeTab, setActiveTab] = useState<TabType>('trucks')
   const [trucks, setTrucks] = useState<TruckType[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
@@ -160,6 +161,12 @@ export default function FleetPage() {
             <h1 className="text-3xl font-bold text-gray-900">ניהול צי</h1>
             <p className="text-gray-600 mt-1">משאיות, נגררים ונהגים</p>
           </div>
+          <Link href="/truck-types">
+            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              ניהול סוגי רכב
+            </button>
+          </Link>
         </div>
 
         {/* Alerts Section */}
@@ -258,7 +265,7 @@ export default function FleetPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 >
                   <option value="">כל סוגי הרכב</option>
-                  {TRUCK_TYPES.map(type => (
+                  {getVehicleTypeOptions().map(type => (
                     <option key={type.value} value={type.value}>
                       {type.label}
                     </option>
@@ -365,7 +372,7 @@ export default function FleetPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-gray-600">
                               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {getTruckTypeLabel(truck.truck_type)}
+                                {getVehicleTypeLabel(truck.truck_type)}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-gray-600">

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { usePathname } from 'next/navigation'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 
 interface MenuGroupProps {
@@ -16,12 +17,47 @@ export function MenuGroup({
   children, 
   defaultOpen = false 
 }: MenuGroupProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen)
+  const pathname = usePathname()
+  const storageKey = `menu-group-${label}`
+  
+  // Initialize from localStorage or check if any child is active
+  const [isOpen, setIsOpen] = useState(() => {
+    if (typeof window === 'undefined') return defaultOpen
+    
+    // Try to load from localStorage
+    const saved = localStorage.getItem(storageKey)
+    if (saved !== null) {
+      return saved === 'true'
+    }
+    
+    return defaultOpen
+  })
+
+  // Auto-open if any child route is active
+  useEffect(() => {
+    // Check if any child MenuItem is active by inspecting children
+    const childElements = Array.isArray(children) ? children : [children]
+    const hasActiveChild = childElements.some((child: any) => {
+      const href = child?.props?.href
+      return href && pathname.startsWith(href)
+    })
+    
+    if (hasActiveChild && !isOpen) {
+      setIsOpen(true)
+      localStorage.setItem(storageKey, 'true')
+    }
+  }, [pathname, children, isOpen, storageKey])
+
+  const toggleOpen = useCallback(() => {
+    const newState = !isOpen
+    setIsOpen(newState)
+    localStorage.setItem(storageKey, String(newState))
+  }, [isOpen, storageKey])
 
   return (
     <div className="mb-1">
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={toggleOpen}
         className="w-full flex items-center justify-between px-4 py-2.5 
                    text-gray-700 hover:bg-gray-100 rounded-lg transition-colors
                    group"
