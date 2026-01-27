@@ -1,149 +1,269 @@
 # Fleet Management System - AI Coding Agent Instructions
 
-## Project Overview
-This is a **planning-stage** Fleet Management System for dirt hauling operations ("הובלות עפר"). The project contains a comprehensive PRD in Hebrew ([plan.md](../docs/architecture/plan.md)) covering the full system architecture, but **no implementation code exists yet**.
+## Project Status: **IMPLEMENTED & DEPLOYED**
 
-**Primary Language**: Hebrew (documentation) + English (code when implemented)
-**Target Market**: Small-to-medium Israeli trucking companies specializing in dirt/aggregate hauling
-**Current Status**: Pre-development - complete specification, no code
+This is a **production Multi-Tenant SaaS** for dirt hauling operations ("הובלות עפר"). The system is **fully implemented** with backend (FastAPI), frontend (Next.js), and deployed via Docker.
 
-## Core Domain Model
-
-### Key Entities (from plan.md sections 3 & 8)
-- **Jobs/Trips**: Individual hauling tasks with status lifecycle (`PLANNED` → `ASSIGNED` → `ENROUTE_PICKUP` → `LOADED` → `ENROUTE_DROPOFF` → `DELIVERED` → `CLOSED`)
-- **Customers & Sites**: Projects/construction sites with pricing per route and material
-- **Fleet**: Trucks, trailers, drivers with availability tracking
-- **Materials**: Dirt types (עפר, חצץ, מצע, etc.) with billing units (ton/m³/trip/km)
-- **Delivery Notes**: Digital signatures + photos required for `DELIVERED` status
-- **Weigh Tickets**: Optional scale receipts (gross/tare/net weights)
-- **Statements/Invoices**: Periodic billing aggregations with automatic price calculation
-- **Expenses**: Fuel, repairs, subcontractors tied to trucks/drivers/jobs
-
-### Business Rules (Section 10)
-1. **Cannot mark job `DELIVERED` without**: receiver signature + name + at least one photo/document
-2. **Jobs enter billing only if**: status is `DELIVERED`, all required docs present, not already billed
-3. **Price overrides**: Require Accounting/Admin role + mandatory reason field + audit log
-4. **Quantity handling**: `planned_qty` always set; `actual_qty` can come from driver/weigh ticket/office
-
-## Planned Architecture (Section 10)
-
-**Tech Stack** (when implementation starts):
-- **Web Admin**: Next.js (dispatchers, accounting, management)
-- **Backend**: FastAPI or NestJS (REST API)
-- **Database**: PostgreSQL with audit tables
-- **Mobile Driver**: PWA (MVP) or Flutter/React Native
-- **Storage**: S3-compatible for photos/PDFs
-- **Auth**: RBAC + JWT (4 roles: Admin, Dispatcher, Accounting, Driver)
-
-**Key Design Decisions**:
-- Offline-first mobile: Drivers work without connectivity, queue syncs later
-- Pricing Engine: Automatic calculation based on material + route + customer price lists (ton/km rates, minimum charges, waiting time fees, night surcharges)
-- Audit-heavy: Log all changes to prices, quantities, statuses with user + timestamp
-
-## Workflows (Section 6)
-
-### Dispatch Flow
-1. Dispatcher creates job → assigns truck + driver
-2. Driver receives assignment in mobile app
-3. Driver updates status at each stage (pickup → loaded → dropoff → delivered)
-4. Signature + photos captured on-site
-5. Office reviews → marks billable → generates statement
-
-### Billing Flow (Section 6.3)
-1. Filter `DELIVERED` jobs by customer + date range
-2. Validate required documents (signature, weigh ticket if applicable)
-3. Apply pricing rules from price lists (base price + adjustments)
-4. Generate statement with line items
-5. Export PDF/Excel → send to customer
-6. Record payments → update statement status (unpaid/partial/paid)
-
-## User Roles & Permissions (Section 2)
-
-- **Owner/Admin**: Full access
-- **Dispatcher**: Create/assign jobs, view operational reports (no financial data editing)
-- **Accounting**: Customers, invoices, payments, expenses, financial reports (cannot modify jobs after invoice sent without Admin)
-- **Driver**: View only assigned jobs, update status, upload docs, signature (no access to customer/financial data)
-
-## MVP Scope (Section 9)
-
-**Phase 1 (current target)**:
-- Customers, sites, fleet management
-- Daily dispatch board with job assignment
-- Mobile app: receive tasks, status updates, signature + photo upload
-- Basic price lists with automatic calculation
-- Statement generation + PDF/Excel export
-- Payment tracking + AR aging
-
-**Phase 2** (future):
-- Subcontractor management
-- OCR for weigh tickets
-- Customer portal
-- Maintenance alerts (insurance/test expiration)
-- Advanced KPIs (delays, wait times, throughput)
-
-## Critical Data Relationships
-
-```
-Customer 1:N Sites
-Job N:1 Customer, N:1 FromSite, N:1 ToSite, N:1 Material
-Job N:1 Driver, N:1 Truck, N:0..1 Trailer
-Job 1:N JobStatusEvents (audit trail with timestamps + GPS)
-Job 1:0..1 DeliveryNote (signature required)
-Job 1:0..N WeighTickets
-Job 1:N JobFiles (photos, PDFs)
-Statement N:1 Customer, 1:N StatementLines (each links to a Job)
-Payment 1:N PaymentAllocations (can partially pay multiple statements)
-```
-
-## When Implementing
-
-### Naming Conventions
-- **Database**: snake_case (`job_status_events`, `price_lists`)
-- **API Routes**: RESTful kebab-case (`/api/jobs/{id}/delivery-note`)
-- **Code Comments**: English (implementation) + Hebrew for domain terms when clearer
-
-### Required Validations
-- Job status transitions: Enforce valid state machine (cannot skip from `ASSIGNED` to `DELIVERED`)
-- Signature requirement: Block `DELIVERED` status without signature + receiver name
-- Billing lock: Prevent editing job quantities/prices after statement sent (require Admin override with reason)
-- Concurrent updates: Handle multiple dispatchers modifying schedules simultaneously
-
-### API Design Patterns (Section 9)
-- Jobs list: Support filters `?date=YYYY-MM-DD&status=&customer_id=&driver_id=`
-- File uploads: Use presigned URLs for direct S3 upload from mobile
-- Pricing preview: `POST /api/jobs/{id}/pricing/preview` returns breakdown before saving
-- Export endpoints: Separate `/export/pdf` and `/export/xlsx` for statements
-
-### Offline Mobile Strategy
-- Driver app must queue status changes + file uploads locally
-- Sync when connectivity restored with conflict resolution (server timestamp wins)
-- Visual indicator in UI for "pending sync" items
-
-## Key Files Reference
-
-- **[plan.md](../plan.md)**: Complete PRD - consult for all domain logic, data model (section 8), API specs (section 9), user stories (section 7)
-  - Lines 1-100: Business overview, user roles
-  - Lines 101-300: Data entities (Customer, Site, Job, Material, etc.)
-  - Lines 301-600: Workflows, pricing engine, required reports
-  - Lines 601-900: User stories with acceptance criteria, database schema
-  - Lines 901-1200: API endpoints, business rules, NFRs, wireframes, MVP success criteria
-
-## Common Pitfalls to Avoid
-
-1. **Don't simplify the pricing engine**: Multiple dimensions (material, route, customer, date validity) + adjustments (wait time, night, minimum charge) - refer to section 6 for complete logic
-2. **Don't skip audit logging**: Price/quantity overrides and status changes are legally significant
-3. **Don't assume connectivity**: Mobile app must work offline; test sync edge cases
-4. **Don't expose financial data to drivers**: Strict RBAC - drivers see only their assignments
-5. **Hebrew-English context switching**: Domain discussions happen in Hebrew; keep Hebrew terms in comments where they clarify business logic
-
-## Questions to Resolve with Stakeholder
-
-- **Measurement units**: Does the pricing engine need to auto-convert between tons and cubic meters? (density factors per material)
-- **Subcontractor integration**: MVP explicitly defers this - confirm timeline expectations
-- **Customer portal**: Phase 2 feature - will customers accept emailed PDFs initially?
-- **GPS tracking**: Should driver status updates capture GPS coordinates automatically or is this optional/Phase 2?
-- **Multi-organization**: Schema includes `org_id` everywhere - is multi-tenancy required from MVP or future-proofing?
+**Primary Language**: Hebrew (documentation) + English (code)  
+**Target Market**: Israeli trucking companies specializing in dirt/aggregate hauling  
+**Architecture**: Multi-tenant with org_id-based data isolation + Super Admin interface
 
 ---
 
-**When in doubt**: Reference specific sections in [plan.md](../docs/architecture/plan.md) - it's the authoritative source. All technical decisions (DB schema, API routes, validation rules) are documented there with rationale.
+## Tech Stack (Implemented)
+
+- **Backend**: FastAPI (Python 3.11+), PostgreSQL 15, SQLAlchemy ORM, Alembic migrations
+- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, Zustand (state), TanStack Query (server state)
+- **Auth**: JWT tokens with org_id claim + role-based access control (RBAC)
+- **Deployment**: Docker Compose, Traefik reverse proxy, production-ready with setup wizard
+- **Storage**: Local `/uploads` directory (MVP) - S3 planned for Phase 2
+
+---
+
+## Critical Multi-Tenant Architecture
+
+### How Tenant Isolation Works
+Every API request extracts `org_id` from JWT token via middleware ([backend/app/middleware/tenant.py](../backend/app/middleware/tenant.py)):
+
+```python
+# Middleware injects into request.state:
+request.state.org_id       # UUID - tenant identifier  
+request.state.user_id      # int - current user
+request.state.is_super_admin  # bool - Super Admin flag
+```
+
+**All database models inherit org_id filtering**. Example from [backend/app/api/v1/endpoints/jobs.py](../backend/app/api/v1/endpoints/jobs.py#L99):
+```python
+org_id = get_current_org_id(request)  # From tenant helper
+query = db.query(Job).filter(Job.org_id == org_id)
+```
+
+### Super Admin Impersonation
+Super Admins can view any organization by sending `X-Org-Id` header (detected in middleware). Frontend stores `impersonated_org_id` in localStorage and adds header via axios interceptor ([frontend/src/lib/api.ts](../frontend/src/lib/api.ts#L36-L39)).
+
+---
+
+## Database Schema Essentials
+
+**Every table has `org_id` (UUID)** except:
+- `organizations` (the tenants themselves)
+- `users` (links to org via `org_id` column)
+
+Key models in [backend/app/models/](../backend/app/models/):
+- `Organization`: Tenant with plan limits (max_trucks, max_drivers, trial_ends_at, status)
+- `Job`: Core entity with status lifecycle (PLANNED → ASSIGNED → ENROUTE_PICKUP → LOADED → ENROUTE_DROPOFF → DELIVERED → CLOSED)
+- `Customer`, `Site`, `Truck`, `Driver`, `Material`: Standard entities with org_id
+- `PriceList`: Material + route-based pricing with date validity
+- `Statement`: Billing aggregation with line items linking to jobs
+- `DeliveryNote`: Signature + photos (required for DELIVERED status)
+- `ShareUrl`: Public PDF sharing with token auth (bypasses tenant middleware)
+
+**Status transitions are tracked** in `job_status_events` with timestamps + GPS coordinates ([backend/app/models/__init__.py](../backend/app/models/__init__.py)).
+
+---
+
+## Developer Workflows
+
+### Running Locally
+```bash
+# Start all services (Postgres + Backend + Frontend)
+docker-compose up --build
+
+# Access:
+# - Frontend: http://localhost:3010
+# - Backend API: http://localhost:8001
+# - API Docs: http://localhost:8001/docs
+# - Postgres: localhost:5434
+```
+
+### Database Migrations
+```bash
+# Create migration after model changes
+cd backend
+docker-compose exec backend alembic revision --autogenerate -m "description"
+
+# Apply migrations
+docker-compose exec backend alembic upgrade head
+
+# Rollback
+docker-compose exec backend alembic downgrade -1
+```
+
+### Creating Super Admin
+```bash
+# Use setup wizard (interactive)
+sudo ./setup-wizard.sh
+
+# Or manual script
+cd backend && python setup/create_super_admin.py
+# Default: admin@system.local / changeme123
+```
+
+### Quick Commands Reference
+See [QUICK_COMMANDS.txt](../QUICK_COMMANDS.txt) for copy-paste remote server setup commands.
+
+---
+
+## API Patterns & Conventions
+
+### Authentication Flow
+1. **Login**: `POST /api/auth/login` with `{email, password}` → Returns JWT with `org_id` claim
+2. **Driver Login**: `POST /api/auth/driver-login` with `{phone, password}` (links Driver → User)
+3. **All requests**: Send `Authorization: Bearer <token>` header
+4. **Super Admin impersonation**: Add `X-Org-Id: <uuid>` header
+
+### Tenant-Scoped Endpoints (Example)
+```python
+@router.get("")
+async def list_customers(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    org_id = get_current_org_id(request)  # Extracted from JWT
+    customers = db.query(Customer).filter(Customer.org_id == org_id).all()
+    return customers
+```
+
+**Never hardcode `org_id=1`** - always use `get_current_org_id(request)` from [backend/app/core/tenant.py](../backend/app/core/tenant.py).
+
+### Public Endpoints (Skip Middleware)
+- `/health`, `/docs`, `/api/auth/login`
+- `/api/share/{token}` - Public PDF sharing (bypasses auth via token query param)
+
+Configured in [backend/app/middleware/tenant.py](../backend/app/middleware/tenant.py#L35-L62).
+
+---
+
+## Business Logic Constraints
+
+### Job Status Lifecycle (Strict State Machine)
+Cannot skip states - enforce transitions in [backend/app/api/v1/endpoints/jobs.py](../backend/app/api/v1/endpoints/jobs.py):
+```
+PLANNED → ASSIGNED → ENROUTE_PICKUP → LOADED → 
+ENROUTE_DROPOFF → DELIVERED → CLOSED
+```
+
+**DELIVERED Requirements** (validate before status update):
+- Delivery note with signature (receiver_name + signature image)
+- At least one photo/document attached
+- Actual quantity recorded
+
+### Pricing Engine
+Automatic calculation in [backend/app/services/pricing.py](../backend/app/services/pricing.py) (if exists):
+- Base price from `price_lists` (material + from_site + to_site + date validity)
+- Adjustments: minimum charge, wait time fees, night surcharge
+- Manual overrides require `reason` field + audit log
+
+### RBAC Rules
+- **Drivers**: See only assigned jobs (`Job.driver_id == user.driver.id`)
+- **Dispatcher**: Cannot edit financial data after statement sent
+- **Accounting**: Cannot modify jobs after billing without Admin role
+- **Super Admin**: Bypass all tenant filters when impersonating
+
+---
+
+## Frontend Architecture
+
+### Key Patterns
+- **State**: Zustand stores in [frontend/src/lib/stores/](../frontend/src/lib/stores/) (auth, impersonation)
+- **API Client**: Centralized axios instance in [frontend/src/lib/api.ts](../frontend/src/lib/api.ts) with token injection
+- **Routing**: App Router with nested layouts per feature (`/jobs`, `/customers`, `/super-admin`)
+- **i18n**: Helper in [frontend/src/lib/i18n.ts](../frontend/src/lib/i18n.ts) for Hebrew/English text
+
+### Super Admin UI
+Located in [frontend/src/app/super-admin/](../frontend/src/app/super-admin/):
+- Organization CRUD + stats dashboard
+- Impersonation switcher (stores `impersonated_org_id` → adds X-Org-Id header)
+- Plan management (trial, suspended, active)
+
+### Mobile Driver App
+**Current Status**: PWA planned but not fully implemented. Driver features exist in admin panel but need mobile-optimized UI with:
+- Offline queue for status updates (localStorage-based)
+- Camera access for photos
+- Signature canvas (react-signature-canvas already in package.json)
+
+---
+
+## Deployment & Production Setup
+
+### Automated Installation
+```bash
+# Clone and run setup wizard (handles everything)
+git clone <repo-url>
+cd Fleet_Management
+chmod +x setup-wizard.sh
+sudo ./setup-wizard.sh
+```
+
+Wizard creates:
+- Production `.env` with secure passwords
+- Super Admin account
+- First organization + admin user
+- SSL certificates (if using Traefik)
+- Backup cron job
+
+Docs: [docs/setup/SETUP_WIZARD_README.md](../docs/setup/SETUP_WIZARD_README.md)
+
+### Manual Production Deploy
+```bash
+# 1. Copy and edit environment
+cp .env.production.template .env.production
+nano .env.production
+
+# 2. Start containers
+docker-compose -f docker-compose.production.yml up -d
+
+# 3. Apply migrations
+docker-compose exec backend alembic upgrade head
+
+# 4. Create Super Admin
+docker-compose exec backend python setup/create_super_admin.py
+```
+
+### Backup Script
+```bash
+./backup.sh  # Creates timestamped backup in /backups
+```
+
+---
+
+## Key Files Reference
+
+- **PRD**: [docs/architecture/plan.md](../docs/architecture/plan.md) - Original specification (Hebrew)
+- **Multi-Tenant Guide**: [docs/architecture/MULTI_TENANT_IMPLEMENTATION_GUIDE.md](../docs/architecture/MULTI_TENANT_IMPLEMENTATION_GUIDE.md)
+- **Setup Wizard**: [docs/setup/SETUP_WIZARD_README.md](../docs/setup/SETUP_WIZARD_README.md)
+- **Tenant Middleware**: [backend/app/middleware/tenant.py](../backend/app/middleware/tenant.py) - JWT extraction + org_id injection
+- **Tenant Helpers**: [backend/app/core/tenant.py](../backend/app/core/tenant.py) - `get_current_org_id()`, `require_super_admin()`
+- **Super Admin API**: [backend/app/api/v1/endpoints/super_admin.py](../backend/app/api/v1/endpoints/super_admin.py)
+- **Organization Model**: [backend/app/models/organization.py](../backend/app/models/organization.py)
+
+---
+
+## Common Pitfalls to Avoid
+
+1. **Hardcoding org_id**: Always extract from JWT via `get_current_org_id(request)` - never assume org_id=1
+2. **Skipping tenant filters**: Every query must filter by `org_id` (except Super Admin impersonation)
+3. **Missing Alembic migrations**: After model changes, always generate migration before committing
+4. **Public endpoints**: Add new public routes to middleware whitelist ([backend/app/middleware/tenant.py](../backend/app/middleware/tenant.py#L35-L62))
+5. **Frontend impersonation**: Check if `impersonated_org_id` exists before API calls to Super Admin endpoints
+6. **Status transitions**: Validate allowed state changes before updating job status
+
+---
+
+## When Extending the System
+
+### Adding New Entity
+1. Create model in `backend/app/models/` with `org_id = Column(UUID, nullable=False)`
+2. Add tenant filter in endpoints: `query.filter(Entity.org_id == get_current_org_id(request))`
+3. Generate migration: `alembic revision --autogenerate -m "add_entity"`
+4. Create TypeScript types in `frontend/src/types/`
+5. Add API methods to `frontend/src/lib/api.ts`
+
+### New Business Rule
+- **Backend**: Add validation in service layer or endpoint before DB commit
+- **Audit**: Log to `audit_logs` table if rule involves pricing/status/financial data
+- **Frontend**: Show validation errors via toast/alert (existing pattern in form submissions)
+
+---
+
+**Questions? Check [docs/](../docs/) or PRD [plan.md](../docs/architecture/plan.md) for domain logic. All architecture decisions are documented in [docs/architecture/](../docs/architecture/).**

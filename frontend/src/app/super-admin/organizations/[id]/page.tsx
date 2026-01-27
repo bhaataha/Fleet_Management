@@ -24,6 +24,10 @@ interface OrganizationData {
   max_drivers: number
   max_customers: number
   max_storage_gb: number
+  total_trucks?: number
+  total_drivers?: number
+  total_jobs_completed?: number
+  storage_used_gb?: number
   trial_ends_at?: string
   status: string
   timezone: string

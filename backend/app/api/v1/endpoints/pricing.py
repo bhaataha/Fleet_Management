@@ -26,6 +26,7 @@ class PriceListCreate(BaseModel):
     unit: str
     base_price: Decimal
     min_charge: Optional[Decimal] = None
+    trip_surcharge: Optional[Decimal] = None
     wait_fee_per_hour: Optional[Decimal] = None
     night_surcharge_pct: Optional[Decimal] = None
     valid_from: DateType
@@ -41,6 +42,7 @@ class PriceListResponse(BaseModel):
     unit: str
     base_price: Decimal
     min_charge: Optional[Decimal]
+    trip_surcharge: Optional[Decimal]
     wait_fee_per_hour: Optional[Decimal]
     night_surcharge_pct: Optional[Decimal]
     valid_from: DateType

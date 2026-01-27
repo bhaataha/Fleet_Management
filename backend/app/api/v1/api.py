@@ -13,6 +13,8 @@ from app.api.v1.endpoints import (
     super_admin,
     share,
     subcontractors,
+    users,
+    expenses,
 )
 
 api_router = APIRouter()
@@ -31,3 +33,5 @@ api_router.include_router(files.router, tags=["files"])
 api_router.include_router(super_admin.router, tags=["super-admin"])
 api_router.include_router(share.router, prefix="/share", tags=["share"])
 api_router.include_router(subcontractors.router, tags=["subcontractors"])
+api_router.include_router(users.router, tags=["users"])
+api_router.include_router(expenses.router, tags=["expenses"])

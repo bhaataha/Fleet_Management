@@ -198,7 +198,7 @@ class Site(Base):
     contact_name = Column(String(255))
     contact_phone = Column(String(50))
     site_type = Column(String(50), default="general")  # general, customer_project
-    is_generic = Column(Boolean, default=False)  # אתר כללי (מחצבה, תחנת דלק) לא משויך ללקוח
+    is_generic = Column(Boolean, default=False)  # אתר כללי (מחצבה, תחנת דלק, מזבלה) לא משויך ללקוח ספציפי
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -243,6 +243,9 @@ class Truck(Base):
     test_expiry = Column(DateTime(timezone=True))  # טסט
     owner_type = Column(String(20), default='COMPANY')  # COMPANY or SUBCONTRACTOR
     subcontractor_id = Column(Integer, ForeignKey("subcontractors.id"))
+    # NEW: Truck-Centric Assignment
+    primary_driver_id = Column(Integer, ForeignKey("drivers.id"))  # נהג ראשי
+    secondary_driver_ids = Column(JSONB, default=[])  # נהגים משניים (array of IDs)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -251,7 +254,7 @@ class Truck(Base):
     organization = relationship("Organization", back_populates="trucks")
     subcontractor = relationship("Subcontractor", back_populates="trucks")
     jobs = relationship("Job", back_populates="truck")
-    drivers_default = relationship("Driver", back_populates="default_truck")
+    primary_driver = relationship("Driver", foreign_keys=[primary_driver_id], back_populates="primary_trucks")
 
 
 class Trailer(Base):
@@ -281,7 +284,7 @@ class Driver(Base):
     phone = Column(String(20))
     license_type = Column(String(20))
     license_expiry = Column(DateTime(timezone=True))
-    default_truck_id = Column(Integer, ForeignKey("trucks.id"))  # משאית ברירת מחדל
+    # REMOVED: default_truck_id - now trucks own drivers!
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -289,7 +292,7 @@ class Driver(Base):
     # Relationships
     organization = relationship("Organization", back_populates="drivers")
     user = relationship("User", back_populates="driver_profile")
-    default_truck = relationship("Truck", back_populates="drivers_default", foreign_keys=[default_truck_id])
+    primary_trucks = relationship("Truck", foreign_keys="Truck.primary_driver_id", back_populates="primary_driver")
     jobs = relationship("Job", back_populates="driver")
 
 
@@ -306,6 +309,7 @@ class PriceList(Base):
     unit = Column(Enum(BillingUnit), nullable=False)
     base_price = Column(Numeric(10, 2), nullable=False)
     min_charge = Column(Numeric(10, 2))
+    trip_surcharge = Column(Numeric(10, 2))  # תוספת קבועה לנסיעה (למשל: 50 ש"ח נסיעה + מחיר טון)
     wait_fee_per_hour = Column(Numeric(10, 2))
     night_surcharge_pct = Column(Numeric(5, 2))
     valid_from = Column(DateTime(timezone=True), nullable=False)
@@ -347,6 +351,7 @@ class Job(Base):
     subcontractor_id = Column(Integer, ForeignKey("subcontractors.id"))
     subcontractor_price_total = Column(Numeric(10, 2))
     subcontractor_price_breakdown_json = Column(JSON)
+    subcontractor_billing_unit = Column(String(10))  # TON, M3, TRIP, KM - how to bill subcontractor
     
     notes = Column(Text)
     is_billable = Column(Boolean, default=False)
@@ -590,6 +595,7 @@ class Subcontractor(Base):
     phone = Column(String(20), nullable=False)
     email = Column(String(255))
     address = Column(Text)
+    truck_plate_number = Column(String(20), index=True)  # מספר משאית ייחודי לקבלן - לדוחות
     
     # תנאי תשלום
     payment_terms = Column(String(100), default='monthly')
@@ -647,3 +653,4 @@ class SubcontractorPriceList(Base):
     
     # Relationships
     subcontractor = relationship("Subcontractor", back_populates="price_lists")
+    material = relationship("Material", foreign_keys=[material_id])

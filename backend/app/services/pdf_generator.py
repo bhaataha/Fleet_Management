@@ -296,6 +296,35 @@ class DeliveryNotePDF:
         story.append(material_table)
         story.append(Spacer(1, 1*cm))
         
+        # Manual Price Override (if exists)
+        if job_data.get('manual_override_total'):
+            story.append(Paragraph(fix_hebrew('מחיר'), section_style))
+            
+            price_data = [
+                [f"₪{float(job_data['manual_override_total']):.2f}", fix_hebrew('מחיר מותאם אישית')],
+            ]
+            
+            if job_data.get('manual_override_reason'):
+                price_data.append([fix_hebrew(job_data['manual_override_reason']), fix_hebrew('סיבה')])
+            
+            price_table = Table(price_data, colWidths=[12*cm, 5*cm])
+            price_table.setStyle(TableStyle([
+                ('FONT', (0, 0), (-1, -1), FONT_NAME, 11),
+                ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('BACKGROUND', (1, 0), (1, -1), colors.HexColor('#fef3c7')),
+                ('BACKGROUND', (0, 0), (0, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#fde047')),
+                ('PADDING', (0, 0), (-1, -1), 10),
+                ('FONTSIZE', (1, 0), (1, -1), 10),
+                ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#d97706')),
+                ('FONTNAME', (0, 0), (0, 0), FONT_NAME),
+                ('FONTSIZE', (0, 0), (0, 0), 14),
+                ('TEXTCOLOR', (0, 0), (0, 0), colors.HexColor('#d97706')),
+            ]))
+            story.append(price_table)
+            story.append(Spacer(1, 1*cm))
+        
         # Driver & Truck
         if job_data.get('driver_name') or job_data.get('truck_plate'):
             story.append(Paragraph(fix_hebrew('צי'), section_style))

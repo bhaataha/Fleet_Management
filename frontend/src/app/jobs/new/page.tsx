@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import Combobox from '@/components/ui/Combobox'
+import QuickAddSiteModal from '@/components/modals/QuickAddSiteModal'
+import QuickAddCustomerModal from '@/components/modals/QuickAddCustomerModal'
 import { useI18n } from '@/lib/i18n'
 import api from '@/lib/api'
 import { ArrowLeft, MapPin, Package, Truck, DollarSign } from 'lucide-react'
@@ -21,10 +23,14 @@ export default function NewJobPage() {
     scheduled_date: new Date().toISOString().split('T')[0],
     planned_qty: '',
     unit: 'TON',
+    assignment_type: 'driver', // 'driver' or 'subcontractor'
     driver_id: '',
     truck_id: '',
+    subcontractor_id: '',
     priority: 1,
-    notes: ''
+    notes: '',
+    manual_override_total: undefined as number | undefined,
+    manual_override_reason: ''
   })
 
   // Lists for autocomplete
@@ -33,27 +39,41 @@ export default function NewJobPage() {
   const [materials, setMaterials] = useState<any[]>([])
   const [trucks, setTrucks] = useState<any[]>([])
   const [drivers, setDrivers] = useState<any[]>([])
+  const [subcontractors, setSubcontractors] = useState<any[]>([])
+  
+  // Modals
+  const [showQuickAddCustomer, setShowQuickAddCustomer] = useState(false)
+  const [showQuickAddSite, setShowQuickAddSite] = useState(false)
   
   // Pricing preview
   const [pricingPreview, setPricingPreview] = useState<any>(null)
   const [loadingPricing, setLoadingPricing] = useState(false)
+  const [subcontractorPricing, setSubcontractorPricing] = useState<any>(null)
+  const [loadingSubcontractorPricing, setLoadingSubcontractorPricing] = useState(false)
+  
+  // Manual pricing
+  const [manualPricingEnabled, setManualPricingEnabled] = useState(false)
+  const [manualPrice, setManualPrice] = useState('')
+  const [overrideReason, setOverrideReason] = useState('')
 
   // Load data for selects
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [customersRes, sitesRes, materialsRes, trucksRes, driversRes] = await Promise.all([
+        const [customersRes, sitesRes, materialsRes, trucksRes, driversRes, subcontractorsRes] = await Promise.all([
           api.get('/customers'),
           api.get('/sites'),
           api.get('/materials'),
           api.get('/trucks'),
-          api.get('/drivers')
+          api.get('/drivers'),
+          api.get('/subcontractors')
         ])
         setCustomers(customersRes.data || [])
         setSites(sitesRes.data || [])
         setMaterials(materialsRes.data || [])
         setTrucks(trucksRes.data || [])
         setDrivers(driversRes.data || [])
+        setSubcontractors(subcontractorsRes.data || [])
       } catch (error) {
         console.error('Failed to load data:', error)
       }
@@ -109,8 +129,45 @@ export default function NewJobPage() {
     return () => clearTimeout(timer)
   }, [formData.customer_id, formData.material_id, formData.from_site_id, formData.to_site_id, formData.unit, formData.planned_qty])
 
+  // Auto-calculate subcontractor pricing when subcontractor is selected
+  useEffect(() => {
+    const fetchSubcontractorPricing = async () => {
+      if (formData.assignment_type !== 'subcontractor' || !formData.subcontractor_id || !formData.planned_qty) {
+        setSubcontractorPricing(null)
+        return
+      }
+      
+      try {
+        setLoadingSubcontractorPricing(true)
+        const response = await api.get(`/subcontractors/${formData.subcontractor_id}/pricing-preview`, {
+          params: {
+            qty: parseFloat(formData.planned_qty),
+            unit: formData.unit
+          }
+        })
+        setSubcontractorPricing(response.data)
+      } catch (error: any) {
+        console.error('Subcontractor pricing fetch error:', error)
+        setSubcontractorPricing(null)
+      } finally {
+        setLoadingSubcontractorPricing(false)
+      }
+    }
+    
+    const timer = setTimeout(fetchSubcontractorPricing, 500)
+    return () => clearTimeout(timer)
+  }, [formData.subcontractor_id, formData.planned_qty, formData.unit, formData.assignment_type])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate manual pricing if enabled
+    if (manualPricingEnabled) {
+      if (!manualPrice || parseFloat(manualPrice) <= 0) {
+        alert('נא להזין מחיר ידני תקין')
+        return
+      }
+    }
     
     try {
       setLoading(true)
@@ -118,7 +175,7 @@ export default function NewJobPage() {
       // Convert date to datetime with default time
       const scheduledDateTime = new Date(formData.scheduled_date + 'T08:00:00').toISOString()
       
-      const payload = {
+      const payload: any = {
         customer_id: parseInt(formData.customer_id),
         from_site_id: parseInt(formData.from_site_id),
         to_site_id: parseInt(formData.to_site_id),
@@ -126,10 +183,18 @@ export default function NewJobPage() {
         scheduled_date: scheduledDateTime,
         planned_qty: parseFloat(formData.planned_qty),
         unit: formData.unit,
-        driver_id: formData.driver_id ? parseInt(formData.driver_id) : null,
-        truck_id: formData.truck_id ? parseInt(formData.truck_id) : null,
+        driver_id: formData.assignment_type === 'driver' && formData.driver_id ? parseInt(formData.driver_id) : null,
+        truck_id: formData.assignment_type === 'driver' && formData.truck_id ? parseInt(formData.truck_id) : null,
+        subcontractor_id: formData.assignment_type === 'subcontractor' && formData.subcontractor_id ? parseInt(formData.subcontractor_id) : null,
+        is_subcontractor: formData.assignment_type === 'subcontractor',
         priority: formData.priority,
         notes: formData.notes || null
+      }
+      
+      // Add manual pricing if enabled
+      if (manualPricingEnabled && manualPrice) {
+        payload.manual_override_total = parseFloat(manualPrice)
+        payload.manual_override_reason = overrideReason.trim() || null
       }
       
       const response = await api.post('/jobs', payload)
@@ -198,6 +263,14 @@ export default function NewJobPage() {
                     to_site_id: ''
                   }))}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAddCustomer(true)}
+                  className="mt-2 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                >
+                  <span>➕</span>
+                  <span>לקוח חדש</span>
+                </button>
               </div>
 
               <div>
@@ -227,7 +300,15 @@ export default function NewJobPage() {
                   value={formData.from_site_id}
                   onChange={(value) => setFormData(prev => ({ ...prev, from_site_id: value.toString() }))}
                 />
-                <p className="text-xs text-gray-500 mt-1">🏭 = אתר כללי</p>
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAddSite(true)}
+                  className="mt-2 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                >
+                  <span>➕</span>
+                  <span>אתר חדש</span>
+                </button>
+                <p className="text-xs text-gray-500 mt-1">🏭 = אתר כללי (מחצבה, מזבלה וכו')</p>
               </div>
 
               <div>
@@ -243,9 +324,14 @@ export default function NewJobPage() {
                   value={formData.to_site_id}
                   onChange={(value) => setFormData(prev => ({ ...prev, to_site_id: value.toString() }))}
                 />
-                {!formData.customer_id && (
-                  <p className="text-xs text-gray-500 mt-1">תחילה בחר לקוח</p>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAddSite(true)}
+                  className="mt-2 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                >
+                  <span>➕</span>
+                  <span>אתר חדש</span>
+                </button>
               </div>
             </div>
           </div>
@@ -401,6 +487,89 @@ export default function NewJobPage() {
             </div>
           )}
 
+          {/* Manual Price Override */}
+          {(pricingPreview || formData.manual_override_total) && (
+            <div className="bg-yellow-50 rounded-lg border-2 border-yellow-300 p-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={manualPricingEnabled}
+                    onChange={(e) => {
+                      setManualPricingEnabled(e.target.checked)
+                      if (!e.target.checked) {
+                        setManualPrice('')
+                        setOverrideReason('')
+                      }
+                    }}
+                    className="w-5 h-5 rounded text-yellow-600 focus:ring-2 focus:ring-yellow-500"
+                  />
+                  <span className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    🖊️ מחיר ידני (Override)
+                  </span>
+                </label>
+              </div>
+              
+              {manualPricingEnabled && (
+                <div className="space-y-4 pt-2">
+                  <div className="bg-white rounded-lg p-4 border border-yellow-200">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      מחיר מותאם אישית *
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg text-gray-600">₪</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={manualPrice}
+                        onChange={(e) => setManualPrice(e.target.value)}
+                        required={manualPricingEnabled}
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    {pricingPreview && manualPrice && (
+                      <div className="mt-2 text-sm text-gray-600">
+                        <span>הפרש: </span>
+                        <span className={
+                          Number(manualPrice) > Number(pricingPreview.total) 
+                            ? 'text-green-600 font-medium' 
+                            : 'text-red-600 font-medium'
+                        }>
+                          {Number(manualPrice) > Number(pricingPreview.total) ? '+' : ''}
+                          ₪{(Number(manualPrice) - Number(pricingPreview.total || 0)).toFixed(2)}
+                        </span>
+                        <span className="mr-2">
+                          ({((Number(manualPrice) / Number(pricingPreview.total || 1) - 1) * 100).toFixed(1)}%)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="bg-white rounded-lg p-4 border border-yellow-200">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      סיבה לשינוי מחיר (אופציונלי)
+                    </label>
+                    <textarea
+                      value={overrideReason}
+                      onChange={(e) => setOverrideReason(e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                      placeholder="למה המחיר שונה מהמחירון? (לתיעוד)"
+                    />
+                  </div>
+                  
+                  <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-3">
+                    <p className="text-sm text-yellow-800">
+                      ⚠️ שינוי מחיר ידני יתועד במערכת ויוצג בתעודת המשלוח
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Fleet Assignment */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -408,35 +577,134 @@ export default function NewJobPage() {
               שיבוץ צי (אופציונלי)
             </h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Combobox
-                  label="נהג"
-                  placeholder="חפש נהג..."
-                  options={drivers.map(d => ({
-                    value: d.id,
-                    label: d.name,
-                    subLabel: d.phone
-                  }))}
-                  value={formData.driver_id}
-                  onChange={(value) => setFormData(prev => ({ ...prev, driver_id: value.toString() }))}
-                />
-              </div>
-
-              <div>
-                <Combobox
-                  label="משאית"
-                  placeholder="חפש משאית..."
-                  options={trucks.map(t => ({
-                    value: t.id,
-                    label: t.plate_number,
-                    subLabel: t.model
-                  }))}
-                  value={formData.truck_id}
-                  onChange={(value) => setFormData(prev => ({ ...prev, truck_id: value.toString() }))}
-                />
+            {/* Assignment Type Selection */}
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                סוג שיבוץ
+              </label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="assignment_type"
+                    value="driver"
+                    checked={formData.assignment_type === 'driver'}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      assignment_type: e.target.value,
+                      subcontractor_id: '' // Reset subcontractor when switching
+                    }))}
+                    className="w-4 h-4 text-blue-600"
+                  />
+                  <span className="text-gray-700">נהג חברה</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="assignment_type"
+                    value="subcontractor"
+                    checked={formData.assignment_type === 'subcontractor'}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      assignment_type: e.target.value,
+                      driver_id: '', // Reset driver when switching
+                      truck_id: ''
+                    }))}
+                    className="w-4 h-4 text-orange-600"
+                  />
+                  <span className="text-gray-700">קבלן משנה</span>
+                </label>
               </div>
             </div>
+            
+            {/* Company Driver Assignment */}
+            {formData.assignment_type === 'driver' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Combobox
+                    label="נהג"
+                    placeholder="חפש נהג..."
+                    options={drivers.map(d => ({
+                      value: d.id,
+                      label: d.name,
+                      subLabel: d.phone
+                    }))}
+                    value={formData.driver_id}
+                    onChange={(value) => setFormData(prev => ({ ...prev, driver_id: value.toString() }))}
+                  />
+                </div>
+
+                <div>
+                  <Combobox
+                    label="משאית"
+                    placeholder="חפש משאית..."
+                    options={trucks.map(t => ({
+                      value: t.id,
+                      label: t.plate_number,
+                      subLabel: t.model
+                    }))}
+                    value={formData.truck_id}
+                    onChange={(value) => setFormData(prev => ({ ...prev, truck_id: value.toString() }))}
+                  />
+                </div>
+              </div>
+            )}
+            
+            {/* Subcontractor Assignment */}
+            {formData.assignment_type === 'subcontractor' && (
+              <div>
+                <Combobox
+                  label="קבלן משנה"
+                  placeholder="חפש קבלן משנה..."
+                  options={subcontractors.map(s => ({
+                    value: s.id,
+                    label: s.name,
+                    subLabel: s.truck_plate_number ? `משאית: ${s.truck_plate_number}` : s.phone
+                  }))}
+                  value={formData.subcontractor_id}
+                  onChange={(value) => setFormData(prev => ({ ...prev, subcontractor_id: value.toString() }))}
+                />
+                
+                {/* Subcontractor Pricing Preview */}
+                {(subcontractorPricing || loadingSubcontractorPricing) && (
+                  <div className="mt-4 bg-orange-50 rounded-lg border border-orange-200 p-4">
+                    <h4 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                      <DollarSign className="w-4 h-4 text-orange-600" />
+                      מחיר קבלן משנה
+                    </h4>
+                    {loadingSubcontractorPricing ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-orange-600"></div>
+                        <span className="text-sm text-gray-600">מחשב...</span>
+                      </div>
+                    ) : subcontractorPricing ? (
+                      <div className="space-y-2">
+                        {subcontractorPricing.price_per_trip && (
+                          <div className="flex justify-between text-sm">
+                            <span>מחיר לנסיעה:</span>
+                            <span className="font-medium">₪{Number(subcontractorPricing.price_per_trip).toFixed(2)}</span>
+                          </div>
+                        )}
+                        {subcontractorPricing.price_per_ton && (
+                          <div className="flex justify-between text-sm">
+                            <span>מחיר לטון:</span>
+                            <span className="font-medium">₪{Number(subcontractorPricing.price_per_ton).toFixed(2)}</span>
+                          </div>
+                        )}
+                        {subcontractorPricing.total_estimated && (
+                          <div className="flex justify-between text-base font-bold border-t border-orange-300 pt-2 mt-2">
+                            <span>סה״כ משוער:</span>
+                            <span className="text-orange-600">₪{Number(subcontractorPricing.total_estimated).toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-600">לא נמצא מחירון לקבלן זה</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Priority & Notes */}
@@ -494,6 +762,36 @@ export default function NewJobPage() {
             </button>
           </div>
         </form>
+        
+        {/* Quick Add Modals */}
+        <QuickAddCustomerModal
+          show={showQuickAddCustomer}
+          onSuccess={(newCustomer) => {
+            setCustomers(prev => [...prev, newCustomer])
+            setFormData(prev => ({ 
+              ...prev, 
+              customer_id: newCustomer.id.toString() 
+            }))
+            setShowQuickAddCustomer(false)
+          }}
+          onCancel={() => setShowQuickAddCustomer(false)}
+        />
+        
+        <QuickAddSiteModal
+          show={showQuickAddSite}
+          customerId={formData.customer_id ? parseInt(formData.customer_id) : undefined}
+          onSuccess={(newSite) => {
+            setSites(prev => [...prev, newSite])
+            // Optionally set as selected site
+            if (!formData.from_site_id) {
+              setFormData(prev => ({ ...prev, from_site_id: newSite.id.toString() }))
+            } else if (!formData.to_site_id) {
+              setFormData(prev => ({ ...prev, to_site_id: newSite.id.toString() }))
+            }
+            setShowQuickAddSite(false)
+          }}
+          onCancel={() => setShowQuickAddSite(false)}
+        />
       </div>
     </DashboardLayout>
   )

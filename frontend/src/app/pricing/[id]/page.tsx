@@ -37,6 +37,7 @@ export default function EditPriceListPage() {
     unit: 'TON',
     base_price: '',
     min_charge: '',
+    trip_surcharge: '',
     wait_fee_per_hour: '',
     night_surcharge_pct: '',
     valid_from: new Date().toISOString().split('T')[0],
@@ -70,6 +71,7 @@ export default function EditPriceListPage() {
           unit: pl.unit,
           base_price: pl.base_price.toString(),
           min_charge: pl.min_charge?.toString() || '',
+          trip_surcharge: pl.trip_surcharge?.toString() || '',
           wait_fee_per_hour: pl.wait_fee_per_hour?.toString() || '',
           night_surcharge_pct: pl.night_surcharge_pct?.toString() || '',
           valid_from: pl.valid_from ? new Date(pl.valid_from).toISOString().split('T')[0] : '',
@@ -133,6 +135,7 @@ export default function EditPriceListPage() {
         unit: formData.unit as any,
         base_price: parseFloat(formData.base_price),
         min_charge: formData.min_charge ? parseFloat(formData.min_charge) : undefined,
+        trip_surcharge: formData.trip_surcharge ? parseFloat(formData.trip_surcharge) : undefined,
         wait_fee_per_hour: formData.wait_fee_per_hour ? parseFloat(formData.wait_fee_per_hour) : undefined,
         night_surcharge_pct: formData.night_surcharge_pct ? parseFloat(formData.night_surcharge_pct) : undefined,
         valid_from: formData.valid_from,
@@ -370,6 +373,27 @@ export default function EditPriceListPage() {
                   />
                   <span className="absolute left-3 top-2 text-gray-500">₪</span>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  תוספת נסיעה קבועה
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    step="0.01"
+                    name="trip_surcharge"
+                    value={formData.trip_surcharge}
+                    onChange={handleChange}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="0.00 (אופציונלי)"
+                  />
+                  <span className="absolute left-3 top-2 text-gray-500">₪</span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  סכום קבוע שמתווסף לכל נסיעה
+                </p>
               </div>
 
               <div>

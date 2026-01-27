@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/stores/auth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { superAdminApi } from '@/lib/api'
-import { t } from '@/lib/i18n'
+import { useI18n } from '@/lib/i18n'
 
 interface Organization {
   id: string
@@ -74,7 +74,7 @@ export default function SuperAdminPage() {
     try {
       setLoading(true)
       if (activeTab === 'organizations') {
-        const response = await superAdminApi.listOrganizations(filters)
+        const response: any = await superAdminApi.listOrganizations(filters)
         console.log('Organizations API response:', response)
         // API returns { total, skip, limit, items: [...] }
         const orgs = response.data?.items || response.data?.organizations || response.data?.data || []
@@ -84,7 +84,7 @@ export default function SuperAdminPage() {
         const response = await superAdminApi.getSystemStats()
         setStats(response.data)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load data:', error)
       alert('שגיאה בטעינת נתונים: ' + (error?.response?.data?.detail || error?.message))
     } finally {

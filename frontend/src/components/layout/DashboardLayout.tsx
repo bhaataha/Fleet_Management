@@ -24,6 +24,8 @@ import {
   X,
   Globe,
   Shield,
+  BookOpen,
+  Receipt,
 } from 'lucide-react'
 
 const navigation = [
@@ -34,10 +36,12 @@ const navigation = [
   { name: 'nav.customers', href: '/customers', icon: Users },
   { name: 'nav.sites', href: '/sites', icon: MapPin },
   { name: 'nav.fleet', href: '/fleet', icon: Truck },
+  { name: 'קבלני משנה', href: '/subcontractors', icon: Users },
   { name: 'nav.materials', href: '/materials', icon: Package },
   { name: 'nav.pricing', href: '/pricing', icon: DollarSign },
   { name: 'nav.billing', href: '/billing', icon: FileText },
   { name: 'nav.reports', href: '/reports', icon: BarChart3 },
+  { name: '� דוחות פיננסיים', href: '/reports/financial', icon: DollarSign },  { name: '🧾 הוצאות', href: '/expenses', icon: Receipt },  { name: '�📚 מדריך למערכת', href: '/guide', icon: BookOpen },
   { name: 'nav.settings', href: '/settings', icon: Settings },
 ]
 
@@ -72,12 +76,12 @@ export default function DashboardLayout({
 
   const loadOrganizations = async () => {
     try {
-      const response = await superAdminApi.listOrganizations()
+      const response: any = await superAdminApi.listOrganizations()
       // Handle paginated response format: {total, skip, limit, items: [...]}
       const orgs = response.data?.items || response.data?.organizations || (Array.isArray(response.data) ? response.data : [])
       console.log('Loaded organizations:', orgs)
       setOrganizations(Array.isArray(orgs) ? orgs : [])
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load organizations:', error)
       setOrganizations([]) // Set empty array on error
     }

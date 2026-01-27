@@ -1,15 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import axios from 'axios'
+import { useRouter } from 'next/navigation'
+import { subcontractorsApi } from '@/lib/api'
 import Link from 'next/link'
+import DashboardLayout from '@/components/layout/DashboardLayout'
 
 export default function SubcontractorsPage() {
   const router = useRouter()
-  const [subcontractors, setSubcontractors] = useState([])
+  const [subcontractors, setSubcontractors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<any>(null)
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
 
@@ -20,15 +21,10 @@ export default function SubcontractorsPage() {
   const fetchSubcontractors = async () => {
     try {
       setLoading(true)
-      const query = new URLSearchParams()
-      if (search) query.append('search', search)
-
-      const response = await axios.get('/api/subcontractors', {
-        params: Object.fromEntries(query)
-      })
+      const response = await subcontractorsApi.getAll({ search })
       setSubcontractors(response.data)
       setError(null)
-    } catch (err) {
+    } catch (err: any) {
       setError(err.response?.data?.detail || 'שגיאה בטעינת קבלנים')
     } finally {
       setLoading(false)
@@ -36,7 +32,7 @@ export default function SubcontractorsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <DashboardLayout>
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -54,7 +50,7 @@ export default function SubcontractorsPage() {
           <div className="mb-6">
             <input
               type="text"
-              placeholder="חיפוש לפי שם, חברה או מספר ח.פ..."
+              placeholder="חיפוש לפי שם, חברה, מספר ח.פ או מספר משאית..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -92,7 +88,16 @@ export default function SubcontractorsPage() {
             {subcontractors.map((sub) => (
               <div key={sub.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition">
                 <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">{sub.name}</h3>
+                  {/* Truck Number - Primary Identifier */}
+                  {sub.truck_plate_number && (
+                    <div className="bg-orange-100 border-2 border-orange-400 rounded-lg px-4 py-3 mb-3">
+                      <div className="text-xs text-orange-700 font-medium mb-1">מספר משאית (מזהה ראשי)</div>
+                      <div className="text-2xl font-bold text-orange-900">🚛 {sub.truck_plate_number}</div>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900">{sub.name}</h3>
+                  </div>
                   {sub.company_name && (
                     <p className="text-sm text-gray-500">{sub.company_name}</p>
                   )}
@@ -113,10 +118,12 @@ export default function SubcontractorsPage() {
                       <span className="text-gray-900">{sub.vat_id}</span>
                     </div>
                   )}
-                  <div>
-                    <span className="text-gray-600">תנאי תשלום: </span>
-                    <span className="text-gray-900">{sub.payment_terms}</span>
-                  </div>
+                  {sub.payment_terms && (
+                    <div>
+                      <span className="text-gray-600">תנאי תשלום: </span>
+                      <span className="text-gray-900">{sub.payment_terms}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-2">
@@ -158,12 +165,12 @@ export default function SubcontractorsPage() {
           </div>
         )}
       </div>
-    </div>
+    </DashboardLayout>
   )
 }
 
 // SubcontractorForm Component
-function SubcontractorForm({ onSuccess }) {
+function SubcontractorForm({ onSuccess }: { onSuccess: () => void }) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -172,18 +179,19 @@ function SubcontractorForm({ onSuccess }) {
     contact_person: '',
     phone: '',
     email: '',
+    truck_plate_number: '',
     payment_terms: 'monthly',
     payment_method: '',
     notes: ''
   })
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault()
     try {
       setLoading(true)
-      await axios.post('/api/subcontractors', formData)
+      await subcontractorsApi.create(formData)
       onSuccess()
-    } catch (err) {
+    } catch (err: any) {
       alert(err.response?.data?.detail || 'שגיאה בשמירה')
     } finally {
       setLoading(false)
@@ -195,13 +203,13 @@ function SubcontractorForm({ onSuccess }) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            שם קבלן *
+            שם קבלן
           </label>
           <input
             type="text"
-            required
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="אופציונלי - ניתן להשתמש רק במספר משאית"
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
           />
         </div>
@@ -241,6 +249,21 @@ function SubcontractorForm({ onSuccess }) {
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
           />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            🚛 מספר משאית *
+          </label>
+          <input
+            type="text"
+            required
+            value={formData.truck_plate_number}
+            onChange={(e) => setFormData({ ...formData, truck_plate_number: e.target.value })}
+            placeholder="מספר רישוי (חובה)"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-bold"
+          />
+          <p className="text-xs text-gray-500 mt-1">⚠️ המשאית היא המזהה העיקרי - כל הלוגיקה עובדת לפי מספר משאית</p>
         </div>
 
         <div>

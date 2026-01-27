@@ -2,18 +2,18 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import axios from 'axios'
+import { subcontractorsApi } from '@/lib/api'
 import Link from 'next/link'
 
 export default function SubcontractorDetailPage() {
   const params = useParams()
   const router = useRouter()
-  const subcontractorId = params.id
+  const subcontractorId = parseInt(params.id as string)
 
-  const [subcontractor, setSubcontractor] = useState(null)
-  const [prices, setPrices] = useState([])
+  const [subcontractor, setSubcontractor] = useState<any>(null)
+  const [prices, setPrices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<any>(null)
   const [activeTab, setActiveTab] = useState('details')
 
   useEffect(() => {
@@ -24,13 +24,13 @@ export default function SubcontractorDetailPage() {
     try {
       setLoading(true)
       const [subRes, pricesRes] = await Promise.all([
-        axios.get(`/api/subcontractors/${subcontractorId}`),
-        axios.get(`/api/subcontractors/${subcontractorId}/prices`)
+        subcontractorsApi.get(subcontractorId),
+        subcontractorsApi.getPriceLists(subcontractorId)
       ])
       setSubcontractor(subRes.data)
       setPrices(pricesRes.data)
       setError(null)
-    } catch (err) {
+    } catch (err: any) {
       setError(err.response?.data?.detail || 'שגיאה בטעינה')
     } finally {
       setLoading(false)
@@ -94,6 +94,12 @@ export default function SubcontractorDetailPage() {
           >
             💰 מחירונים ({prices.length})
           </button>
+          <Link
+            href={`/subcontractors/${subcontractorId}/prices`}
+            className="mr-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition"
+          >
+            📊 דף מחירון מלא
+          </Link>
         </div>
 
         {/* Content */}
@@ -114,19 +120,21 @@ export default function SubcontractorDetailPage() {
 }
 
 // Details Tab
-function SubcontractorDetailsTab({ subcontractor, onUpdate }) {
+function SubcontractorDetailsTab({ subcontractor, onUpdate }: { subcontractor: any; onUpdate: () => void }) {
   const [editing, setEditing] = useState(false)
   const [formData, setFormData] = useState(subcontractor)
   const [loading, setLoading] = useState(false)
 
-  const handleSave = async (e) => {
+  const handleSave = async (e: any) => {
     e.preventDefault()
     try {
       setLoading(true)
-      await axios.patch(`/api/subcontractors/${subcontractor.id}`, formData)
+      await subcontractorsApi.update(subcontractor.id, formData)
+      alert('הקבלן עודכן בהצלחה')
       onUpdate()
       setEditing(false)
-    } catch (err) {
+    } catch (err: any) {
+      console.error('Save error:', err)
       alert(err.response?.data?.detail || 'שגיאה בשמירה')
     } finally {
       setLoading(false)
@@ -174,6 +182,45 @@ function SubcontractorDetailsTab({ subcontractor, onUpdate }) {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg"
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">מספר משאית</label>
+              <input
+                type="text"
+                value={formData.truck_plate_number || ''}
+                onChange={(e) => setFormData({ ...formData, truck_plate_number: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                placeholder="12-345-67"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">מס׳ ח.פ</label>
+              <input
+                type="text"
+                value={formData.vat_id || ''}
+                onChange={(e) => setFormData({ ...formData, vat_id: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">תנאי תשלום</label>
+              <input
+                type="text"
+                value={formData.payment_terms || ''}
+                onChange={(e) => setFormData({ ...formData, payment_terms: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                placeholder="שוטף+30"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">אמצעי תשלום</label>
+              <input
+                type="text"
+                value={formData.payment_method || ''}
+                onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                placeholder="העברה בנקאית"
+              />
+            </div>
           </div>
 
           <div>
@@ -219,8 +266,8 @@ function SubcontractorDetailsTab({ subcontractor, onUpdate }) {
             <p className="text-lg font-medium">{subcontractor.company_name || '-'}</p>
           </div>
           <div>
-            <p className="text-sm text-gray-600">מס׳ ח.פ</p>
-            <p className="text-lg font-medium">{subcontractor.vat_id || '-'}</p>
+            <p className="text-sm text-gray-600">מספר משאית</p>
+            <p className="text-lg font-medium text-blue-600">{subcontractor.truck_plate_number || '-'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-600">טלפון</p>
@@ -229,6 +276,10 @@ function SubcontractorDetailsTab({ subcontractor, onUpdate }) {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <p className="text-sm text-gray-600">מס׳ ח.פ</p>
+            <p className="text-lg font-medium">{subcontractor.vat_id || '-'}</p>
+          </div>
           <div>
             <p className="text-sm text-gray-600">דוא״ל</p>
             <p className="text-lg font-medium">{subcontractor.email || '-'}</p>
@@ -241,6 +292,9 @@ function SubcontractorDetailsTab({ subcontractor, onUpdate }) {
             <p className="text-sm text-gray-600">אמצעי תשלום</p>
             <p className="text-lg font-medium">{subcontractor.payment_method || '-'}</p>
           </div>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <p className="text-sm text-gray-600">סטטוס</p>
             <p className="text-lg font-medium">
@@ -268,7 +322,7 @@ function SubcontractorDetailsTab({ subcontractor, onUpdate }) {
 }
 
 // Prices Tab
-function SubcontractorPricesTab({ subcontractorId, prices, onPricesUpdated }) {
+function SubcontractorPricesTab({ subcontractorId, prices, onPricesUpdated }: { subcontractorId: number; prices: any[]; onPricesUpdated: () => void }) {
   const [showForm, setShowForm] = useState(false)
 
   return (
@@ -345,7 +399,7 @@ function SubcontractorPricesTab({ subcontractorId, prices, onPricesUpdated }) {
 }
 
 // Price Form
-function PriceForm({ subcontractorId, onSuccess }) {
+function PriceForm({ subcontractorId, onSuccess }: { subcontractorId: number; onSuccess: () => void }) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     price_per_trip: '',
@@ -358,7 +412,7 @@ function PriceForm({ subcontractorId, onSuccess }) {
     notes: ''
   })
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: any) => {
     e.preventDefault()
     try {
       setLoading(true)
@@ -366,9 +420,9 @@ function PriceForm({ subcontractorId, onSuccess }) {
       const data = Object.fromEntries(
         Object.entries(formData).map(([k, v]) => [k, v === '' ? null : v])
       )
-      await axios.post(`/api/subcontractors/${subcontractorId}/prices`, data)
+      await subcontractorsApi.createPriceList(subcontractorId, data)
       onSuccess()
-    } catch (err) {
+    } catch (err: any) {
       alert(err.response?.data?.detail || 'שגיאה בשמירה')
     } finally {
       setLoading(false)

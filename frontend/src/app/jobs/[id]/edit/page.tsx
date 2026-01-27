@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
-import { jobsApi, customersApi, sitesApi, materialsApi, driversApi, trucksApi } from '@/lib/api'
+import { jobsApi, customersApi, sitesApi, materialsApi, driversApi, trucksApi, subcontractorsApi } from '@/lib/api'
 import api from '@/lib/api'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import Combobox from '@/components/ui/Combobox'
@@ -24,12 +24,21 @@ export default function EditJobPage() {
   const [pricingPreview, setPricingPreview] = useState<any>(null)
   const [loadingPricing, setLoadingPricing] = useState(false)
   
+  // Manual pricing override
+  const [manualPricingEnabled, setManualPricingEnabled] = useState(false)
+  const [manualPrice, setManualPrice] = useState('')
+  const [overrideReason, setOverrideReason] = useState('')
+  
   // Data lists
   const [customers, setCustomers] = useState<Customer[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [trucks, setTrucks] = useState<Truck[]>([])
+  const [subcontractors, setSubcontractors] = useState<any[]>([])
+  
+  // Subcontractor mode
+  const [isSubcontractor, setIsSubcontractor] = useState(false)
   
   // Form data
   const [formData, setFormData] = useState({
@@ -42,6 +51,8 @@ export default function EditJobPage() {
     scheduled_date: new Date().toISOString().split('T')[0],
     driver_id: '',
     truck_id: '',
+    subcontractor_id: '',
+    subcontractor_billing_unit: '', // סוג חיוב לקבלן (TRIP/TON/M3/KM או ריק)
     status: 'PLANNED' as JobStatus,
     notes: ''
   })
@@ -52,13 +63,14 @@ export default function EditJobPage() {
 
   const loadData = async () => {
     try {
-      const [jobRes, customersRes, sitesRes, materialsRes, driversRes, trucksRes] = await Promise.all([
+      const [jobRes, customersRes, sitesRes, materialsRes, driversRes, trucksRes, subcontractorsRes] = await Promise.all([
         jobsApi.get(jobId),
         customersApi.getAll(),
         sitesApi.getAll(),
         materialsApi.getAll(),
         driversApi.getAll(),
         trucksApi.getAll(),
+        subcontractorsApi.getAll().catch(() => ({ data: [] })),
       ])
       
       const job = jobRes.data
@@ -72,15 +84,30 @@ export default function EditJobPage() {
         scheduled_date: job.scheduled_date ? new Date(job.scheduled_date).toISOString().split('T')[0] : '',
         driver_id: job.driver_id?.toString() || '',
         truck_id: job.truck_id?.toString() || '',
+        subcontractor_id: job.subcontractor_id?.toString() || '',
+        subcontractor_billing_unit: job.subcontractor_billing_unit || '', // טעינת סוג החיוב לקבלן
         status: job.status || 'PLANNED',
         notes: job.notes || ''
       })
+      
+      // Load existing subcontractor mode if exists
+      if (job.is_subcontractor || job.subcontractor_id) {
+        setIsSubcontractor(true)
+      }
+      
+      // Load existing manual pricing if exists
+      if (job.manual_override_total) {
+        setManualPricingEnabled(true)
+        setManualPrice(job.manual_override_total.toString())
+        setOverrideReason(job.manual_override_reason || '')
+      }
       
       setCustomers(customersRes.data)
       setSites(sitesRes.data)
       setMaterials(materialsRes.data)
       setDrivers(driversRes.data)
       setTrucks(trucksRes.data)
+      setSubcontractors(subcontractorsRes.data)
     } catch (error) {
       console.error('Failed to load data:', error)
       alert('שגיאה בטעינת הנתונים')
@@ -128,10 +155,19 @@ export default function EditJobPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Validate manual pricing if enabled
+    if (manualPricingEnabled) {
+      if (!manualPrice || parseFloat(manualPrice) <= 0) {
+        alert('נא להזין מחיר ידני תקין')
+        return
+      }
+    }
+    
     setSaving(true)
     
     try {
-      await jobsApi.update(jobId, {
+      const payload: any = {
         customer_id: parseInt(formData.customer_id),
         from_site_id: parseInt(formData.from_site_id),
         to_site_id: parseInt(formData.to_site_id),
@@ -141,9 +177,24 @@ export default function EditJobPage() {
         scheduled_date: new Date(formData.scheduled_date).toISOString(),
         driver_id: formData.driver_id ? parseInt(formData.driver_id) : null,
         truck_id: formData.truck_id ? parseInt(formData.truck_id) : null,
+        is_subcontractor: isSubcontractor,
+        subcontractor_id: isSubcontractor && formData.subcontractor_id ? parseInt(formData.subcontractor_id) : null,
+        subcontractor_billing_unit: isSubcontractor && formData.subcontractor_billing_unit ? formData.subcontractor_billing_unit : null, // סוג חיוב לקבלן
         status: formData.status,
         notes: formData.notes || null
-      })
+      }
+      
+      // Add manual pricing if enabled
+      if (manualPricingEnabled && manualPrice) {
+        payload.manual_override_total = parseFloat(manualPrice)
+        payload.manual_override_reason = overrideReason.trim() || null
+      } else {
+        // Clear manual pricing if disabled
+        payload.manual_override_total = null
+        payload.manual_override_reason = null
+      }
+      
+      await jobsApi.update(jobId, payload)
       
       alert('הנסיעה עודכנה בהצלחה!')
       router.push(`/jobs/${jobId}`)
@@ -384,35 +435,188 @@ export default function EditJobPage() {
             </div>
           )}
 
-          {/* Driver and Truck */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Combobox
-                label="נהג"
-                placeholder="חפש נהג..."
-                options={drivers.filter(d => d.is_active).map(d => ({
-                  value: d.id,
-                  label: d.name,
-                  subLabel: d.phone
-                }))}
-                value={formData.driver_id}
-                onChange={(value) => setFormData({ ...formData, driver_id: value.toString() })}
-              />
+          {/* Manual Price Override - Always visible */}
+          {
+            <div className="bg-yellow-50 rounded-lg border-2 border-yellow-300 p-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={manualPricingEnabled}
+                    onChange={(e) => {
+                      setManualPricingEnabled(e.target.checked)
+                      if (!e.target.checked) {
+                        setManualPrice('')
+                        setOverrideReason('')
+                      }
+                    }}
+                    className="w-5 h-5 rounded text-yellow-600 focus:ring-2 focus:ring-yellow-500"
+                  />
+                  <span className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                    🖊️ מחיר ידני (Override)
+                  </span>
+                </label>
+              </div>
+              
+              {manualPricingEnabled && (
+                <div className="space-y-4 pt-2">
+                  <div className="bg-white rounded-lg p-4 border border-yellow-200">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      מחיר מותאם אישית *
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg text-gray-600">₪</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={manualPrice}
+                        onChange={(e) => setManualPrice(e.target.value)}
+                        required={manualPricingEnabled}
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    {pricingPreview && manualPrice && (
+                      <div className="mt-2 text-sm text-gray-600">
+                        <span>הפרש: </span>
+                        <span className={
+                          Number(manualPrice) > Number(pricingPreview.total) 
+                            ? 'text-green-600 font-medium' 
+                            : 'text-red-600 font-medium'
+                        }>
+                          {Number(manualPrice) > Number(pricingPreview.total) ? '+' : ''}
+                          ₪{(Number(manualPrice) - Number(pricingPreview.total || 0)).toFixed(2)}
+                        </span>
+                        <span className="mr-2">
+                          ({((Number(manualPrice) / Number(pricingPreview.total || 1) - 1) * 100).toFixed(1)}%)
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="bg-white rounded-lg p-4 border border-yellow-200">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      סיבה לשינוי מחיר (אופציונלי)
+                    </label>
+                    <textarea
+                      value={overrideReason}
+                      onChange={(e) => setOverrideReason(e.target.value)}
+                      rows={3}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                      placeholder="למה המחיר שונה מהמחירון? (לתיעוד)"
+                    />
+                  </div>
+                  
+                  <div className="bg-yellow-100 border border-yellow-300 rounded-lg p-3">
+                    <p className="text-sm text-yellow-800">
+                      ⚠️ שינוי מחיר ידני יתועד במערכת ויוצג בתעודת המשלוח
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          }
+
+          {/* Driver, Truck, and Subcontractor */}
+          <div className="space-y-4">
+            {/* Subcontractor Toggle */}
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isSubcontractor}
+                  onChange={(e) => {
+                    setIsSubcontractor(e.target.checked)
+                    if (!e.target.checked) {
+                      setFormData({ ...formData, subcontractor_id: '', driver_id: '', truck_id: '' })
+                    }
+                  }}
+                  className="w-5 h-5 rounded text-orange-600 focus:ring-2 focus:ring-orange-500"
+                />
+                <div>
+                  <span className="text-base font-semibold text-gray-900">🚛 נסיעה של קבלן משנה</span>
+                  <p className="text-sm text-gray-600 mt-1">סמן אם הנסיעה מבוצעת על ידי קבלן חיצוני</p>
+                </div>
+              </label>
             </div>
 
-            <div>
-              <Combobox
-                label="משאית"
-                placeholder="חפש משאית..."
-                options={trucks.filter(t => t.is_active).map(t => ({
-                  value: t.id,
-                  label: t.plate_number,
-                  subLabel: t.model
-                }))}
-                value={formData.truck_id}
-                onChange={(value) => setFormData({ ...formData, truck_id: value.toString() })}
-              />
-            </div>
+            {/* Subcontractor Selection */}
+            {isSubcontractor ? (
+              <div className="space-y-4">
+                <Combobox
+                  label="קבלן משנה"
+                  required
+                  placeholder="בחר קבלן..."
+                  options={subcontractors.filter(s => s.is_active).map(s => ({
+                    value: s.id,
+                    label: s.name,
+                    subLabel: s.phone
+                  }))}
+                  value={formData.subcontractor_id}
+                  onChange={(value) => setFormData({ ...formData, subcontractor_id: value.toString() })}
+                />
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    סוג חיוב לקבלן
+                  </label>
+                  <select
+                    value={formData.subcontractor_billing_unit || ''}
+                    onChange={(e) => setFormData({ ...formData, subcontractor_billing_unit: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  >
+                    <option value="">-- ברירת מחדל (לפי יחידת הנסיעה) --</option>
+                    <option value="TRIP">💰 נסיעה קבועה (TRIP)</option>
+                    <option value="TON">⚖️ לפי טון (TON)</option>
+                    <option value="M3">📦 לפי קוב (M3)</option>
+                    <option value="KM">📏 לפי ק"מ (KM)</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {formData.subcontractor_billing_unit === 'TRIP' && '💡 מחיר קבוע לנסיעה (לא משנה כמות)'}
+                    {formData.subcontractor_billing_unit === 'TON' && '💡 מחיר יחושב לפי כמות הטונות'}
+                    {formData.subcontractor_billing_unit === 'M3' && '💡 מחיר יחושב לפי כמות הקובים'}
+                    {formData.subcontractor_billing_unit === 'KM' && '💡 מחיר יחושב לפי מרחק בק"מ'}
+                    {!formData.subcontractor_billing_unit && '💡 יחושב אוטומטית לפי יחידת הנסיעה'}
+                  </p>
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  💡 עלות קבלן תחושב לפי מחירון הקבלן. משאית ונהג לא חובה עבור קבלן משנה.
+                </p>
+              </div>
+            ) : (
+              /* Company Fleet */
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <Combobox
+                    label="נהג"
+                    placeholder="חפש נהג..."
+                    options={drivers.filter(d => d.is_active).map(d => ({
+                      value: d.id,
+                      label: d.name,
+                      subLabel: d.phone
+                    }))}
+                    value={formData.driver_id}
+                    onChange={(value) => setFormData({ ...formData, driver_id: value.toString() })}
+                  />
+                </div>
+
+                <div>
+                  <Combobox
+                    label="משאית"
+                    placeholder="חפש משאית..."
+                    options={trucks.filter(t => t.is_active).map(t => ({
+                      value: t.id,
+                      label: t.plate_number,
+                      subLabel: t.model
+                    }))}
+                    value={formData.truck_id}
+                    onChange={(value) => setFormData({ ...formData, truck_id: value.toString() })}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Status */}

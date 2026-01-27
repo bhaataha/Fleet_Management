@@ -20,6 +20,8 @@ class TruckBase(BaseModel):
     capacity_m3: Optional[Decimal] = None
     insurance_expiry: Optional[datetime] = None
     test_expiry: Optional[datetime] = None
+    primary_driver_id: Optional[int] = None
+    secondary_driver_ids: Optional[List[int]] = []
 
 
 class TruckCreate(TruckBase):
@@ -34,6 +36,8 @@ class TruckUpdate(BaseModel):
     capacity_m3: Optional[Decimal] = None
     insurance_expiry: Optional[datetime] = None
     test_expiry: Optional[datetime] = None
+    primary_driver_id: Optional[int] = None
+    secondary_driver_ids: Optional[List[int]] = None
     is_active: Optional[bool] = None
 
 

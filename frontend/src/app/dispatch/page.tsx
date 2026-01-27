@@ -2,9 +2,9 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useI18n } from '@/lib/i18n'
-import { jobsApi, driversApi, trucksApi, sitesApi, materialsApi } from '@/lib/api'
+import { jobsApi, driversApi, trucksApi, sitesApi, materialsApi, subcontractorsApi } from '@/lib/api'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { Calendar as CalendarIcon, Filter, Truck as TruckIcon, GripVertical, ChevronLeft, ChevronRight, MapPin, Eye } from 'lucide-react'
+import { Calendar as CalendarIcon, Filter, Truck as TruckIcon, GripVertical, ChevronLeft, ChevronRight, MapPin, Eye, UserCheck } from 'lucide-react'
 import type { Job, Driver, Truck, Site, Material } from '@/types'
 import { formatDate, jobStatusLabels, jobStatusColors, billingUnitLabels } from '@/lib/utils'
 import Link from 'next/link'
@@ -17,9 +17,10 @@ interface CompactJobCardProps {
   isDragging: boolean
   getSiteName: (id: number | null) => string
   getMaterialName: (id: number | null) => string
+  getSubcontractorName?: (id: number | null) => string
 }
 
-function CompactJobCard({ job, onDragStart, onDragEnd, isDragging, getSiteName, getMaterialName }: CompactJobCardProps) {
+function CompactJobCard({ job, onDragStart, onDragEnd, isDragging, getSiteName, getMaterialName, getSubcontractorName }: CompactJobCardProps) {
   const statusColor = jobStatusColors[job.status as keyof typeof jobStatusColors] || 'gray'
   const statusLabel = jobStatusLabels[job.status as keyof typeof jobStatusLabels] || job.status
 
@@ -30,7 +31,7 @@ function CompactJobCard({ job, onDragStart, onDragEnd, isDragging, getSiteName, 
       onDragEnd={onDragEnd}
       className={`bg-white border rounded p-2 transition-all ${
         isDragging ? 'opacity-30 scale-95' : 'hover:shadow-md'
-      }`}
+      } ${job.is_subcontractor ? 'border-l-4 border-l-purple-400' : ''}`}
     >
       <div className="flex items-start justify-between mb-1">
         <div className="flex items-center gap-1">
@@ -48,6 +49,11 @@ function CompactJobCard({ job, onDragStart, onDragEnd, isDragging, getSiteName, 
           {statusLabel}
         </span>
       </div>
+      {job.is_subcontractor && job.subcontractor_id && getSubcontractorName && (
+        <div className="mb-1 px-1.5 py-0.5 bg-purple-50 rounded text-[10px] font-medium text-purple-700 flex items-center gap-1">
+          👷 {getSubcontractorName(job.subcontractor_id)}
+        </div>
+      )}
       <div className="space-y-0.5 text-[10px] text-gray-600">
         <div className="font-medium truncate">{getMaterialName(job.material_id)}</div>
         <div className="flex items-center gap-1">
@@ -67,6 +73,7 @@ export default function DispatchPage() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [trucks, setTrucks] = useState<Truck[]>([])
+  const [subcontractors, setSubcontractors] = useState<any[]>([])
   const [sites, setSites] = useState<Site[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const now = new Date()
@@ -74,8 +81,11 @@ export default function DispatchPage() {
   const [selectedDate, setSelectedDate] = useState(today)
   const [loading, setLoading] = useState(true)
   const [draggedJob, setDraggedJob] = useState<Job | null>(null)
+  const [showSubcontractorModal, setShowSubcontractorModal] = useState(false)
+  const [selectedSubcontractorId, setSelectedSubcontractorId] = useState<number | null>(null)
+  const [pendingJobForSubcontractor, setPendingJobForSubcontractor] = useState<Job | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const [viewMode, setViewMode] = useState<'columns' | 'grid'>('columns')
+  const [viewMode, setViewMode] = useState<'columns' | 'grid' | 'subcontractors'>('columns')
   const autoScrollIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
@@ -151,24 +161,35 @@ export default function DispatchPage() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [jobsRes, driversRes, trucksRes, sitesRes, materialsRes] = await Promise.all([
+      const [jobsRes, driversRes, trucksRes, subcontractorsRes, sitesRes, materialsRes] = await Promise.all([
         jobsApi.getAll(),
         driversApi.getAll(),
         trucksApi.getAll(),
+        subcontractorsApi.getAll(),
         sitesApi.getAll(),
         materialsApi.getAll(),
       ])
+      
+      console.log('📊 Total jobs from API:', jobsRes.data?.length || 0)
+      console.log('🗓️ Selected date:', selectedDate)
       
       // Filter jobs by selected date on client side
       const filteredJobs = jobsRes.data.filter((job: Job) => {
         if (!job.scheduled_date) return false
         const jobDate = job.scheduled_date.split('T')[0]
-        return jobDate === selectedDate
+        const matches = jobDate === selectedDate
+        if (!matches) {
+          console.log(`❌ Job #${job.id} date ${jobDate} !== ${selectedDate}`)
+        }
+        return matches
       })
+      
+      console.log('✅ Filtered jobs:', filteredJobs.length)
       
       setJobs(filteredJobs)
       setDrivers(driversRes.data.filter((d: Driver) => d.is_active))
       setTrucks(trucksRes.data.filter((t: Truck) => t.is_active))
+      setSubcontractors(subcontractorsRes.data.filter((s: any) => s.is_active))
       setSites(sitesRes.data)
       setMaterials(materialsRes.data)
     } catch (error) {
@@ -190,16 +211,30 @@ export default function DispatchPage() {
     return material?.name_hebrew || material?.name || `חומר #${materialId}`
   }
 
+  const getSubcontractorName = (subcontractorId: number | null) => {
+    if (!subcontractorId) return 'לא צוין'
+    const subcontractor = subcontractors.find(s => s.id === subcontractorId)
+    // מספר משאית הוא המזהה העיקרי, שם הקבלן הוא משני
+    return subcontractor?.truck_plate_number || subcontractor?.name || `קבלן #${subcontractorId}`
+  }
+
   // Separate closed jobs from active jobs
   const closedStatuses = ['DELIVERED', 'CLOSED', 'CANCELED']
   const activeJobs = jobs.filter(j => !closedStatuses.includes(j.status))
   const closedJobs = jobs.filter(j => closedStatuses.includes(j.status))
 
   const groupedJobs = {
-    unassigned: activeJobs.filter(j => !j.driver_id),
-    byDriver: drivers.map(driver => ({
-      driver,
-      jobs: activeJobs.filter(j => j.driver_id === driver.id)
+    unassigned: activeJobs.filter(j => !j.truck_id && !j.subcontractor_id),
+    byTruck: trucks.map(truck => ({
+      truck,
+      jobs: activeJobs.filter(j => j.truck_id === truck.id && !j.subcontractor_id)
+    })),
+    // All subcontractor jobs grouped into ONE column (for grid/column view)
+    allSubcontractorJobs: activeJobs.filter(j => j.is_subcontractor && j.subcontractor_id),
+    // Individual subcontractor columns (for subcontractors view)
+    bySubcontractor: subcontractors.map(subcontractor => ({
+      subcontractor,
+      jobs: activeJobs.filter(j => j.subcontractor_id === subcontractor.id)
     })),
     closed: closedJobs
   }
@@ -212,27 +247,71 @@ export default function DispatchPage() {
     setDraggedJob(null)
   }
 
-  const handleDrop = async (driverId: number | null) => {
+  const handleSubcontractorSelect = async () => {
+    if (!pendingJobForSubcontractor || !selectedSubcontractorId) return
+    
+    try {
+      await jobsApi.update(pendingJobForSubcontractor.id, { 
+        subcontractor_id: selectedSubcontractorId,
+        is_subcontractor: true,
+        subcontractor_billing_unit: pendingJobForSubcontractor.subcontractor_billing_unit || null,
+        truck_id: null,
+        driver_id: null,
+        status: 'ASSIGNED'
+      })
+      setShowSubcontractorModal(false)
+      setSelectedSubcontractorId(null)
+      setPendingJobForSubcontractor(null)
+      setDraggedJob(null)
+      await loadData()
+    } catch (error) {
+      console.error('Error assigning subcontractor:', error)
+      alert('שגיאה בשיבוץ קבלן משנה')
+    }
+  }
+
+  const handleDrop = async (truckId: number | null, subcontractorId?: number | null) => {
     if (!draggedJob) return
     
     try {
-      // When dropping to unassigned (driverId is null), only clear driver and truck - keep existing status
-      if (driverId === null) {
+      // Special case: dropping to unified subcontractors column (subcontractorId = -1)
+      if (subcontractorId === -1) {
+        // Save the job and open modal to select specific subcontractor
+        setPendingJobForSubcontractor(draggedJob)
+        setShowSubcontractorModal(true)
+        return
+      }
+      
+      // When dropping to unassigned (both null), clear everything
+      if (truckId === null && !subcontractorId) {
         await jobsApi.update(draggedJob.id, { 
+          truck_id: null,
           driver_id: null,
-          truck_id: null
+          subcontractor_id: null,
+          is_subcontractor: false
+        })
+      } else if (subcontractorId) {
+        // When assigning to subcontractor (old code path - shouldn't happen now but kept for compatibility)
+        await jobsApi.update(draggedJob.id, { 
+          subcontractor_id: subcontractorId,
+          is_subcontractor: true,
+          truck_id: null,
+          driver_id: null,
+          status: 'ASSIGNED'
         })
       } else {
-        // When assigning to a driver, set status to ASSIGNED
+        // When assigning to a truck
         await jobsApi.update(draggedJob.id, { 
-          driver_id: driverId,
+          truck_id: truckId,
+          subcontractor_id: null,
+          is_subcontractor: false,
           status: 'ASSIGNED'
         })
       }
       await loadData()
     } catch (error) {
-      console.error('Failed to assign driver:', error)
-      alert('שגיאה בשיבוץ נהג')
+      console.error('Failed to assign:', error)
+      alert('שגיאה בשיבוץ')
     }
   }
 
@@ -254,12 +333,92 @@ export default function DispatchPage() {
 
   return (
     <DashboardLayout>
+      {/* Subcontractor Selection Modal */}
+      {showSubcontractorModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowSubcontractorModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">בחר קבלן משנה</h3>
+            
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                קבלן משנה
+              </label>
+              <select
+                value={selectedSubcontractorId || ''}
+                onChange={(e) => setSelectedSubcontractorId(Number(e.target.value))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                autoFocus
+              >
+                <option value="">-- בחר קבלן --</option>
+                {subcontractors.map(sub => (
+                  <option key={sub.id} value={sub.id}>
+                    🚛 {sub.truck_plate_number || sub.name || `קבלן #${sub.id}`}
+                    {sub.name && sub.truck_plate_number && ` (${sub.name})`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                סוג חיוב
+              </label>
+              <select
+                value={pendingJobForSubcontractor?.subcontractor_billing_unit || ''}
+                onChange={(e) => {
+                  if (pendingJobForSubcontractor) {
+                    setPendingJobForSubcontractor({
+                      ...pendingJobForSubcontractor,
+                      subcontractor_billing_unit: e.target.value
+                    })
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              >
+                <option value="">-- ברירת מחדל (לפי יחידת הנסיעה) --</option>
+                <option value="TRIP">💰 נסיעה קבועה (TRIP)</option>
+                <option value="TON">⚖️ לפי טון (TON)</option>
+                <option value="M3">📦 לפי קוב (M3)</option>
+                <option value="KM">📏 לפי ק"מ (KM)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                {pendingJobForSubcontractor?.subcontractor_billing_unit === 'TRIP' && '• מחיר קבוע לנסיעה (לא משנה כמות)'}
+                {pendingJobForSubcontractor?.subcontractor_billing_unit === 'TON' && '• מחיר יחושב לפי כמות הטונות'}
+                {pendingJobForSubcontractor?.subcontractor_billing_unit === 'M3' && '• מחיר יחושב לפי כמות הקובים'}
+                {pendingJobForSubcontractor?.subcontractor_billing_unit === 'KM' && '• מחיר יחושב לפי מרחק בק"מ'}
+                {!pendingJobForSubcontractor?.subcontractor_billing_unit && '• יחושב אוטומטית לפי יחידת הנסיעה'}
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleSubcontractorSelect}
+                disabled={!selectedSubcontractorId}
+                className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                ✓ אשר
+              </button>
+              <button
+                onClick={() => {
+                  setShowSubcontractorModal(false)
+                  setSelectedSubcontractorId(null)
+                  setPendingJobForSubcontractor(null)
+                }}
+                className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
+              >
+                ✕ ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">{t('dispatch.title')}</h1>
-            <p className="text-gray-600 mt-1">שיבוץ נהגים ורכבים לנסיעות</p>
+            <p className="text-gray-600 mt-1">שיבוץ משאיות, נהגים וקבלני משנה לנסיעות</p>
           </div>
           
           {/* Date Selector & View Mode Toggle */}
@@ -296,6 +455,17 @@ export default function DispatchPage() {
                 title="תצוגת רשת קומפקטית"
               >
                 📊 רשת
+              </button>
+              <button
+                onClick={() => setViewMode('subcontractors')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'subcontractors'
+                    ? 'bg-purple-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+                title="תצוגת עמודות קבלנים"
+              >
+                👷 קבלנים
               </button>
             </div>
 
@@ -345,33 +515,45 @@ export default function DispatchPage() {
               </div>
             </div>
 
-            {/* Driver Boxes */}
-            {groupedJobs.byDriver.map(({ driver, jobs: driverJobs }) => (
+            {/* Truck Boxes */}
+            {groupedJobs.byTruck.map(({ truck, jobs: truckJobs }) => (
               <div
-                key={driver.id}
+                key={truck.id}
                 className={`bg-white rounded-lg p-3 min-h-[200px] border-2 transition-all shadow-sm ${
-                  draggedJob && draggedJob.driver_id !== driver.id
-                    ? 'border-green-400'
+                  draggedJob && draggedJob.truck_id !== truck.id
+                    ? 'border-orange-400'
                     : 'border-gray-200'
                 }`}
                 onDragOver={handleDragOver}
-                onDrop={() => handleDrop(driver.id)}
+                onDrop={() => handleDrop(truck.id)}
               >
                 <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-blue-700 font-semibold text-sm">
-                      {driver.name.charAt(0)}
+                  <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-bold text-sm">
+                      🚛
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-sm text-gray-900 truncate">
-                      {driver.name}
+                    {/* Truck Number - Primary */}
+                    <h3 className="font-bold text-sm text-gray-900 truncate">
+                      {truck.plate_number}
                     </h3>
-                    <p className="text-xs text-gray-500">{driverJobs.length} נסיעות</p>
+                    {/* Driver Name - Secondary (if assigned) */}
+                    {(() => {
+                      const jobWithDriver = truckJobs.find(j => j.driver_id)
+                      if (jobWithDriver?.driver_id) {
+                        const driver = drivers.find(d => d.id === jobWithDriver.driver_id)
+                        return driver ? (
+                          <p className="text-xs text-orange-600 font-medium truncate">{driver.name}</p>
+                        ) : null
+                      }
+                      return null
+                    })()}
+                    <p className="text-xs text-gray-500">{truckJobs.length} נסיעות</p>
                   </div>
                 </div>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                  {driverJobs.map(job => (
+                  {truckJobs.map(job => (
                     <CompactJobCard
                       key={job.id}
                       job={job}
@@ -382,12 +564,54 @@ export default function DispatchPage() {
                       getMaterialName={getMaterialName}
                     />
                   ))}
-                  {driverJobs.length === 0 && (
+                  {truckJobs.length === 0 && (
                     <p className="text-xs text-gray-400 text-center py-3">אין נסיעות</p>
                   )}
                 </div>
               </div>
             ))}
+
+            {/* All Subcontractors in ONE Box - Scalable Solution! */}
+            <div
+              className={`bg-white rounded-lg p-3 min-h-[200px] border-2 transition-all shadow-sm ${
+                draggedJob && !draggedJob.is_subcontractor
+                  ? 'border-purple-400'
+                  : 'border-gray-200'
+              }`}
+              onDragOver={handleDragOver}
+              onDrop={() => handleDrop(null, -1)}
+            >
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+                <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-white font-bold text-sm">
+                    👷
+                  </span>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-sm text-purple-900">
+                    קבלני משנה (כל הקבלנים)
+                  </h3>
+                  <p className="text-xs text-gray-500">{groupedJobs.allSubcontractorJobs.length} נסיעות</p>
+                </div>
+              </div>
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {groupedJobs.allSubcontractorJobs.map(job => (
+                  <CompactJobCard
+                    key={job.id}
+                    job={job}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    isDragging={draggedJob?.id === job.id}
+                    getSiteName={getSiteName}
+                    getMaterialName={getMaterialName}
+                    getSubcontractorName={getSubcontractorName}
+                  />
+                ))}
+                {groupedJobs.allSubcontractorJobs.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center py-3">אין נסיעות לקבלני משנה</p>
+                )}
+              </div>
+            </div>
 
             {/* Closed Jobs Box */}
             <div className="bg-gray-100 rounded-lg p-3 min-h-[200px] border-2 border-gray-300">
@@ -412,6 +636,7 @@ export default function DispatchPage() {
                     isDragging={false}
                     getSiteName={getSiteName}
                     getMaterialName={getMaterialName}
+                    getSubcontractorName={getSubcontractorName}
                   />
                 ))}
                 {groupedJobs.closed.length === 0 && (
@@ -420,8 +645,8 @@ export default function DispatchPage() {
               </div>
             </div>
           </div>
-        ) : (
-          /* Column View - Original */
+        ) : viewMode === 'columns' ? (
+          /* Column View - Trucks */
           <div className="relative">
             {/* Scroll Navigation Buttons */}
             <button
@@ -490,31 +715,43 @@ export default function DispatchPage() {
               </div>
             </div>
 
-            {/* Driver Columns - All drivers */}
-            {groupedJobs.byDriver.map(({ driver, jobs: driverJobs }) => (
+            {/* Truck Columns - All trucks */}
+            {groupedJobs.byTruck.map(({ truck, jobs: truckJobs }) => (
               <div 
-                key={driver.id} 
+                key={truck.id} 
                 className={`
                   bg-white rounded-lg shadow p-4 min-w-[280px] w-[280px] flex-shrink-0
                   transition-all duration-200
-                  ${draggedJob && draggedJob.driver_id !== driver.id ? 'ring-2 ring-green-400 ring-offset-2' : ''}
+                  ${draggedJob && draggedJob.truck_id !== truck.id ? 'ring-2 ring-orange-400 ring-offset-2' : ''}
                 `}
                 onDragOver={handleDragOver}
-                onDrop={() => handleDrop(driver.id)}
+                onDrop={() => handleDrop(truck.id)}
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-700 font-semibold text-lg">
-                      {driver.name.charAt(0)}
+                  <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">
+                      🚛
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-gray-900 truncate">{driver.name}</h3>
-                    <p className="text-xs text-gray-500">{driverJobs.length} נסיעות</p>
+                    {/* Truck Number - Primary */}
+                    <h3 className="font-bold text-gray-900 text-lg truncate">{truck.plate_number}</h3>
+                    {/* Driver Name - Secondary (if assigned to any job) */}
+                    {(() => {
+                      const jobWithDriver = truckJobs.find(j => j.driver_id)
+                      if (jobWithDriver?.driver_id) {
+                        const driver = drivers.find(d => d.id === jobWithDriver.driver_id)
+                        return driver ? (
+                          <p className="text-xs text-orange-600 font-medium truncate">{driver.name}</p>
+                        ) : null
+                      }
+                      return null
+                    })()}
+                    <p className="text-xs text-gray-500">{truckJobs.length} נסיעות</p>
                   </div>
                 </div>
                 <div className="space-y-3 max-h-[calc(100vh-350px)] overflow-y-auto pr-2">
-                  {driverJobs.map(job => (
+                  {truckJobs.map(job => (
                     <JobCard 
                       key={job.id} 
                       job={job}
@@ -525,7 +762,222 @@ export default function DispatchPage() {
                       isDragging={draggedJob?.id === job.id}
                     />
                   ))}
-                  {driverJobs.length === 0 && (
+                  {truckJobs.length === 0 && (
+                    <p className="text-sm text-gray-400 text-center py-4">
+                      אין נסיעות
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* All Subcontractors Column - ONE column instead of 1000! */}
+            <div 
+              className={`
+                bg-white rounded-lg shadow p-4 min-w-[280px] w-[280px] flex-shrink-0
+                transition-all duration-200
+                ${draggedJob && !draggedJob.is_subcontractor ? 'ring-2 ring-purple-400 ring-offset-2' : ''}
+              `}
+              onDragOver={handleDragOver}
+              onDrop={() => handleDrop(null, -1)}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">
+                    👷
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-purple-900 text-base">קבלני משנה</h3>
+                  <p className="text-xs text-purple-600">{groupedJobs.allSubcontractorJobs.length} נסיעות</p>
+                </div>
+              </div>
+              <div className="space-y-3 max-h-[calc(100vh-350px)] overflow-y-auto pr-2">
+                {groupedJobs.allSubcontractorJobs.map(job => (
+                  <div key={job.id} className="relative">
+                    {/* Show truck number (primary) + name (secondary if exists) */}
+                    {job.subcontractor_id && (
+                      <div className="mb-1 px-2 py-1 bg-purple-50 rounded">
+                        <div className="text-sm font-bold text-purple-900">
+                          🚛 {(() => {
+                            const sub = subcontractors.find(s => s.id === job.subcontractor_id)
+                            return sub?.truck_plate_number || `קבלן #${job.subcontractor_id}`
+                          })()}
+                        </div>
+                        {(() => {
+                          const sub = subcontractors.find(s => s.id === job.subcontractor_id)
+                          return sub?.name ? (
+                            <div className="text-xs text-purple-600">{sub.name}</div>
+                          ) : null
+                        })()}
+                      </div>
+                    )}
+                    <JobCard 
+                      job={job}
+                      getSiteName={getSiteName}
+                      getMaterialName={getMaterialName}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                      isDragging={draggedJob?.id === job.id}
+                    />
+                  </div>
+                ))}
+                {groupedJobs.allSubcontractorJobs.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">
+                    אין נסיעות לקבלני משנה
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Closed Jobs Column */}
+            <div className="bg-gray-100 rounded-lg shadow p-4 min-w-[280px] w-[280px] flex-shrink-0 border-2 border-gray-300">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-400">
+                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                  <span className="text-green-700 font-semibold text-2xl">✓</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-900">נסיעות סגורות</h3>
+                  <p className="text-xs text-gray-600">{groupedJobs.closed.length} נסיעות</p>
+                </div>
+              </div>
+              <div className="space-y-3 max-h-[calc(100vh-350px)] overflow-y-auto pr-2">
+                {groupedJobs.closed.map(job => (
+                  <JobCard 
+                    key={job.id} 
+                    job={job}
+                    getSiteName={getSiteName}
+                    getMaterialName={getMaterialName}
+                    onDragStart={() => {}}
+                    onDragEnd={() => {}}
+                    isDragging={false}
+                  />
+                ))}
+                {groupedJobs.closed.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">
+                    אין נסיעות סגורות
+                  </p>
+                )}
+              </div>
+            </div>
+            </div>
+          </div>
+        ) : viewMode === 'subcontractors' ? (
+          /* Subcontractors View - Each subcontractor gets its own column */
+          <div className="relative">
+            {/* Scroll Navigation Buttons */}
+            <button
+              onClick={scrollRight}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-all"
+              title="גלול שמאלה"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button
+              onClick={scrollLeft}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-purple-600 text-white p-3 rounded-full shadow-lg hover:bg-purple-700 transition-all"
+              title="גלול ימינה"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+
+            {/* Scroll Indicator */}
+            <div className="absolute top-0 right-0 bg-gradient-to-l from-gray-100 to-transparent w-20 h-full pointer-events-none z-5" />
+            <div className="absolute top-0 left-0 bg-gradient-to-r from-gray-100 to-transparent w-20 h-full pointer-events-none z-5" />
+
+            <div 
+              ref={scrollContainerRef}
+              className="flex gap-6 overflow-x-auto pb-4 scroll-smooth"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#9333EA #E5E7EB'
+              }}
+            >
+            {/* Unassigned Jobs Column */}
+            <div 
+              className={`
+                bg-gray-50 rounded-lg p-4 min-w-[280px] w-[280px] flex-shrink-0
+                transition-all duration-200
+                ${draggedJob ? 'ring-2 ring-purple-400 ring-offset-2 bg-purple-50' : ''}
+              `}
+              onDragOver={handleDragOver}
+              onDrop={() => handleDrop(null)}
+            >
+              <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Filter className="w-5 h-5" />
+                {t('dispatch.unassigned')} ({groupedJobs.unassigned.length})
+              </h3>
+              <div className="space-y-3 max-h-[calc(100vh-350px)] overflow-y-auto pr-2">
+                {draggedJob && (
+                  <div className="text-xs text-purple-600 bg-purple-100 rounded p-2 mb-2 text-center">
+                    ↓ גרור לכאן כדי לבטל שיבוץ ↓
+                  </div>
+                )}
+                {groupedJobs.unassigned.map(job => (
+                  <JobCard 
+                    key={job.id} 
+                    job={job} 
+                    getSiteName={getSiteName}
+                    getMaterialName={getMaterialName}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    isDragging={draggedJob?.id === job.id}
+                  />
+                ))}
+                {groupedJobs.unassigned.length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">
+                    כל הנסיעות משובצות
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Subcontractor Columns - Each subcontractor gets own column */}
+            {groupedJobs.bySubcontractor.map(({ subcontractor, jobs: subcontractorJobs }) => (
+              <div 
+                key={subcontractor.id} 
+                className={`
+                  bg-white rounded-lg shadow p-4 min-w-[280px] w-[280px] flex-shrink-0
+                  transition-all duration-200
+                  ${draggedJob && draggedJob.subcontractor_id !== subcontractor.id ? 'ring-2 ring-purple-400 ring-offset-2' : ''}
+                `}
+                onDragOver={handleDragOver}
+                onDrop={() => handleDrop(null, subcontractor.id)}
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">
+                      👷
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {/* Truck Number - Primary */}
+                    <h3 className="font-bold text-purple-900 text-lg truncate">
+                      🚛 {subcontractor.truck_plate_number || `קבלן #${subcontractor.id}`}
+                    </h3>
+                    {/* Subcontractor Name - Secondary (if exists) */}
+                    {subcontractor.name && (
+                      <p className="text-xs text-purple-600 font-medium truncate">{subcontractor.name}</p>
+                    )}
+                    <p className="text-xs text-gray-500">{subcontractorJobs.length} נסיעות</p>
+                    {subcontractor.phone && (
+                      <p className="text-xs text-gray-400 truncate">📱 {subcontractor.phone}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-3 max-h-[calc(100vh-350px)] overflow-y-auto pr-2">
+                  {subcontractorJobs.map(job => (
+                    <JobCard 
+                      key={job.id} 
+                      job={job}
+                      getSiteName={getSiteName}
+                      getMaterialName={getMaterialName}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                      isDragging={draggedJob?.id === job.id}
+                    />
+                  ))}
+                  {subcontractorJobs.length === 0 && (
                     <p className="text-sm text-gray-400 text-center py-4">
                       אין נסיעות
                     </p>
@@ -566,7 +1018,7 @@ export default function DispatchPage() {
             </div>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </DashboardLayout>
   )

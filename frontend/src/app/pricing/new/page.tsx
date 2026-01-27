@@ -34,6 +34,7 @@ export default function NewPriceListPage() {
     unit: 'TON' as BillingUnit,
     base_price: '',
     min_charge: '',
+    trip_surcharge: '',
     wait_fee_per_hour: '',
     night_surcharge_pct: '',
     valid_from: new Date().toISOString().split('T')[0],
@@ -85,6 +86,7 @@ export default function NewPriceListPage() {
         unit: formData.unit,
         base_price: Number(formData.base_price),
         min_charge: formData.min_charge ? Number(formData.min_charge) : undefined,
+        trip_surcharge: formData.trip_surcharge ? Number(formData.trip_surcharge) : undefined,
         wait_fee_per_hour: formData.wait_fee_per_hour ? Number(formData.wait_fee_per_hour) : undefined,
         night_surcharge_pct: formData.night_surcharge_pct ? Number(formData.night_surcharge_pct) : undefined,
         valid_from: formData.valid_from,
@@ -299,6 +301,27 @@ export default function NewPriceListPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
+                    תוספת נסיעה קבועה
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.trip_surcharge}
+                      onChange={(e) => setFormData({ ...formData, trip_surcharge: e.target.value })}
+                      placeholder="0.00"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <span className="absolute left-3 top-2.5 text-gray-500">₪</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    סכום קבוע שמתווסף לכל נסיעה (למשל: 50₪ נסיעה + מחיר טון)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     תוספת המתנה לשעה
                   </label>
                   <div className="relative">
@@ -381,6 +404,7 @@ export default function NewPriceListPage() {
               <ul className="text-sm text-blue-800 space-y-1">
                 <li>• <strong>מחיר בסיס</strong> - המחיר ליחידה (טון/מ״ק/נסיעה/ק״מ)</li>
                 <li>• <strong>מינימום חיוב</strong> - סכום מינימלי לנסיעה, גם אם הכמות קטנה יותר</li>
+                <li>• <strong>תוספת נסיעה קבועה</strong> - תוספת קבועה לכל נסיעה (לדוגמה: 50₪ + 20₪/טון = 250₪ ל-10 טון)</li>
                 <li>• <strong>תוספת המתנה</strong> - תוספת עבור זמן המתנה מעבר לסף מוגדר</li>
                 <li>• <strong>תוספת לילה</strong> - אחוז תוספת לנסיעות בשעות לילה</li>
               </ul>

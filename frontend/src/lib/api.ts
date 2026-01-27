@@ -11,6 +11,9 @@ import type {
   JobUpdate,
   PriceList,
   PriceListCreate,
+  Expense,
+  ExpenseCreate,
+  ExpenseUpdate,
   LoginRequest, 
   LoginResponse 
 } from '@/types'
@@ -281,6 +284,127 @@ export const superAdminApi = {
   
   // System Stats
   getSystemStats: () => api.get<any>("/super-admin/stats"),
+}
+
+// Subcontractors API
+export const subcontractorsApi = {
+  getAll: (params?: { skip?: number; limit?: number; is_active?: boolean; search?: string }) =>
+    api.get<any[]>('/subcontractors', { params }),
+  
+  get: (id: number) =>
+    api.get<any>(`/subcontractors/${id}`),
+  
+  create: (data: {
+    name: string;
+    company_name?: string;
+    phone: string;
+    email?: string;
+    vat_id?: string;
+    contact_person?: string;
+    address?: string;
+    payment_terms?: string;
+    payment_method?: string;
+    bank_details?: string;
+    notes?: string;
+  }) =>
+    api.post<any>('/subcontractors', data),
+  
+  update: (id: number, data: Partial<{
+    name: string;
+    company_name: string;
+    phone: string;
+    email: string;
+    vat_id: string;
+    contact_person: string;
+    address: string;
+    payment_terms: string;
+    payment_method: string;
+    bank_details: string;
+    notes: string;
+    is_active: boolean;
+  }>) =>
+    api.patch<any>(`/subcontractors/${id}`, data),
+  
+  delete: (id: number) =>
+    api.delete(`/subcontractors/${id}`),
+  
+  // Price Lists
+  getPriceLists: (id: number, params?: { is_active?: boolean }) =>
+    api.get<any[]>(`/subcontractors/${id}/prices`, { params }),
+  
+  createPriceList: (id: number, data: {
+    price_per_trip?: number;
+    price_per_ton?: number;
+    price_per_m3?: number;
+    price_per_km?: number;
+    min_charge?: number;
+    valid_from?: string;
+    valid_to?: string;
+    notes?: string;
+  }) =>
+    api.post<any>(`/subcontractors/${id}/prices`, data),
+  
+  updatePriceList: (subId: number, priceId: number, data: Partial<{
+    price_per_trip: number;
+    price_per_ton: number;
+    price_per_m3: number;
+    price_per_km: number;
+    min_charge: number;
+    valid_from: string;
+    valid_to: string;
+    is_active: boolean;
+    notes: string;
+  }>) =>
+    api.patch<any>(`/subcontractors/${subId}/prices/${priceId}`, data),
+  
+  deletePriceList: (subId: number, priceId: number) =>
+    api.delete(`/subcontractors/${subId}/prices/${priceId}`),
+  
+  // Pricing Preview
+  getPricingPreview: (id: number, params: { qty: number; unit: string }) =>
+    api.get<any>(`/subcontractors/${id}/pricing-preview`, { params }),
+  
+  // Summary
+  getSummary: (id: number, params?: { from_date?: string; to_date?: string }) =>
+    api.get<any>(`/subcontractors/${id}/summary`, { params }),
+}
+
+// Expenses API
+export const expensesApi = {
+  list: (params?: { 
+    skip?: number
+    limit?: number
+    from_date?: string
+    to_date?: string
+    category?: string
+    truck_id?: number
+    driver_id?: number
+  }) =>
+    api.get<Expense[]>('/expenses', { params }),
+  
+  get: (id: number) =>
+    api.get<Expense>(`/expenses/${id}`),
+  
+  create: (data: ExpenseCreate) =>
+    api.post<Expense>('/expenses', data),
+  
+  update: (id: number, data: ExpenseUpdate) =>
+    api.patch<Expense>(`/expenses/${id}`, data),
+  
+  delete: (id: number) =>
+    api.delete(`/expenses/${id}`),
+  
+  getSummaryByCategory: (params?: { from_date?: string; to_date?: string }) =>
+    api.get<{
+      summary: Array<{
+        category: string
+        total: number
+        count: number
+        avg: number
+      }>
+      total_expenses: number
+      total_count: number
+    }>('/expenses/summary/by-category', { params }),
 }
 
 export default api

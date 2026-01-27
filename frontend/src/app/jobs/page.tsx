@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useI18n } from '@/lib/i18n'
-import { jobsApi, sitesApi, materialsApi, driversApi, customersApi } from '@/lib/api'
+import { jobsApi, sitesApi, materialsApi, driversApi, customersApi, trucksApi, subcontractorsApi } from '@/lib/api'
 import { Truck, Calendar, User, Package, Plus, Search, Filter, Building2, FileText, Share2 } from 'lucide-react'
-import type { Job, Site, Material, Driver, Customer } from '@/types'
+import type { Job, Site, Material, Driver, Customer, Truck as TruckType } from '@/types'
 import { billingUnitLabels } from '@/lib/utils'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -25,7 +25,9 @@ export default function JobsPage() {
   const [sites, setSites] = useState<Site[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
+  const [trucks, setTrucks] = useState<TruckType[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
+  const [subcontractors, setSubcontractors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -52,19 +54,23 @@ export default function JobsPage() {
         params.status = statusFilter
       }
       
-      const [jobsRes, sitesRes, materialsRes, driversRes, customersRes] = await Promise.all([
+      const [jobsRes, sitesRes, materialsRes, driversRes, trucksRes, customersRes, subcontractorsRes] = await Promise.all([
         jobsApi.list(params),
         sitesApi.getAll(),
         materialsApi.getAll(),
         driversApi.getAll(),
+        trucksApi.getAll(),
         customersApi.getAll(),
+        subcontractorsApi.getAll().catch(() => ({ data: [] })),
       ])
       
       setJobs(jobsRes.data)
       setSites(sitesRes.data)
       setMaterials(materialsRes.data)
       setDrivers(driversRes.data)
+      setTrucks(trucksRes.data)
       setCustomers(customersRes.data)
+      setSubcontractors(subcontractorsRes.data || subcontractorsRes || [])
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -84,6 +90,28 @@ export default function JobsPage() {
     return material?.name_hebrew || material?.name || `חומר #${materialId}`
   }
 
+  function getTruckOrSubcontractor(job: Job) {
+    // אם זו נסיעה של קבלן משנה, הצג את מספר המשאית (מזהה ראשי)
+    if (job.is_subcontractor && job.subcontractor_id) {
+      const subcontractor = subcontractors.find(s => s.id === job.subcontractor_id)
+      // מספר משאית הוא המזהה העיקרי, שם הקבלן הוא משני
+      const displayName = subcontractor?.truck_plate_number || subcontractor?.name || `קבלן #${job.subcontractor_id}`
+      return {
+        name: displayName,
+        isSubcontractor: true
+      }
+    }
+    // אחרת, הצג את המשאית
+    if (!job.truck_id) {
+      return { name: 'ללא משאית', isSubcontractor: false }
+    }
+    const truck = trucks.find(t => t.id === job.truck_id)
+    return {
+      name: truck?.plate_number || `משאית #${job.truck_id}`,
+      isSubcontractor: false
+    }
+  }
+
   function getDriverName(driverId: number | null | undefined) {
     if (!driverId) return 'ללא נהג'
     const driver = drivers.find(d => d.id === driverId)
@@ -98,7 +126,7 @@ export default function JobsPage() {
 
   async function handleStatusChange(jobId: number, newStatus: string) {
     try {
-      await jobsApi.update(jobId, { status: newStatus })
+      await jobsApi.update(jobId, { status: newStatus as any })
       await loadData()
       setEditingJobId(null)
     } catch (error) {
@@ -319,7 +347,8 @@ _נשלח מ-TruckFlow_`
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('jobs.route')}</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('jobs.material')}</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('jobs.quantity')}</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('jobs.driver')}</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">🚛 משאית</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">👤 נהג</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('jobs.status')}</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('common.actions')}</th>
                     </tr>
@@ -354,8 +383,25 @@ _נשלח מ-TruckFlow_`
                           {job.actual_qty || job.planned_qty} {billingUnitLabels[job.unit] || t(`units.${job.unit}`)}
                         </td>
                         <td className="px-6 py-4 text-sm">
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-gray-400" />
+                          {(() => {
+                            const truckOrSub = getTruckOrSubcontractor(job)
+                            return (
+                              <div className={`flex items-center gap-2 font-semibold ${
+                                truckOrSub.isSubcontractor ? 'text-purple-700' : 'text-orange-700'
+                              }`}>
+                                {truckOrSub.isSubcontractor ? (
+                                  <span className="text-lg">👷</span>
+                                ) : (
+                                  <Truck className="w-4 h-4 text-orange-600" />
+                                )}
+                                {truckOrSub.name}
+                              </div>
+                            )
+                          })()}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500">
+                          <div className="flex items-center gap-2 text-xs">
+                            <User className="w-3 h-3 text-gray-400" />
                             {getDriverName(job.driver_id)}
                           </div>
                         </td>

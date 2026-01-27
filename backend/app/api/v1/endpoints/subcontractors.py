@@ -5,7 +5,7 @@ endpoints: /api/subcontractors
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_
 from typing import List, Optional
 from datetime import datetime, timedelta
@@ -46,14 +46,13 @@ async def list_subcontractors(
     
     Parameters:
     - is_active: סינון לפי סטטוס פעיל
-    - search: חיפוש לפי שם או מספר ח.פ
+    - search: חיפוש לפי שם, מספר ח.פ או מספר משאית
     """
     # Check authorization
     org_id = current_user.org_id
     
-    # Check permissions - Dispatcher, Accounting, Admin
-    user_roles = [role.role for role in current_user.roles]
-    if UserRole.DRIVER.value in user_roles:
+    # Drivers shouldn't access subcontractor management
+    if current_user.org_role and current_user.org_role.upper() == "DRIVER":
         raise HTTPException(status_code=403, detail="Access denied")
     
     query = db.query(Subcontractor).filter(Subcontractor.org_id == org_id)
@@ -65,7 +64,8 @@ async def list_subcontractors(
         query = query.filter(or_(
             Subcontractor.name.ilike(f"%{search}%"),
             Subcontractor.company_name.ilike(f"%{search}%"),
-            Subcontractor.vat_id.ilike(f"%{search}%")
+            Subcontractor.vat_id.ilike(f"%{search}%"),
+            Subcontractor.truck_plate_number.ilike(f"%{search}%")
         ))
     
     return query.offset(skip).limit(limit).all()
@@ -214,7 +214,7 @@ async def delete_subcontractor(
 # Subcontractor Price Lists
 # ============================================================================
 
-@router.get("/{subcontractor_id}/prices", response_model=List[SubcontractorPriceListResponse])
+@router.get("/{subcontractor_id}/prices")
 async def list_subcontractor_prices(
     subcontractor_id: int,
     is_active: Optional[bool] = None,
@@ -238,7 +238,9 @@ async def list_subcontractor_prices(
     if not subcontractor:
         raise HTTPException(status_code=404, detail="Subcontractor not found")
     
-    query = db.query(SubcontractorPriceList).filter(
+    query = db.query(SubcontractorPriceList).options(
+        joinedload(SubcontractorPriceList.material)
+    ).filter(
         SubcontractorPriceList.subcontractor_id == subcontractor_id
     )
     
@@ -251,7 +253,37 @@ async def list_subcontractor_prices(
             SubcontractorPriceList.truck_id == None  # Include general prices
         ))
     
-    return query.all()
+    prices = query.all()
+    
+    # Add material_name to response (extend dict without affecting schema)
+    result = []
+    for price in prices:
+        price_dict = {
+            'id': price.id,
+            'org_id': str(price.org_id),
+            'subcontractor_id': price.subcontractor_id,
+            'truck_id': price.truck_id,
+            'customer_id': price.customer_id,
+            'material_id': price.material_id,
+            'material_name': price.material.name if price.material else None,  # Added field
+            'from_site_id': price.from_site_id,
+            'to_site_id': price.to_site_id,
+            'price_per_trip': float(price.price_per_trip) if price.price_per_trip else None,
+            'price_per_ton': float(price.price_per_ton) if price.price_per_ton else None,
+            'price_per_m3': float(price.price_per_m3) if price.price_per_m3 else None,
+            'price_per_km': float(price.price_per_km) if price.price_per_km else None,
+            'min_charge': float(price.min_charge) if price.min_charge else None,
+            'valid_from': price.valid_from.isoformat() if price.valid_from else None,
+            'valid_to': price.valid_to.isoformat() if price.valid_to else None,
+            'notes': price.notes,
+            'is_active': price.is_active,
+            'created_at': price.created_at.isoformat() if price.created_at else None,
+            'updated_at': price.updated_at.isoformat() if price.updated_at else None,
+            'created_by': price.created_by
+        }
+        result.append(price_dict)
+    
+    return result
 
 
 @router.post("/{subcontractor_id}/prices", response_model=SubcontractorPriceListResponse, status_code=status.HTTP_201_CREATED)
@@ -512,7 +544,13 @@ async def get_subcontractor_summary(
     
     total_jobs = len(jobs)
     total_qty = sum(j.actual_qty or j.planned_qty or 0 for j in jobs)
-    total_company_price = sum(j.pricing_total or 0 for j in jobs)
+    
+    # CRITICAL: Use manual_override_total if exists for company pricing
+    # This ensures reports reflect the actual billing to customer
+    total_company_price = sum(
+        (j.manual_override_total or j.pricing_total or 0) 
+        for j in jobs
+    )
     total_subcontractor_price = sum(j.subcontractor_price_total or 0 for j in jobs)
     profit = total_company_price - total_subcontractor_price
     profit_margin = (profit / total_company_price * 100) if total_company_price > 0 else 0

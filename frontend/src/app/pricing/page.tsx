@@ -298,13 +298,16 @@ export default function PricingPage() {
                         {priceList.min_charge && (
                           <div>מינימום: ₪{Number(priceList.min_charge).toFixed(0)}</div>
                         )}
+                        {priceList.trip_surcharge && (
+                          <div className="font-medium text-orange-600">נסיעה: +₪{Number(priceList.trip_surcharge).toFixed(0)}</div>
+                        )}
                         {priceList.wait_fee_per_hour && (
                           <div>המתנה: ₪{Number(priceList.wait_fee_per_hour).toFixed(0)}/שעה</div>
                         )}
                         {priceList.night_surcharge_pct && (
                           <div>לילה: +{Number(priceList.night_surcharge_pct).toFixed(0)}%</div>
                         )}
-                        {!priceList.min_charge && !priceList.wait_fee_per_hour && !priceList.night_surcharge_pct && (
+                        {!priceList.min_charge && !priceList.trip_surcharge && !priceList.wait_fee_per_hour && !priceList.night_surcharge_pct && (
                           <span className="text-gray-400">אין</span>
                         )}
                       </td>

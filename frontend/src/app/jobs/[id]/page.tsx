@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useI18n } from '@/lib/i18n'
-import api, { customersApi, sitesApi, materialsApi, driversApi, trucksApi } from '@/lib/api'
+import api, { customersApi, sitesApi, materialsApi, driversApi, trucksApi, subcontractorsApi } from '@/lib/api'
 import { billingUnitLabels } from '@/lib/utils'
 import { 
   ArrowLeft, 
@@ -255,6 +255,7 @@ export default function JobDetailPage() {
   const [material, setMaterial] = useState<any>(null)
   const [driver, setDriver] = useState<any>(null)
   const [truck, setTruck] = useState<any>(null)
+  const [subcontractor, setSubcontractor] = useState<any>(null)
 
   useEffect(() => {
     if (params.id) {
@@ -316,6 +317,14 @@ export default function JobDetailPage() {
         promises.push(
           trucksApi.get(jobData.truck_id)
             .then(res => setTruck(res.data))
+            .catch(() => {})
+        )
+      }
+      
+      if (jobData.subcontractor_id) {
+        promises.push(
+          subcontractorsApi.get(jobData.subcontractor_id)
+            .then(res => setSubcontractor(res.data))
             .catch(() => {})
         )
       }
@@ -694,7 +703,44 @@ _נשלח מ-TruckFlow_`
             </div>
 
             {/* Pricing Section */}
-            {loadingPricing && (
+            {/* Display Price (manual override takes priority if exists) */}
+            {job.manual_override_total && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6 print:bg-white print:border-2">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-blue-600 rounded-lg">
+                    <DollarSign className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      מחיר
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {/* Final Price */}
+                  <div className="bg-white rounded-lg p-4 border border-blue-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold text-gray-900">סה"כ לחיוב</span>
+                      <span className="text-3xl font-bold text-blue-600">
+                        ₪{Number(job.manual_override_total).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Reason if provided (internal note only) */}
+                  {job.manual_override_reason && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-600">
+                      <p className="font-medium mb-1">הערה:</p>
+                      <p>{job.manual_override_reason}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Calculated Pricing - Only show if no manual override */}
+            {!job.manual_override_total && loadingPricing && (
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6 print:bg-white print:border-2">
                 <div className="flex items-center justify-center gap-2 text-blue-600">
                   <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
@@ -703,15 +749,20 @@ _נשלח מ-TruckFlow_`
               </div>
             )}
 
-            {!loadingPricing && pricingPreview && (
+            {!job.manual_override_total && !loadingPricing && pricingPreview && (
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-6 print:bg-white print:border-2">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="p-2 bg-blue-600 rounded-lg">
                     <DollarSign className="w-5 h-5 text-white" />
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    מחיר משוער
-                  </h3>
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      מחיר ממחירון
+                    </h3>
+                    <p className="text-xs text-blue-600 font-medium mt-0.5">
+                      מחושב לפי מחירון הלקוח
+                    </p>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -811,63 +862,88 @@ _נשלח מ-TruckFlow_`
                 <Truck className="w-5 h-5 text-orange-600" />
                 צי
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Driver */}
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">נהג</p>
-                  {driver ? (
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <User className="w-5 h-5 text-blue-600" />
+              <div className="space-y-4">
+                {job.is_subcontractor && subcontractor ? (
+                  /* Subcontractor - Alternative to truck/driver */
+                  <div>
+                    <p className="text-sm text-gray-600 mb-2 font-semibold">👷 קבלן משנה</p>
+                    <div className="flex items-center gap-3 p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg border-2 border-purple-300">
+                      <div className="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center text-2xl">
+                        👷
                       </div>
-                      <div>
-                        <p className="font-medium text-lg">{driver.name}</p>
-                        {driver.phone && (
-                          <div className="flex items-center gap-1 text-sm text-gray-600 mt-1">
-                            <Phone className="w-3 h-3" />
-                            <span>{driver.phone}</span>
+                      <div className="flex-1">
+                        <p className="font-bold text-2xl text-purple-900">{subcontractor.name}</p>
+                        {subcontractor.company_name && (
+                          <p className="text-sm text-purple-700 font-medium mt-1">{subcontractor.company_name}</p>
+                        )}
+                        {subcontractor.phone && (
+                          <div className="flex items-center gap-1 text-sm text-purple-600 mt-2">
+                            <Phone className="w-4 h-4" />
+                            <span>{subcontractor.phone}</span>
                           </div>
                         )}
-                        {driver.license_type && (
-                          <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 rounded">
-                            רישיון {driver.license_type}
-                          </span>
+                        {subcontractor.contact_person && (
+                          <p className="text-xs text-purple-600 mt-1">איש קשר: {subcontractor.contact_person}</p>
                         )}
                       </div>
                     </div>
-                  ) : (
-                    <p className="text-gray-500 italic p-3 bg-gray-50 rounded-lg">
-                      {job.driver_id ? `נהג #${job.driver_id}` : 'לא משובץ נהג'}
-                    </p>
-                  )}
-                </div>
-                
-                {/* Truck */}
-                <div>
-                  <p className="text-sm text-gray-600 mb-2">משאית</p>
-                  {truck ? (
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                      <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                        <Truck className="w-5 h-5 text-orange-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-lg">{truck.plate_number}</p>
-                        {truck.model && (
-                          <p className="text-sm text-gray-600">{truck.model}</p>
-                        )}
-                        {truck.capacity_ton && (
-                          <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-orange-100 text-orange-800 rounded">
-                            {truck.capacity_ton} טון
-                          </span>
-                        )}
-                      </div>
+                  </div>
+                ) : (
+                  /* Company truck + driver (default) */
+                  <>
+                    {/* Truck - PRIMARY */}
+                    <div>
+                      <p className="text-sm text-gray-600 mb-2 font-semibold">🚛 משאית</p>
+                      {truck ? (
+                        <div className="flex items-center gap-3 p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg border-2 border-orange-300">
+                          <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
+                            <Truck className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <p className="font-bold text-2xl text-orange-900">{truck.plate_number}</p>
+                            {truck.model && (
+                              <p className="text-sm text-orange-700 font-medium">{truck.model}</p>
+                            )}
+                            {truck.capacity_ton && (
+                              <span className="inline-block mt-1 px-2 py-0.5 text-xs bg-orange-200 text-orange-900 rounded font-semibold">
+                                {truck.capacity_ton} טון
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-500 italic p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                          {job.truck_id ? `משאית #${job.truck_id}` : 'לא משובצת משאית'}
+                        </p>
+                      )}
                     </div>
-                  ) : (
-                    <p className="text-gray-500 italic p-3 bg-gray-50 rounded-lg">
-                      {job.truck_id ? `משאית #${job.truck_id}` : 'לא משובצת משאית'}
-                    </p>
-                  )}
-                </div>
+
+                    {/* Driver - SECONDARY */}
+                    <div>
+                      <p className="text-xs text-gray-500 mb-2">👤 נהג (משני)</p>
+                      {driver ? (
+                        <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                            <User className="w-4 h-4 text-blue-600" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">{driver.name}</p>
+                            {driver.phone && (
+                              <div className="flex items-center gap-1 text-xs text-gray-600">
+                                <Phone className="w-3 h-3" />
+                                <span>{driver.phone}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-400 italic text-xs p-2 bg-gray-50 rounded">
+                          לא משובץ נהג
+                        </p>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>

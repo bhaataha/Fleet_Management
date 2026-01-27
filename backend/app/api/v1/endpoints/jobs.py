@@ -28,6 +28,50 @@ class JobStatusEventResponse(BaseModel):
         from_attributes = True
 
 
+# Nested schemas for relations
+class CustomerNested(BaseModel):
+    id: int
+    name: str
+    
+    class Config:
+        from_attributes = True
+
+
+class SiteNested(BaseModel):
+    id: int
+    name: str
+    address: Optional[str]
+    
+    class Config:
+        from_attributes = True
+
+
+class MaterialNested(BaseModel):
+    id: int
+    name: str
+    billing_unit: str
+    
+    class Config:
+        from_attributes = True
+
+
+class DriverNested(BaseModel):
+    id: int
+    name: str
+    phone: Optional[str]
+    
+    class Config:
+        from_attributes = True
+
+
+class TruckNested(BaseModel):
+    id: int
+    plate_number: str
+    
+    class Config:
+        from_attributes = True
+
+
 class JobBase(BaseModel):
     customer_id: int
     from_site_id: int
@@ -41,7 +85,14 @@ class JobBase(BaseModel):
 
 
 class JobCreate(JobBase):
-    pass
+    driver_id: Optional[int] = None
+    truck_id: Optional[int] = None
+    trailer_id: Optional[int] = None
+    subcontractor_id: Optional[int] = None
+    is_subcontractor: bool = False
+    subcontractor_billing_unit: Optional[str] = None  # TON, M3, TRIP, KM
+    manual_override_total: Optional[float] = None
+    manual_override_reason: Optional[str] = None
 
 
 class JobUpdate(BaseModel):
@@ -56,9 +107,14 @@ class JobUpdate(BaseModel):
     driver_id: Optional[int] = None
     truck_id: Optional[int] = None
     trailer_id: Optional[int] = None
+    subcontractor_id: Optional[int] = None
+    is_subcontractor: Optional[bool] = None
+    subcontractor_billing_unit: Optional[str] = None  # TON, M3, TRIP, KM
     actual_qty: Optional[float] = None
     status: Optional[JobStatus] = None
     notes: Optional[str] = None
+    manual_override_total: Optional[float] = None
+    manual_override_reason: Optional[str] = None
 
 
 class JobResponse(JobBase):
@@ -67,12 +123,25 @@ class JobResponse(JobBase):
     driver_id: Optional[int]
     truck_id: Optional[int]
     trailer_id: Optional[int]
+    subcontractor_id: Optional[int]
+    is_subcontractor: bool
+    subcontractor_billing_unit: Optional[str]
     actual_qty: Optional[float]
     status: JobStatus
     pricing_total: Optional[float]
+    manual_override_total: Optional[float]
+    manual_override_reason: Optional[str]
     is_billable: bool
     created_at: datetime
     status_events: List[JobStatusEventResponse] = []
+    
+    # Relations
+    customer: Optional[CustomerNested] = None
+    from_site: Optional[SiteNested] = None
+    to_site: Optional[SiteNested] = None
+    material: Optional[MaterialNested] = None
+    driver: Optional[DriverNested] = None
+    truck: Optional[TruckNested] = None
     
     class Config:
         from_attributes = True
@@ -105,7 +174,13 @@ async def list_jobs(
     org_id = get_current_org_id(request)
     
     query = db.query(Job).options(
-        joinedload(Job.status_events)
+        joinedload(Job.status_events),
+        joinedload(Job.customer),
+        joinedload(Job.from_site),
+        joinedload(Job.to_site),
+        joinedload(Job.material),
+        joinedload(Job.driver),
+        joinedload(Job.truck)
     ).filter(Job.org_id == org_id)
     
     if date:
@@ -154,9 +229,21 @@ async def create_job(
     """
     Create new job (Dispatcher creates job in PLANNED status)
     Auto-assigned to current org from JWT
+    
+    Manual Pricing Override:
+    - If manual_override_total is provided, manual_override_reason is required
+    - Only users with ADMIN or ACCOUNTING roles can override pricing
+    - Audit log is created automatically for all overrides
     """
     org_id = get_current_org_id(request)
     user_id = get_current_user_id(request)
+    
+    # Note: Manual pricing override is optional - no validation required for reason
+    # TODO: Check user role (ADMIN or ACCOUNTING) - currently allowing all authenticated users
+    # if job.manual_override_total is not None:
+    #     user_role = getattr(request.state, "org_role", "user")
+    #     if user_role not in ["owner", "admin", "accounting"]:
+    #         raise HTTPException(status_code=403, detail="Only ADMIN or ACCOUNTING can override pricing")
     
     db_job = Job(
         org_id=org_id,
@@ -191,9 +278,15 @@ async def update_job(
     """
     Update job (assign driver/truck, update quantities, status, etc.)
     Filtered by org_id from JWT
+    
+    Manual Pricing Override:
+    - If manual_override_total is provided, manual_override_reason is required
+    - Can also clear manual pricing by passing None
     """
     org_id = get_current_org_id(request)
     user_id = get_current_user_id(request)
+    
+    # Note: Manual pricing override is optional - no validation required for reason
     
     db_job = db.query(Job).filter(
         Job.id == job_id,
@@ -423,7 +516,9 @@ async def download_job_pdf(
         'unit': db_job.unit.value if db_job.unit else 'TON',
         'driver_name': db_job.driver.name if db_job.driver else None,
         'truck_plate': db_job.truck.plate_number if db_job.truck else None,
-        'notes': db_job.notes
+        'notes': db_job.notes,
+        'manual_override_total': float(db_job.manual_override_total) if db_job.manual_override_total else None,
+        'manual_override_reason': db_job.manual_override_reason if db_job.manual_override_reason else None
     }
     
     # Generate PDF

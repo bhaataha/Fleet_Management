@@ -26,6 +26,7 @@ export interface PriceList {
   unit: BillingUnit
   base_price: number
   min_charge?: number
+  trip_surcharge?: number
   wait_fee_per_hour?: number
   night_surcharge_pct?: number
   valid_from: string
@@ -42,6 +43,7 @@ export interface PriceListCreate {
   unit: BillingUnit
   base_price: number
   min_charge?: number
+  trip_surcharge?: number
   wait_fee_per_hour?: number
   night_surcharge_pct?: number
   valid_from: string
@@ -54,6 +56,8 @@ export interface User {
   email: string
   org_id: number
   roles: UserRole[]
+  is_super_admin?: boolean
+  org_role?: string
 }
 
 export interface Customer {
@@ -74,7 +78,7 @@ export interface Customer {
 export interface Site {
   id: number
   org_id: number
-  customer_id: number
+  customer_id: number | null
   name: string
   address?: string
   lat?: number
@@ -140,14 +144,24 @@ export interface Job {
   driver_id?: number
   truck_id?: number
   trailer_id?: number
+  subcontractor_id?: number
+  is_subcontractor?: boolean
+  subcontractor_billing_unit?: string  // TON, M3, TRIP, KM
   planned_qty: number
   actual_qty?: number
   unit: BillingUnit
   status: JobStatus
   pricing_total?: number
+  pricing_breakdown_json?: any
+  manual_override_total?: number
+  manual_override_reason?: string
+  subcontractor_price_total?: number
+  subcontractor_price_breakdown_json?: any
   is_billable: boolean
   notes?: string
+  created_by?: number
   created_at: string
+  updated_at?: string
 }
 
 export interface JobCreate {
@@ -159,6 +173,12 @@ export interface JobCreate {
   planned_qty: number
   unit: BillingUnit
   priority?: number
+  driver_id?: number
+  truck_id?: number
+  trailer_id?: number
+  subcontractor_id?: number
+  is_subcontractor?: boolean
+  subcontractor_billing_unit?: string  // TON, M3, TRIP, KM
   notes?: string
 }
 
@@ -170,9 +190,12 @@ export interface JobUpdate {
   scheduled_date?: string
   planned_qty?: string
   unit?: BillingUnit
-  driver_id?: number
-  truck_id?: number
-  trailer_id?: number
+  driver_id?: number | null
+  truck_id?: number | null
+  trailer_id?: number | null
+  subcontractor_id?: number | null
+  is_subcontractor?: boolean
+  subcontractor_billing_unit?: string | null  // TON, M3, TRIP, KM
   status?: JobStatus
   actual_qty?: number
   notes?: string
@@ -188,3 +211,50 @@ export interface LoginResponse {
   token_type: string
   user: User
 }
+
+export interface Expense {
+  id: number
+  org_id: string
+  category: string  // דלק, תיקונים, צמיגים, ביטוח, רישוי, שכר, אחר
+  amount: number
+  expense_date: string
+  vendor_name?: string
+  truck_id?: number
+  driver_id?: number
+  job_id?: number
+  note?: string
+  created_by?: number
+  created_at: string
+  // Nested relations
+  truck?: {
+    id: number
+    plate_number: string
+  }
+  driver?: {
+    id: number
+    name: string
+  }
+}
+
+export interface ExpenseCreate {
+  category: string
+  amount: number
+  expense_date: string
+  vendor_name?: string
+  truck_id?: number
+  driver_id?: number
+  job_id?: number
+  note?: string
+}
+
+export interface ExpenseUpdate {
+  category?: string
+  amount?: number
+  expense_date?: string
+  vendor_name?: string
+  truck_id?: number
+  driver_id?: number
+  job_id?: number
+  note?: string
+}
+

@@ -18,6 +18,7 @@ class SubcontractorBase(BaseModel):
     phone: str = Field(..., min_length=9, max_length=20)
     email: Optional[str] = Field(None, max_length=255)
     address: Optional[str] = None
+    truck_plate_number: Optional[str] = Field(None, max_length=20, description="מספר משאית ייחודי לקבלן")
     payment_terms: Optional[str] = Field("monthly", max_length=100)
     payment_method: Optional[str] = Field(None, max_length=50)
     bank_details: Optional[str] = None
@@ -39,6 +40,7 @@ class SubcontractorUpdate(BaseModel):
     phone: Optional[str] = Field(None, min_length=9, max_length=20)
     email: Optional[str] = Field(None, max_length=255)
     address: Optional[str] = None
+    truck_plate_number: Optional[str] = Field(None, max_length=20)
     payment_terms: Optional[str] = Field(None, max_length=100)
     payment_method: Optional[str] = Field(None, max_length=50)
     bank_details: Optional[str] = None
@@ -81,10 +83,29 @@ class SubcontractorPriceListBase(BaseModel):
     price_per_m3: Optional[Decimal] = Field(None, ge=0)
     price_per_km: Optional[Decimal] = Field(None, ge=0)
     min_charge: Optional[Decimal] = Field(None, ge=0)
-    valid_from: Optional[date] = None
-    valid_to: Optional[date] = None
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
     notes: Optional[str] = None
     is_active: bool = True
+    
+    @validator('valid_from', 'valid_to', pre=True)
+    def parse_date_or_datetime(cls, v):
+        """Accept both date strings (YYYY-MM-DD) and datetime strings"""
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, str):
+            # Try parsing as date first (YYYY-MM-DD)
+            try:
+                from datetime import date
+                parsed_date = date.fromisoformat(v)
+                # Convert to datetime at midnight
+                return datetime.combine(parsed_date, datetime.min.time())
+            except ValueError:
+                # Try parsing as full datetime
+                return datetime.fromisoformat(v.replace('Z', '+00:00'))
+        return v
     
     @validator('valid_to')
     def valid_to_after_valid_from(cls, v, values):
@@ -117,10 +138,35 @@ class SubcontractorPriceListUpdate(BaseModel):
     price_per_m3: Optional[Decimal] = Field(None, ge=0)
     price_per_km: Optional[Decimal] = Field(None, ge=0)
     min_charge: Optional[Decimal] = Field(None, ge=0)
-    valid_from: Optional[date] = None
-    valid_to: Optional[date] = None
+    valid_from: Optional[datetime] = None
+    valid_to: Optional[datetime] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
+    
+    @validator('valid_from', 'valid_to', pre=True)
+    def parse_date_or_datetime(cls, v):
+        """Accept both date strings (YYYY-MM-DD) and datetime strings"""
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            return v
+        if isinstance(v, str):
+            # Try parsing as date first (YYYY-MM-DD)
+            try:
+                from datetime import date
+                parsed_date = date.fromisoformat(v)
+                # Convert to datetime at midnight
+                return datetime.combine(parsed_date, datetime.min.time())
+            except ValueError:
+                # Try parsing as full datetime
+                return datetime.fromisoformat(v.replace('Z', '+00:00'))
+        return v
+    
+    @validator('price_per_trip', 'price_per_ton', 'price_per_m3', 'price_per_km', pre=True)
+    def convert_to_decimal(cls, v):
+        if v is not None:
+            return Decimal(str(v))
+        return v
 
 
 class SubcontractorPriceListResponse(SubcontractorPriceListBase):

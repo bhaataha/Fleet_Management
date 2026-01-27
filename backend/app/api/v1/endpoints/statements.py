@@ -134,14 +134,18 @@ def generate_statement(
     # Create lines
     subtotal = Decimal(0)
     for job in jobs:
-        # Use pricing_total if available, otherwise calculate
-        amount = job.pricing_total or (
-            job.actual_qty or job.planned_qty
-        ) * Decimal(100)  # Placeholder
+        # CRITICAL: Use manual_override_total if exists, otherwise use pricing_total
+        # Manual price MUST be the authoritative price for billing!
+        amount = (
+            job.manual_override_total
+            or job.pricing_total
+            or ((job.actual_qty or job.planned_qty) * Decimal(100))  # Fallback
+        )
 
         line = StatementLineModel(
             statement_id=statement.id,
             job_id=job.id,
+            org_id=current_user.org_id,
             description=f"Job #{job.id} - {job.material_id}",
             qty=job.actual_qty or job.planned_qty,
             unit_price=amount

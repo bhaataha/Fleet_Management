@@ -20,6 +20,22 @@ export default function ReportsPage() {
       enabled: true
     },
     {
+      title: 'דוח תשלום לקבלן משנה',
+      description: 'חישוב תשלום לקבלן לפי נסיעות ומחירון',
+      icon: DollarSign,
+      color: 'bg-purple-500',
+      endpoint: '/reports/subcontractor-payment',
+      enabled: true
+    },
+    {
+      title: 'דוח משאית (חברה)',
+      description: 'פירוט נסיעות והכנסות לפי מספר משאית',
+      icon: TrendingUp,
+      color: 'bg-orange-500',
+      endpoint: '/reports/truck-report',
+      enabled: true
+    },
+    {
       title: 'דוח לקוח',
       description: 'פירוט נסיעות ומחירים ללקוח ספציפי',
       icon: FileText,
@@ -39,7 +55,7 @@ export default function ReportsPage() {
       title: 'דוח חובות לקוחות',
       description: 'יתרות פתוחות וזמני פירעון',
       icon: DollarSign,
-      color: 'bg-orange-500',
+      color: 'bg-red-500',
       endpoint: '/reports/ar-aging',
       enabled: true
     },
@@ -47,7 +63,7 @@ export default function ReportsPage() {
       title: 'דוח סיכום חודשי',
       description: 'סיכום תפעולי וכספי חודשי',
       icon: FileText,
-      color: 'bg-purple-500',
+      color: 'bg-gray-500',
       endpoint: '/reports/monthly-summary',
       enabled: false
     }
