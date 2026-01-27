@@ -35,6 +35,9 @@ class Settings(BaseSettings):
         "http://64.176.173.36:3010",
         "http://truckflow.site",
         "http://64.176.173.36",
+        # Allow Flutter Web dev server (dynamic ports)
+        "http://localhost",
+        "http://127.0.0.1",
     ]
     
     # File Upload

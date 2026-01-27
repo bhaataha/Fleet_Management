@@ -7,7 +7,7 @@ from app.core.database import get_db
 from app.middleware.tenant import get_current_org_id, get_current_user_id, is_super_admin
 from app.services.permission_service import PermissionService
 from app.models.permissions import Permission, UserPermission
-from app.models import User, Organization
+from app.models import User, Organization, Driver
 from app.core.security import create_access_token_for_user
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
@@ -214,6 +214,10 @@ async def verify_otp_and_login(
         # Get user permissions
         permissions = PermissionService.get_user_permissions(user)
         
+        # Check if user is a driver
+        driver = db.query(Driver).filter(Driver.user_id == user.id).first()
+        driver_id = driver.id if driver else None
+        
         # Create access token
         access_token = create_access_token_for_user(user)
         
@@ -229,7 +233,8 @@ async def verify_otp_and_login(
                 "org_name": org.name,
                 "org_slug": org.slug,
                 "org_role": user.org_role,
-                "is_super_admin": user.is_super_admin
+                "is_super_admin": user.is_super_admin,
+                "driver_id": driver_id
             },
             permissions=permissions
         )
@@ -321,6 +326,10 @@ async def login_with_password(
         # Get user permissions
         permissions = PermissionService.get_user_permissions(user)
         
+        # Check if user is a driver
+        driver = db.query(Driver).filter(Driver.user_id == user.id).first()
+        driver_id = driver.id if driver else None
+        
         # Create access token
         access_token = create_access_token_for_user(user)
         
@@ -336,7 +345,8 @@ async def login_with_password(
                 "org_name": org.name,
                 "org_slug": org.slug,
                 "org_role": user.org_role,
-                "is_super_admin": user.is_super_admin
+                "is_super_admin": user.is_super_admin,
+                "driver_id": driver_id
             },
             permissions=permissions
         )

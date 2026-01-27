@@ -40,7 +40,7 @@ app.add_middleware(CORSStaticFilesMiddleware)
 # CORS middleware for API (outermost, so it wraps auth errors)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=["*"],  # Allow all origins for development (includes Flutter Web dynamic ports)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

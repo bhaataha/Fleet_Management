@@ -4,26 +4,26 @@ from typing import List, Optional
 from app.core.database import get_db
 from app.models import Driver, User
 from app.middleware.tenant import get_current_org_id
+from app.core.security import get_password_hash
 from pydantic import BaseModel
 from datetime import datetime
 from uuid import UUID
-from passlib.context import CryptContext
+import logging
 
 router = APIRouter()
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
+logger = logging.getLogger(__name__)
 
 class DriverBase(BaseModel):
     name: str
-    phone: Optional[str] = None
+    phone: str  # Required - drivers must have phone for login
     license_type: Optional[str] = None
     license_expiry: Optional[datetime] = None
     is_active: Optional[bool] = True
 
 
 class DriverCreate(DriverBase):
-    user_id: Optional[int] = None
-    password: str  # Required for new drivers
+    password: Optional[str] = None  # Optional - will generate default if not provided
+    # user_id is auto-created, no need to pass it
 
 
 class DriverUpdate(BaseModel):
@@ -86,12 +86,26 @@ async def create_driver(
     org_id = get_current_org_id(request)
     
     # Create user for driver login
-    hashed_password = pwd_context.hash(driver.password)
+    # If no password provided, generate default: driver + phone last 4 digits
+    if not driver.password:
+        # Default password: driver + last 4 digits of phone
+        phone_suffix = ''.join(filter(str.isdigit, driver.phone))[-4:] if driver.phone else '1234'
+        default_password = f"driver{phone_suffix}"
+        logger.info(f"Generated default password for new driver: {driver.name}")
+    else:
+        default_password = driver.password
+    
+    # Bcrypt has a 72 byte limit - truncate by bytes, not characters
+    password_bytes = default_password.encode('utf-8')[:72]
+    password = password_bytes.decode('utf-8', errors='ignore')  # Handle incomplete UTF-8 sequences
+    hashed_password = get_password_hash(password)
     user = User(
-        phone=driver.phone,
+        name=driver.name,
+        phone=driver.phone or "",
+        email=None,  # Drivers login with phone, not email
         password_hash=hashed_password,
         org_id=org_id,
-        role="driver",
+        org_role="driver",
         is_active=driver.is_active if driver.is_active is not None else True
     )
     db.add(user)
@@ -114,42 +128,58 @@ async def update_driver(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    org_id = get_current_org_id(request)
-    db_driver = db.query(Driver).filter(
-        Driver.id == driver_id,
-        Driver.org_id == org_id
-    ).first()
-    if not db_driver:
-        raise HTTPException(status_code=404, detail="Driver not found")
-    
-    # Update driver fields
-    update_data = driver.dict(exclude_unset=True, exclude={'password'})
-    for field, value in update_data.items():
-        setattr(db_driver, field, value)
-    
-    # If password provided, update user password
-    if driver.password:
-        if db_driver.user_id:
-            user = db.query(User).filter(User.id == db_driver.user_id).first()
-            if user:
-                user.password_hash = pwd_context.hash(driver.password)
-        else:
-            # Create user if doesn't exist
-            hashed_password = pwd_context.hash(driver.password)
-            user = User(
-                phone=db_driver.phone or "",
-                password_hash=hashed_password,
-                org_id=org_id,
-                role="driver",
-                is_active=db_driver.is_active
-            )
-            db.add(user)
-            db.flush()
-            db_driver.user_id = user.id
-    
-    db.commit()
-    db.refresh(db_driver)
-    return db_driver
+    try:
+        org_id = get_current_org_id(request)
+        db_driver = db.query(Driver).filter(
+            Driver.id == driver_id,
+            Driver.org_id == org_id
+        ).first()
+        if not db_driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
+        
+        # Update driver fields
+        update_data = driver.dict(exclude_unset=True, exclude={'password'})
+        for field, value in update_data.items():
+            setattr(db_driver, field, value)
+        
+        # If password provided, update user password
+        if driver.password:
+            # Bcrypt has a 72 byte limit - truncate by bytes, not characters
+            password_bytes = driver.password.encode('utf-8')[:72]
+            password = password_bytes.decode('utf-8', errors='ignore')  # Handle incomplete UTF-8 sequences
+            hashed_password = get_password_hash(password)
+            
+            if db_driver.user_id:
+                user = db.query(User).filter(User.id == db_driver.user_id).first()
+                if user:
+                    user.password_hash = hashed_password
+                    logger.info(f"Updated password for driver {driver_id}, user {user.id}")
+            else:
+                # Create user if doesn't exist
+                logger.info(f"Creating new user for driver {driver_id}")
+                user = User(
+                    name=db_driver.name,
+                    phone=db_driver.phone or "",
+                    email=None,
+                    password_hash=hashed_password,
+                    org_id=org_id,
+                    org_role="driver",
+                    is_active=db_driver.is_active
+                )
+                db.add(user)
+                db.flush()
+                db_driver.user_id = user.id
+                logger.info(f"Created user {user.id} for driver {driver_id}")
+        
+        db.commit()
+        db.refresh(db_driver)
+        return db_driver
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating driver {driver_id}: {str(e)}", exc_info=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error updating driver: {str(e)}")
 
 
 @router.delete("/{driver_id}", status_code=204)

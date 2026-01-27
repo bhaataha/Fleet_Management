@@ -79,6 +79,10 @@ async def login(credentials: LoginRequest, db: Session = Depends(get_db)):
     # Get user roles
     roles = [role.role.value for role in user.roles]
     
+    # Check if user is a driver
+    driver = db.query(Driver).filter(Driver.user_id == user.id).first()
+    driver_id = driver.id if driver else None
+    
     # Create access token with org_id, is_super_admin, org_role
     access_token = create_access_token_for_user(user)
     
@@ -95,7 +99,8 @@ async def login(credentials: LoginRequest, db: Session = Depends(get_db)):
             "trial_ends_at": org.trial_ends_at.isoformat() if org and org.trial_ends_at else None,
             "is_super_admin": user.is_super_admin or False,
             "org_role": user.org_role or "user",
-            "roles": roles
+            "roles": roles,
+            "driver_id": driver_id  # Add driver_id if user is a driver
         }
     )
 
