@@ -1,12 +1,16 @@
 {
-  "name": "Fleet Driver App",
-  "short_name": "Driver",
-  "description": "אפליקציית נהג למערכת ניהול הובלות",
-  "start_url": "/driver.html",
+  "name": "TruckFlow - מערכת ניהול צי",
+  "short_name": "TruckFlow",
+  "description": "מערכת ניהול צי משאיות מקצועית - נסיעות, נהגים, ומשאיות",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#2563eb",
-  "orientation": "portrait",
+  "theme_color": "#3b82f6",
+  "orientation": "any",
+  "dir": "rtl",
+  "lang": "he",
+  "categories": ["business", "productivity", "utilities"],
   "icons": [
     {
       "src": "/icon-192.svg",
@@ -20,5 +24,53 @@
       "type": "image/svg+xml",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "לוח שיבוץ נסיעות"
+    },
+    {
+      "src": "/screenshots/mobile-1.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "רשימת נסיעות"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "נסיעות היום",
+      "short_name": "נסיעות",
+      "description": "צפייה בנסיעות של היום",
+      "url": "/jobs?date=today",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "לוח שיבוץ",
+      "short_name": "לוח",
+      "description": "לוח שיבוץ נהגים ומשאיות",
+      "url": "/dispatch-board",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "משאיות",
+      "short_name": "צי",
+      "description": "ניהול צי המשאיות",
+      "url": "/trucks",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "אפליקציית נהג",
+      "short_name": "נהג",
+      "description": "מסך נהג מהיר",
+      "url": "/driver.html",
+      "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
 }

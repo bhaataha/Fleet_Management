@@ -650,7 +650,7 @@ export default function UsersManagementPage() {
     if (searchTerm) {
       filtered = filtered.filter(user =>
         user.name.includes(searchTerm) ||
-        user.email.includes(searchTerm) ||
+        (user.email && user.email.includes(searchTerm)) ||
         (user.phone && user.phone.includes(searchTerm))
       );
     }

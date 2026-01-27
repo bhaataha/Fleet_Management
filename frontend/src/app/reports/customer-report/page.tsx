@@ -11,6 +11,15 @@ import Link from 'next/link'
 import type { Customer, Job, Site, Material } from '@/types'
 import { billingUnitLabels } from '@/lib/utils'
 
+// Helper function for date formatting
+const formatDate = (dateString: string) => {
+  try {
+    return new Date(dateString).toLocaleDateString('he-IL')
+  } catch {
+    return dateString
+  }
+}
+
 export default function CustomerReportPage() {
   const { t } = useI18n()
   const [customers, setCustomers] = useState<Customer[]>([])
