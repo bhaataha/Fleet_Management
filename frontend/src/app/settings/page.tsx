@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/stores/auth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
+import dynamic from 'next/dynamic'
 import { 
   User, 
   Bell, 
@@ -12,10 +13,14 @@ import {
   Database,
   Mail,
   Save,
-  Building2
+  Building2,
+  Users
 } from 'lucide-react'
 
-type SettingsTab = 'profile' | 'organization' | 'notifications' | 'security' | 'system'
+// Dynamically import the Users Management component
+const UsersManagementPage = dynamic(() => import('./users/page'), { ssr: false })
+
+type SettingsTab = 'profile' | 'organization' | 'users' | 'notifications' | 'security' | 'system'
 
 export default function SettingsPage() {
   const { t } = useI18n()
@@ -57,6 +62,7 @@ export default function SettingsPage() {
   const tabs = [
     { id: 'profile' as SettingsTab, label: 'פרופיל משתמש', icon: User },
     { id: 'organization' as SettingsTab, label: 'פרטי ארגון', icon: Building2 },
+    { id: 'users' as SettingsTab, label: 'ניהול משתמשים', icon: Users },
     { id: 'notifications' as SettingsTab, label: 'התראות', icon: Bell },
     { id: 'security' as SettingsTab, label: 'אבטחה', icon: Shield },
     { id: 'system' as SettingsTab, label: 'מערכת', icon: Database }
@@ -233,6 +239,13 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Users Management Tab */}
+                {activeTab === 'users' && (
+                  <div>
+                    <UsersManagementPage />
                   </div>
                 )}
 

@@ -18,6 +18,7 @@ from app.api.v1.endpoints import (
     vehicle_types,
     alerts,
     phone_auth,
+    admin_users,
 )
 
 api_router = APIRouter()
@@ -42,3 +43,4 @@ api_router.include_router(vehicle_types.router, tags=["fleet"])
 api_router.include_router(alerts.router, tags=["alerts"])
 api_router.include_router(phone_auth.router, tags=["phone-auth"])
 api_router.include_router(phone_auth.permissions_router, tags=["permissions"])
+api_router.include_router(admin_users.router, tags=["admin"])
