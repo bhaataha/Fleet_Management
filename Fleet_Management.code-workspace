@@ -2,6 +2,29 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../Flutter_truckflow"
 		}
-	]
+	],
+	"settings": {
+		"chat.tools.terminal.autoApprove": {
+			"docker compose": true,
+			"/^sudo -u postgres psql -c \"CREATE DATABASE fleet_management;\" 2>&1 \\|\\| echo \"DB exists\"\nsudo -u postgres psql -c \"CREATE USER fleet_user WITH PASSWORD 'fleet_password';\" 2>&1 \\|\\| echo \"User exists\"\nsudo -u postgres psql -c \"GRANT ALL PRIVILEGES ON DATABASE fleet_management TO fleet_user;\" 2>&1$/": {
+				"approve": true,
+				"matchCommandLine": true
+			},
+			"/^sudo -u postgres psql fleet_management -c \"ALTER USER fleet_user WITH PASSWORD 'fleet_password'; ALTER DATABASE fleet_management OWNER TO fleet_user;\"$/": {
+				"approve": true,
+				"matchCommandLine": true
+			},
+			"/^sudo -u postgres psql << 'EOF'\nCREATE USER fleet_user WITH PASSWORD 'fleet_password';\nGRANT ALL PRIVILEGES ON DATABASE fleet_management TO fleet_user;\nALTER DATABASE fleet_management OWNER TO fleet_user;\n\\\\q\nEOF$/": {
+				"approve": true,
+				"matchCommandLine": true
+			}
+		},
+		"chat.agent.maxRequests": 200,
+		"xml.symbols.enabled": false,
+		"python.languageServer": "None"
+	}
 }
