@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/stores/auth'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { superAdminApi } from '@/lib/api'
 import { useI18n } from '@/lib/i18n'
+import { formatDate } from '@/lib/utils'
 
 interface Organization {
   id: string

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { subcontractorsApi } from '@/lib/api'
 import Link from 'next/link'
+import { formatDate } from '@/lib/utils'
 
 export default function SubcontractorDetailPage() {
   const params = useParams()

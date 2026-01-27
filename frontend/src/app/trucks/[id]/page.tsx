@@ -5,13 +5,17 @@ import { useParams, useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import { trucksApi } from '@/lib/api'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { ArrowRight, Save, Trash2 } from 'lucide-react'
+import DocumentManager from '@/components/fleet/DocumentManager'
+import { useVehicleTypes } from '@/hooks/useVehicleTypes'
+import { ArrowRight, Save, Trash2, Shield, Wrench } from 'lucide-react'
+import { formatDate } from '@/lib/utils'
 import Link from 'next/link'
 
 export default function EditTruckPage() {
   const params = useParams()
   const router = useRouter()
   const { t } = useI18n()
+  const { getVehicleTypeOptions, getVehicleTypeLabel, loading: vehicleTypesLoading } = useVehicleTypes()
   const truckId = parseInt(params.id as string)
   
   const [loading, setLoading] = useState(true)
@@ -20,11 +24,19 @@ export default function EditTruckPage() {
   const [formData, setFormData] = useState({
     plate_number: '',
     model: '',
-    type: 'SEMI',
+    truck_type: '',
     capacity_ton: '',
     capacity_m3: '',
+    insurance_expiry: '',
+    test_expiry: '',
     is_active: true
   })
+
+  const [documents, setDocuments] = useState([
+    { id: 1, name: 'ביטוח חובה 2024', type: 'insurance' as const, expiry_date: '2024-12-31', notes: 'מנורה מבטחים' },
+    { id: 2, name: 'טסט תקני 2024', type: 'test' as const, expiry_date: '2024-06-15', notes: 'עבר בהצלחה' },
+    { id: 3, name: 'רישוי רכב', type: 'registration' as const, expiry_date: '2024-11-20', notes: 'משרד התחבורה' }
+  ])
 
   useEffect(() => {
     loadTruck()
@@ -37,9 +49,11 @@ export default function EditTruckPage() {
       setFormData({
         plate_number: truck.plate_number || '',
         model: truck.model || '',
-        type: truck.type || 'SEMI',
+        truck_type: truck.truck_type || '',
         capacity_ton: truck.capacity_ton?.toString() || '',
         capacity_m3: truck.capacity_m3?.toString() || '',
+        insurance_expiry: truck.insurance_expiry || '',
+        test_expiry: truck.test_expiry || '',
         is_active: truck.is_active !== false
       })
     } catch (err: any) {
@@ -153,18 +167,19 @@ export default function EditTruckPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              {t('fleet.type')}
+              סוג רכב
             </label>
             <select
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              value={formData.truck_type}
+              onChange={(e) => setFormData({ ...formData, truck_type: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
-              <option value="SEMI">סמי טריילר (Semi)</option>
-              <option value="FULL_TRAILER">פול טריילר (Full)</option>
-              <option value="DOUBLE">דאבל (Double)</option>
-              <option value="FLATBED">גלר (Flatbed)</option>
-              <option value="TIPPER">מתהפך (Tipper)</option>
+              <option value="">בחר סוג משאית</option>
+              {TRUCK_TYPES.map(type => (
+                <option key={type.value} value={type.value} title={type.description}>
+                  {type.label}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -195,6 +210,44 @@ export default function EditTruckPage() {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="20.0"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-blue-500" />
+                תוקף ביטוח
+              </label>
+              <input
+                type="date"
+                value={formData.insurance_expiry}
+                onChange={(e) => setFormData({ ...formData, insurance_expiry: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {formData.insurance_expiry && (
+                <p className="text-xs text-gray-600 mt-1">
+                  פג בתאריך: {formatDate(formData.insurance_expiry)}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                <Wrench className="w-4 h-4 text-green-500" />
+                תוקף טסט
+              </label>
+              <input
+                type="date"
+                value={formData.test_expiry}
+                onChange={(e) => setFormData({ ...formData, test_expiry: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              {formData.test_expiry && (
+                <p className="text-xs text-gray-600 mt-1">
+                  פג בתאריך: {formatDate(formData.test_expiry)}
+                </p>
+              )}
             </div>
           </div>
 
@@ -229,6 +282,27 @@ export default function EditTruckPage() {
           </div>
         </form>
       </div>
+
+      {/* Document Management Section */}
+      <DocumentManager
+        entityType="truck"
+        entityId={truckId}
+        entityName={formData.plate_number}
+        documents={documents}
+        onDocumentAdd={(doc) => {
+          const newDoc = { ...doc, id: Date.now() }
+          setDocuments([...documents, newDoc])
+        }}
+        onDocumentUpdate={(id, updatedDoc) => {
+          setDocuments(documents.map(doc => 
+            doc.id === id ? { ...doc, ...updatedDoc } : doc
+          ))
+        }}
+        onDocumentDelete={(id) => {
+          setDocuments(documents.filter(doc => doc.id !== id))
+        }}
+      />
+
     </DashboardLayout>
   )
 }

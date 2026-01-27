@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { jobsApi, trucksApi, driversApi } from '@/lib/api'
 import { Download, Printer } from 'lucide-react'
+import { formatDate } from '@/lib/utils'
 
 export default function TruckReport() {
   // Calculate default dates: first and last day of current month

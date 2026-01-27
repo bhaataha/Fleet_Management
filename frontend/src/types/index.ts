@@ -14,6 +14,30 @@ export type JobStatus =
 
 export type BillingUnit = 'TON' | 'M3' | 'TRIP' | 'KM'
 
+export interface VehicleType {
+  id: number
+  name: string
+  name_hebrew?: string
+  description?: string
+  code: string
+  is_active: boolean
+  sort_order: number
+  is_system_default: boolean
+  created_at: string
+  updated_at?: string
+}
+
+export type TruckType = 
+  | 'FULL_TRAILER'
+  | 'SEMI_TRAILER'
+  | 'DOUBLE_TRAILER'
+  | 'SMALL_TRUCK'
+  | 'PICKUP'
+  | 'CONCRETE_MIXER'
+  | 'DUMP_TRUCK'
+  | 'FLATBED'
+  | 'OTHER'
+
 export type StatementStatus = 'DRAFT' | 'SENT' | 'PARTIALLY_PAID' | 'PAID'
 
 export interface PriceList {
@@ -109,8 +133,7 @@ export interface Truck {
   org_id: number
   plate_number: string
   model?: string
-  truck_type?: string
-  type?: string
+  truck_type?: TruckType | string
   capacity_ton?: number
   capacity_m3?: number
   insurance_expiry?: string

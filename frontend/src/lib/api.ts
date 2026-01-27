@@ -417,5 +417,83 @@ export const expensesApi = {
     }>('/expenses/summary/by-category', { params }),
 }
 
+// Vehicle Types API
+export const vehicleTypesApi = {
+  list: (params?: { active_only?: boolean }) =>
+    api.get<Array<{
+      id: number
+      name: string
+      name_hebrew?: string
+      description?: string
+      code: string
+      is_active: boolean
+      sort_order: number
+      is_system_default: boolean
+      created_at: string
+      updated_at?: string
+    }>>('/vehicle-types', { params }),
+  
+  get: (id: number) =>
+    api.get<{
+      id: number
+      name: string
+      name_hebrew?: string
+      description?: string
+      code: string
+      is_active: boolean
+      sort_order: number
+      is_system_default: boolean
+      created_at: string
+      updated_at?: string
+    }>(`/vehicle-types/${id}`),
+  
+  create: (data: {
+    name: string
+    name_hebrew?: string
+    description?: string
+    code: string
+    is_active?: boolean
+    sort_order?: number
+  }) =>
+    api.post<{
+      id: number
+      name: string
+      name_hebrew?: string
+      description?: string
+      code: string
+      is_active: boolean
+      sort_order: number
+      is_system_default: boolean
+      created_at: string
+    }>('/vehicle-types', data),
+  
+  update: (id: number, data: Partial<{
+    name: string
+    name_hebrew: string
+    description: string
+    code: string
+    is_active: boolean
+    sort_order: number
+  }>) =>
+    api.patch<{
+      id: number
+      name: string
+      name_hebrew?: string
+      description?: string
+      code: string
+      is_active: boolean
+      sort_order: number
+      is_system_default: boolean
+      created_at: string
+      updated_at?: string
+    }>(`/vehicle-types/${id}`, data),
+  
+  delete: (id: number) =>
+    api.delete(`/vehicle-types/${id}`),
+  
+  seedDefaults: () =>
+    api.post<{ message: string; seeded: number }>('/vehicle-types/seed-defaults'),
+}
+
 export default api
 

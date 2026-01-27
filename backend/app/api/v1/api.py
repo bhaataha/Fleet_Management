@@ -15,6 +15,7 @@ from app.api.v1.endpoints import (
     subcontractors,
     users,
     expenses,
+    vehicle_types,
 )
 
 api_router = APIRouter()
@@ -35,3 +36,4 @@ api_router.include_router(share.router, prefix="/share", tags=["share"])
 api_router.include_router(subcontractors.router, tags=["subcontractors"])
 api_router.include_router(users.router, tags=["users"])
 api_router.include_router(expenses.router, tags=["expenses"])
+api_router.include_router(vehicle_types.router, tags=["fleet"])

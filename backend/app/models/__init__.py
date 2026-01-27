@@ -228,6 +228,26 @@ class Material(Base):
     jobs = relationship("Job", back_populates="material")
 
 
+class VehicleType(Base):
+    """Custom vehicle types per organization"""
+    __tablename__ = "vehicle_types"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    name_hebrew = Column(String(100))
+    description = Column(Text)
+    code = Column(String(50), nullable=False)  # Internal code like FULL_TRAILER
+    is_system_default = Column(Boolean, default=False)  # True for pre-defined types
+    is_active = Column(Boolean, default=True)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # Relationships
+    organization = relationship("Organization")
+
+
 class Truck(Base):
     """Fleet trucks"""
     __tablename__ = "trucks"

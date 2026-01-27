@@ -8,17 +8,12 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import { ArrowRight, Save, Truck } from 'lucide-react'
 import Link from 'next/link'
 
-const TRUCK_TYPES = [
-  'פול טריילר',
-  'סמי טריילר',
-  'דאבל',
-  'משאית קטנה',
-  'טנדר'
-]
+import { useVehicleTypes } from '@/hooks/useVehicleTypes'
 
 export default function NewTruckPage() {
   const router = useRouter()
   const { t } = useI18n()
+  const { getVehicleTypeOptions, loading: vehicleTypesLoading } = useVehicleTypes()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   
@@ -121,10 +116,15 @@ export default function NewTruckPage() {
                     value={formData.truck_type}
                     onChange={(e) => setFormData({ ...formData, truck_type: e.target.value })}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={vehicleTypesLoading}
                   >
-                    <option value="">בחר סוג</option>
-                    {TRUCK_TYPES.map(type => (
-                      <option key={type} value={type}>{type}</option>
+                    <option value="">
+                      {vehicleTypesLoading ? 'טוען סוגי רכב...' : 'בחר סוג משאית'}
+                    </option>
+                    {getVehicleTypeOptions().map(type => (
+                      <option key={type.value} value={type.value} title={type.description}>
+                        {type.label}
+                      </option>
                     ))}
                   </select>
                 </div>

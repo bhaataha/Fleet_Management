@@ -7,6 +7,7 @@ import { trucksApi, jobsApi } from '@/lib/api'
 import { ArrowRight, Printer, Download, TrendingUp, TrendingDown, DollarSign } from 'lucide-react'
 import Link from 'next/link'
 import type { Truck, Job } from '@/types'
+import { formatDate } from '@/lib/utils'
 
 interface TruckStats {
   truck_id: number

@@ -8,6 +8,8 @@ import { useI18n } from '@/lib/i18n'
 import Logo from '@/components/ui/Logo'
 import Footer from '@/components/layout/Footer'
 import { superAdminApi } from '@/lib/api'
+import { MenuGroup } from './MenuGroup'
+import { MenuItem } from './MenuItem'
 import {
   LayoutDashboard,
   Truck,
@@ -26,24 +28,12 @@ import {
   Shield,
   BookOpen,
   Receipt,
+  CreditCard,
+  UserCircle,
+  Building2,
+  HelpCircle,
+  TrendingUp,
 } from 'lucide-react'
-
-const navigation = [
-  { name: 'nav.dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'nav.dispatch', href: '/dispatch', icon: Calendar },
-  { name: 'nav.jobs', href: '/jobs', icon: Truck },
-  { name: 'מעקב צי', href: '/fleet-tracking', icon: MapPin },
-  { name: 'nav.customers', href: '/customers', icon: Users },
-  { name: 'nav.sites', href: '/sites', icon: MapPin },
-  { name: 'nav.fleet', href: '/fleet', icon: Truck },
-  { name: 'קבלני משנה', href: '/subcontractors', icon: Users },
-  { name: 'nav.materials', href: '/materials', icon: Package },
-  { name: 'nav.pricing', href: '/pricing', icon: DollarSign },
-  { name: 'nav.billing', href: '/billing', icon: FileText },
-  { name: 'nav.reports', href: '/reports', icon: BarChart3 },
-  { name: '� דוחות פיננסיים', href: '/reports/financial', icon: DollarSign },  { name: '🧾 הוצאות', href: '/expenses', icon: Receipt },  { name: '�📚 מדריך למערכת', href: '/guide', icon: BookOpen },
-  { name: 'nav.settings', href: '/settings', icon: Settings },
-]
 
 export default function DashboardLayout({
   children,
@@ -186,28 +176,82 @@ export default function DashboardLayout({
               </Link>
             )}
             
-            {navigation.map((item) => {
-              const isActive = pathname === item.href
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`
-                    flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
-                    transition-colors
-                    ${
-                      isActive
-                        ? 'bg-blue-50 text-blue-700'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }
-                  `}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span>{t(item.name)}</span>
-                </Link>
-              )
-            })}
+            {/* Dashboard - Always visible */}
+            <MenuItem href="/dashboard" icon="📊">
+              {t('nav.dashboard')}
+            </MenuItem>
+
+            {/* Operations Group */}
+            <MenuGroup icon="🚚" label="תפעול" defaultOpen={true}>
+              <MenuItem href="/dispatch" icon="📅">
+                {t('nav.dispatch')}
+              </MenuItem>
+              <MenuItem href="/jobs" icon="🚛">
+                {t('nav.jobs')}
+              </MenuItem>
+              <MenuItem href="/fleet-tracking" icon="📍">
+                מעקב צי
+              </MenuItem>
+              <MenuItem href="/materials" icon="📦">
+                {t('nav.materials')}
+              </MenuItem>
+            </MenuGroup>
+
+            {/* Management Group */}
+            <MenuGroup icon="👥" label="ניהול">
+              <MenuItem href="/customers" icon="👨‍💼">
+                {t('nav.customers')}
+              </MenuItem>
+              <MenuItem href="/sites" icon="🏗️">
+                {t('nav.sites')}
+              </MenuItem>
+              <MenuItem href="/fleet" icon="🚛">
+                {t('nav.fleet')}
+              </MenuItem>
+              <MenuItem href="/truck-types" icon="🏷️">
+                סוגי רכב
+              </MenuItem>
+              <MenuItem href="/pricing" icon="💵">
+                {t('nav.pricing')}
+              </MenuItem>
+              <MenuItem href="/subcontractors" icon="👷">
+                קבלני משנה
+              </MenuItem>
+            </MenuGroup>
+
+            {/* Finance Group */}
+            <MenuGroup icon="💰" label="פיננסים">
+              <MenuItem href="/billing" icon="📄">
+                {t('nav.billing')}
+              </MenuItem>
+              <MenuItem href="/expenses" icon="🧾">
+                הוצאות
+              </MenuItem>
+            </MenuGroup>
+
+            {/* Reports Group */}
+            <MenuGroup icon="📊" label="דוחות">
+              <MenuItem href="/reports" icon="📈">
+                {t('nav.reports')}
+              </MenuItem>
+              <MenuItem href="/reports/financial" icon="💰">
+                דוחות פיננסיים
+              </MenuItem>
+            </MenuGroup>
+
+            {/* Help Group */}
+            <MenuGroup icon="📚" label="עזרה">
+              <MenuItem href="/guide" icon="📖">
+                מדריך למערכת
+              </MenuItem>
+            </MenuGroup>
+
+            {/* Settings Group */}
+            <MenuGroup icon="⚙️" label="הגדרות">
+              <MenuItem href="/settings" icon="⚙️">
+                {t('nav.settings')}
+              </MenuItem>
+            </MenuGroup>
           </nav>
 
           {/* User section */}

@@ -7,7 +7,7 @@ import { useI18n } from '@/lib/i18n'
 import { jobsApi, driversApi, trucksApi, sitesApi, materialsApi, customersApi } from '@/lib/api'
 import { ArrowRight, Calendar, Download, Printer, TrendingUp, Clock, CheckCircle, AlertCircle } from 'lucide-react'
 import type { Job, Driver, Truck, Site, Material, Customer } from '@/types'
-import { jobStatusLabels, jobStatusColors, billingUnitLabels } from '@/lib/utils'
+import { jobStatusLabels, jobStatusColors, billingUnitLabels, formatDate } from '@/lib/utils'
 import Link from 'next/link'
 
 export default function DailyJobsReportPage() {
