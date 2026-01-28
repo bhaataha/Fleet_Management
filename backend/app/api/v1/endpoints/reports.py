@@ -11,6 +11,7 @@ from app.core.security import get_current_user
 from app.models import Organization, User
 from app.services.pdf_generator import SubcontractorPaymentPDF, CustomerReportPDF, ARAgingPDF, DailyJobsPDF
 from app.services.storage import get_storage_service
+import os
 from app.services.email_service import send_email_smtp
 
 router = APIRouter()
@@ -106,7 +107,16 @@ class DailyJobsReportRequest(BaseModel):
     lines: List[DailyJobsLine]
 
 
-def _upload_pdf_and_get_url(pdf_buffer, filename: str, org_id) -> str:
+def _to_absolute_url(request: Request, path_or_url: str) -> str:
+    if not path_or_url:
+        return path_or_url
+    if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
+        return path_or_url
+    base = os.getenv("PUBLIC_BASE_URL") or str(request.base_url).rstrip("/")
+    return f"{base}{path_or_url}"
+
+
+def _upload_pdf_and_get_url(request: Request, pdf_buffer, filename: str, org_id) -> str:
     storage = get_storage_service()
     pdf_buffer.seek(0)
     storage_key = storage.upload_file(
@@ -115,7 +125,8 @@ def _upload_pdf_and_get_url(pdf_buffer, filename: str, org_id) -> str:
         folder=f"reports/{org_id}",
         content_type="application/pdf",
     )
-    return storage.get_presigned_url(storage_key, expiration=60 * 60 * 24)
+    url = storage.get_presigned_url(storage_key, expiration=60 * 60 * 24)
+    return _to_absolute_url(request, url)
 
 
 @router.post("/reports/subcontractor-payment/pdf")
@@ -153,6 +164,7 @@ def subcontractor_payment_pdf(
 @router.post("/reports/subcontractor-payment/share")
 def subcontractor_payment_share(
     data: SubcontractorPaymentReportRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -171,13 +183,14 @@ def subcontractor_payment_share(
     pdf_gen = SubcontractorPaymentPDF()
     pdf_buffer = pdf_gen.generate(payload, org_info)
     filename = "subcontractor_payment_report.pdf"
-    url = _upload_pdf_and_get_url(pdf_buffer, filename, current_user.org_id)
+    url = _upload_pdf_and_get_url(request, pdf_buffer, filename, current_user.org_id)
     return {"share_url": url}
 
 
 @router.post("/reports/customer-report/share")
 def customer_report_share(
     data: CustomerReportRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -194,13 +207,14 @@ def customer_report_share(
     pdf_gen = CustomerReportPDF()
     pdf_buffer = pdf_gen.generate(payload, org_info)
     filename = "customer_report.pdf"
-    url = _upload_pdf_and_get_url(pdf_buffer, filename, current_user.org_id)
+    url = _upload_pdf_and_get_url(request, pdf_buffer, filename, current_user.org_id)
     return {"share_url": url}
 
 
 @router.post("/reports/ar-aging/share")
 def ar_aging_share(
     data: ARAgingReportRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -217,13 +231,14 @@ def ar_aging_share(
     pdf_gen = ARAgingPDF()
     pdf_buffer = pdf_gen.generate(payload, org_info)
     filename = "ar_aging_report.pdf"
-    url = _upload_pdf_and_get_url(pdf_buffer, filename, current_user.org_id)
+    url = _upload_pdf_and_get_url(request, pdf_buffer, filename, current_user.org_id)
     return {"share_url": url}
 
 
 @router.post("/reports/daily-jobs/share")
 def daily_jobs_share(
     data: DailyJobsReportRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -240,7 +255,7 @@ def daily_jobs_share(
     pdf_gen = DailyJobsPDF()
     pdf_buffer = pdf_gen.generate(payload, org_info)
     filename = "daily_jobs_report.pdf"
-    url = _upload_pdf_and_get_url(pdf_buffer, filename, current_user.org_id)
+    url = _upload_pdf_and_get_url(request, pdf_buffer, filename, current_user.org_id)
     return {"share_url": url}
 
 

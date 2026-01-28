@@ -1,9 +1,9 @@
 // ==========================================
-// TruckFlow PWA Service Worker v2.0.0
+// TruckFlow PWA Service Worker v2.0.4
 // Professional offline-first architecture
 // ==========================================
 
-const APP_VERSION = '2.0.0';
+const APP_VERSION = '2.0.4';
 const CACHE_NAME = `truckflow-v${APP_VERSION}`;
 const RUNTIME_CACHE = 'truckflow-runtime';
 const API_CACHE = 'truckflow-api';
@@ -15,8 +15,14 @@ const PRECACHE_ASSETS = [
   '/login',
   '/offline',
   '/manifest.json',
+  '/manifest-driver.json',
   '/icon-192.svg',
   '/driver.html', // Legacy support
+  '/mobile/home',
+  '/mobile/jobs',
+  '/mobile/camera',
+  '/mobile/alerts',
+  '/mobile/profile',
 ];
 
 // Install event - cache essential assets
@@ -80,8 +86,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy 1: API requests - Network First with cache fallback
+  // Strategy 1: API requests - Network First with cache fallback (GET only)
   if (url.pathname.startsWith('/api/')) {
+    if (request.method !== 'GET') {
+      event.respondWith(fetch(request));
+      return;
+    }
     event.respondWith(networkFirstStrategy(request, API_CACHE));
     return;
   }
@@ -135,7 +145,10 @@ async function networkFirstStrategy(request, cacheName) {
   const cache = await caches.open(cacheName);
   try {
     const response = await fetch(request);
-    if (response.ok) cache.put(request, response.clone());
+    if (response.ok && request.method === 'GET') {
+      const clone = response.clone();
+      await cache.put(request, clone);
+    }
     return response;
   } catch (error) {
     const cached = await cache.match(request);

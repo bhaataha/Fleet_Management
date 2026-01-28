@@ -22,6 +22,17 @@ export default function EmailLoginPage() {
     // Don't redirect - allow users to login even if they have an old token
   }, [])
 
+  const getPostLoginRoute = (user: any) => {
+    if (!user) return '/dashboard'
+    if (user.is_super_admin) return '/super-admin'
+    const isDriverRole = user.org_role === 'driver' || user.org_role === 'DRIVER'
+    const hasDriverRole = Array.isArray(user.roles) && user.roles.includes('DRIVER')
+    if (isDriverRole || hasDriverRole || user.driver_id) {
+      return '/mobile/home'
+    }
+    return '/dashboard'
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -54,12 +65,7 @@ export default function EmailLoginPage() {
       
       setAuth(user, access_token)
       
-      // Redirect based on user type
-      if (user.is_super_admin) {
-        router.push('/super-admin')
-      } else {
-        router.push('/dashboard')
-      }
+      router.push(getPostLoginRoute(user))
     } catch (err: any) {
       const detail = err.response?.data?.detail
       if (detail) {
@@ -92,11 +98,6 @@ export default function EmailLoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <Logo className="mx-auto mb-4" size="large" />
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            ברוכים הבאים
           </h1>
           <p className="text-gray-600">
             התחבר עם כתובת האימייל שלך

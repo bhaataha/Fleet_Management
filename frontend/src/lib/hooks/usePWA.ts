@@ -16,6 +16,7 @@ interface UsePWAReturn {
 }
 
 export function usePWA(): UsePWAReturn {
+  const swVersion = '2.0.4'
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [isInstallable, setIsInstallable] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
@@ -84,7 +85,7 @@ export function usePWA(): UsePWAReturn {
         cleanupServiceWorkers()
       } else {
         navigator.serviceWorker
-          .register('/sw.js')
+          .register(`/sw.js?v=${swVersion}`)
           .then((registration) => {
             console.log('[PWA] Service Worker registered:', registration)
 

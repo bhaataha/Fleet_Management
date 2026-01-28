@@ -27,9 +27,13 @@ class LoginResponse(BaseModel):
 class UserInfo(BaseModel):
     id: int
     name: str
-    email: str
+    email: Optional[str]
+    phone: Optional[str] = None
     org_id: int
     roles: list[str]
+    org_role: Optional[str] = None
+    is_super_admin: Optional[bool] = None
+    driver_id: Optional[int] = None
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -137,13 +141,18 @@ async def get_current_user(
         )
     
     roles = [role.role.value for role in user.roles]
+    driver = db.query(Driver).filter(Driver.user_id == user.id).first()
     
     return UserInfo(
         id=user.id,
         name=user.name,
         email=user.email,
+        phone=user.phone,
         org_id=user.org_id,
-        roles=roles
+        roles=roles,
+        org_role=user.org_role,
+        is_super_admin=user.is_super_admin or False,
+        driver_id=driver.id if driver else None
     )
 
 

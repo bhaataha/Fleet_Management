@@ -35,9 +35,11 @@ api.interceptors.request.use((config) => {
       config.headers.Authorization = `Bearer ${token}`
     }
     
-    // Super Admin impersonation: add X-Org-Id header if selected
+    // Super Admin impersonation: add X-Org-Id header only for super admins
     const impersonatedOrgId = localStorage.getItem('impersonated_org_id')
-    if (impersonatedOrgId) {
+    const userRaw = localStorage.getItem('user')
+    const user = userRaw ? JSON.parse(userRaw) : null
+    if (impersonatedOrgId && user?.is_super_admin) {
       config.headers['X-Org-Id'] = impersonatedOrgId
     }
   }
@@ -482,6 +484,41 @@ export const paymentsApi = {
 
   allocate: (paymentId: number, allocations: Array<{ statement_id: number; amount: number }>) =>
     api.post('/payments/' + paymentId + '/allocate', allocations),
+}
+
+// Files API
+export const filesApi = {
+  listJobFiles: (jobId: number) =>
+    api.get<{
+      job_id: number
+      files: Array<{
+        id: number
+        filename: string
+        file_type: string
+        size: number
+        uploaded_at: string
+        uploaded_by_name: string
+        url: string
+      }>
+      total: number
+    }>(`/jobs/${jobId}/files`),
+
+  uploadJobFile: (jobId: number, data: { file: File; file_type?: string }) => {
+    const formData = new FormData()
+    formData.append('file', data.file)
+    formData.append('file_type', data.file_type || 'PHOTO')
+    return api.post<{
+      id: number
+      filename: string
+      file_type: string
+      size: number
+      uploaded_at: string
+      uploaded_by_name: string
+      url: string
+    }>(`/jobs/${jobId}/files/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  }
 }
 
 // Vehicle Types API

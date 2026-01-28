@@ -1,5 +1,13 @@
 import { ReactNode } from 'react'
+import type { Metadata } from 'next'
 import MobileBottomNav from '@/components/MobileBottomNav'
+
+export const metadata: Metadata = {
+  title: 'TruckFlow Driver',
+  description: 'אפליקציית נהג - משימות וסטטוסים בזמן אמת',
+  manifest: '/manifest-driver.json',
+  applicationName: 'TruckFlow Driver',
+}
 
 export default function MobileLayout({ children }: { children: ReactNode }) {
   return (
@@ -7,7 +15,7 @@ export default function MobileLayout({ children }: { children: ReactNode }) {
       {/* Mobile Header */}
       <header className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 py-3 safe-area-top">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-bold text-gray-900">TruckFlow</h1>
+          <h1 className="text-lg font-bold text-gray-900">TruckFlow נהג</h1>
           <div className="flex items-center gap-2">
             {/* Notifications badge */}
             <button className="relative p-2 hover:bg-gray-100 rounded-lg">

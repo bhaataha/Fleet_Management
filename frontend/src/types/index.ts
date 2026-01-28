@@ -84,6 +84,7 @@ export interface User {
   permissions: string[]  // List of permission names (e.g., "dashboard.view", "jobs.create")
   is_super_admin?: boolean
   org_role?: string
+  driver_id?: number
 }
 
 export interface Customer {

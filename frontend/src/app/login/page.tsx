@@ -12,7 +12,7 @@ type AuthStep = 'phone' | 'otp'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { setAuth, isAuthenticated } = useAuth()
+  const { setAuth, isAuthenticated, user } = useAuth()
   const { t, language, setLanguage } = useI18n()
   const [phone, setPhone] = useState('')
   const [otpCode, setOtpCode] = useState('')
@@ -34,9 +34,20 @@ export default function LoginPage() {
     
     // If already authenticated, redirect to dashboard
     if (isAuthenticated) {
-      router.push('/dashboard')
+      router.push(getPostLoginRoute(user))
     }
-  }, [isAuthenticated, router])
+  }, [isAuthenticated, router, user])
+
+  const getPostLoginRoute = (user: any) => {
+    if (!user) return '/dashboard'
+    if (user.is_super_admin) return '/super-admin'
+    const isDriverRole = user.org_role === 'driver' || user.org_role === 'DRIVER'
+    const hasDriverRole = Array.isArray(user.roles) && user.roles.includes('DRIVER')
+    if (isDriverRole || hasDriverRole || user.driver_id) {
+      return '/mobile/home'
+    }
+    return '/dashboard'
+  }
 
   // Countdown timer for OTP resend
   useEffect(() => {
@@ -77,7 +88,7 @@ export default function LoginPage() {
         }
         
         setAuth(user, access_token)
-        router.push('/dashboard')
+        router.push(getPostLoginRoute(user))
       } else {
         // OTP mode
         await phoneAuthApi.sendOTP({ phone, org_slug: orgSlug })
@@ -126,7 +137,7 @@ export default function LoginPage() {
       }
       
       setAuth(user, access_token)
-      router.push('/dashboard')
+      router.push(getPostLoginRoute(user))
     } catch (err: any) {
       console.error('OTP verification error:', err.response?.status, err.response?.data)
       const detail = err.response?.data?.detail

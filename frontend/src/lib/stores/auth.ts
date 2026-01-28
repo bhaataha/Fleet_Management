@@ -30,6 +30,10 @@ export const useAuth = create<AuthStore>()((set) => ({
       try {
         const user = JSON.parse(userStr)
         set({ user, token, isAuthenticated: true, isInitialized: true })
+
+        if (!user?.is_super_admin) {
+          localStorage.removeItem('impersonated_org_id')
+        }
         
         // Load user permissions only for non-admin users
         // Admin, owner, and super_admin see everything without permission checks
@@ -57,6 +61,9 @@ export const useAuth = create<AuthStore>()((set) => ({
     if (typeof window !== 'undefined') {
       localStorage.setItem('access_token', token)
       localStorage.setItem('user', JSON.stringify(user))
+      if (!user?.is_super_admin) {
+        localStorage.removeItem('impersonated_org_id')
+      }
     }
     set({ user, token, isAuthenticated: true, isInitialized: true })
     

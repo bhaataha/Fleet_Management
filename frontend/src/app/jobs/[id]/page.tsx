@@ -257,10 +257,10 @@ export default function JobDetailPage() {
   const [truck, setTruck] = useState<any>(null)
   const [subcontractor, setSubcontractor] = useState<any>(null)
   const [messageTemplates, setMessageTemplates] = useState({
-    whatsapp_driver: '🚛 נסיעה #{job_id}\nתאריך: {date}\nמאתר: {from_site}\nלאתר: {to_site}',
-    whatsapp_customer: '🚛 נסיעה #{job_id}\nתאריך: {date}\nמאתר: {from_site}\nלאתר: {to_site}',
+    whatsapp_driver: '🚛 נסיעה #{job_id}\nתאריך: {date}\nמאתר: {from_site}\nלאתר: {to_site}\nPDF: {share_url}',
+    whatsapp_customer: '🚛 נסיעה #{job_id}\nתאריך: {date}\nמאתר: {from_site}\nלאתר: {to_site}\nPDF: {share_url}',
     email_subject: 'נסיעה #{job_id}',
-    email_body: 'שלום {customer_name},\n\nנסיעה #{job_id}\nתאריך: {date}\nמאתר: {from_site}\nלאתר: {to_site}\n\nבברכה,\nTruckFlow'
+    email_body: 'שלום {customer_name},\n\nנסיעה #{job_id}\nתאריך: {date}\nמאתר: {from_site}\nלאתר: {to_site}\nPDF: {share_url}\n\nבברכה,\nTruckFlow'
   })
 
   useEffect(() => {
@@ -286,14 +286,43 @@ export default function JobDetailPage() {
     }
     loadTemplates()
   }, [])
-  const renderTemplate = (template: string) => {
+  const renderTemplate = (template: string, shareUrl: string = '') => {
     return template
       .replaceAll('{job_id}', String(job?.id || ''))
       .replaceAll('{date}', formatDate(job?.scheduled_date || ''))
       .replaceAll('{customer_name}', customer?.name || '')
       .replaceAll('{from_site}', fromSite?.name || '')
       .replaceAll('{to_site}', toSite?.name || '')
+      .replaceAll('{share_url}', shareUrl || '')
   }
+  const createShareUrl = async () => {
+    const token = localStorage.getItem('access_token')
+    if (!token) {
+      alert('אנא התחבר מחדש למערכת')
+      router.push('/login')
+      return ''
+    }
+
+    try {
+      const response = await fetch(`/api/jobs/${params.id}/share`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to create share link')
+      }
+
+      const data = await response.json()
+      return data.short_url || ''
+    } catch (error) {
+      console.error('Error creating share link:', error)
+      alert('שגיאה ביצירת קישור שיתוף')
+      return ''
+    }
+  }
+
 
   const loadJobDetails = async () => {
     try {
@@ -543,10 +572,11 @@ _נשלח מ-TruckFlow_`
     }
 
     try {
+      const shareUrl = await createShareUrl()
       await api.post(`/jobs/${params.id}/send-email`, {
         to_email: email,
-        subject: renderTemplate(messageTemplates.email_subject),
-        body: renderTemplate(messageTemplates.email_body),
+        subject: renderTemplate(messageTemplates.email_subject, shareUrl),
+        body: renderTemplate(messageTemplates.email_body, shareUrl),
         attach_pdf: true
       })
       alert('האימייל נשלח בהצלחה')
@@ -566,13 +596,15 @@ _נשלח מ-TruckFlow_`
     window.open(url, '_blank')
   }
 
-  const handleWhatsAppDriver = () => {
-    const msg = renderTemplate(messageTemplates.whatsapp_driver)
+  const handleWhatsAppDriver = async () => {
+    const shareUrl = await createShareUrl()
+    const msg = renderTemplate(messageTemplates.whatsapp_driver, shareUrl)
     openWhatsApp(driver?.phone, msg)
   }
 
-  const handleWhatsAppCustomer = () => {
-    const msg = renderTemplate(messageTemplates.whatsapp_customer)
+  const handleWhatsAppCustomer = async () => {
+    const shareUrl = await createShareUrl()
+    const msg = renderTemplate(messageTemplates.whatsapp_customer, shareUrl)
     openWhatsApp(customer?.phone, msg)
   }
 
