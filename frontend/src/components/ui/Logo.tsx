@@ -14,10 +14,13 @@ export default function Logo({ size = 'md', showText = true, className = '' }: L
     xl: { icon: 'w-24 h-24', text: 'text-5xl' }
   }
 
+  // Fallback to 'md' if size is invalid
+  const safeSize = size in sizes ? size : 'md'
+
   return (
     <div className={`flex items-center gap-3 ${className}`}>
       {/* Icon - Truck with dirt/sand wave */}
-      <div className={`${sizes[size].icon} relative`}>
+      <div className={`${sizes[safeSize].icon} relative`}>
         <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
           {/* Sand/Dirt waves at bottom */}
           <path
@@ -61,7 +64,7 @@ export default function Logo({ size = 'md', showText = true, className = '' }: L
       {/* Brand Name */}
       {showText && (
         <div className="flex flex-col">
-          <span className={`${sizes[size].text} font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent leading-tight`}>
+          <span className={`${sizes[safeSize].text} font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent leading-tight`}>
             TruckFlow
           </span>
           <span className="text-xs text-gray-500 font-medium tracking-wider">
