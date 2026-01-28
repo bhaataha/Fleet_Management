@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Logo from '@/components/ui/Logo'
 import { useI18n } from '@/lib/i18n'
-import { useAuth } from '@/lib/stores/auth'
 import { 
   AlertCircle, 
   CheckCircle2, 
@@ -21,17 +20,9 @@ import {
 export default function SignupPage() {
   const router = useRouter()
   const { t, language } = useI18n()
-  const { isAuthenticated } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
-
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/dashboard')
-    }
-  }, [isAuthenticated, router])
 
   const [formData, setFormData] = useState({
     companyName: '',
