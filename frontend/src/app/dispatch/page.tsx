@@ -363,6 +363,11 @@ export default function DispatchPage() {
     if (!draggedJob) return
     
     try {
+      // Columns view: drop to company drivers box -> open assignment modal
+      if (subcontractorId === -2) {
+        openTruckAssignModal(draggedJob)
+        return
+      }
       // Special case: dropping to unified subcontractors column (subcontractorId = -1)
       if (subcontractorId === -1) {
         // Save the job and open modal to select specific subcontractor
@@ -937,61 +942,46 @@ export default function DispatchPage() {
               </div>
             </div>
 
-            {/* Truck Columns - All trucks */}
-            {groupedJobs.byTruck.map(({ truck, jobs: truckJobs }) => (
-              <div 
-                key={truck.id} 
-                className={`
-                  bg-white rounded-lg shadow p-4 min-w-[280px] w-[280px] flex-shrink-0
-                  transition-all duration-200
-                  ${draggedJob && draggedJob.truck_id !== truck.id ? 'ring-2 ring-orange-400 ring-offset-2' : ''}
-                `}
-                onDragOver={handleDragOver}
-                onDrop={() => handleDrop(truck.id)}
-              >
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">
-                      🚛
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    {/* Truck Number - Primary */}
-                    <h3 className="font-bold text-gray-900 text-lg truncate">{truck.plate_number}</h3>
-                    {/* Driver Name - Secondary (if assigned to any job) */}
-                    {(() => {
-                      const jobWithDriver = truckJobs.find(j => j.driver_id)
-                      if (jobWithDriver?.driver_id) {
-                        const driver = drivers.find(d => d.id === jobWithDriver.driver_id)
-                        return driver ? (
-                          <p className="text-xs text-orange-600 font-medium truncate">{driver.name}</p>
-                        ) : null
-                      }
-                      return null
-                    })()}
-                    <p className="text-xs text-gray-500">{truckJobs.length} נסיעות</p>
-                  </div>
+            {/* Company Drivers (Trucks) Box */}
+            <div 
+              className={`
+                bg-white rounded-lg shadow p-4 min-w-[280px] w-[280px] flex-shrink-0
+                transition-all duration-200
+                ${draggedJob && !draggedJob.is_subcontractor ? 'ring-2 ring-orange-400 ring-offset-2' : ''}
+              `}
+              onDragOver={handleDragOver}
+              onDrop={() => handleDrop(null, -2)}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">
+                    🚛
+                  </span>
                 </div>
-                <div className="space-y-3 max-h-[calc(100vh-350px)] overflow-y-auto pr-2">
-                  {truckJobs.map(job => (
-                    <JobCard 
-                      key={job.id} 
-                      job={job}
-                      getSiteName={getSiteName}
-                      getMaterialName={getMaterialName}
-                      onDragStart={handleDragStart}
-                      onDragEnd={handleDragEnd}
-                      isDragging={draggedJob?.id === job.id}
-                    />
-                  ))}
-                  {truckJobs.length === 0 && (
-                    <p className="text-sm text-gray-400 text-center py-4">
-                      אין נסיעות
-                    </p>
-                  )}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-gray-900 text-lg truncate">נהגי חברה</h3>
+                  <p className="text-xs text-gray-500">{trucks.length} משאיות</p>
                 </div>
               </div>
-            ))}
+              <div className="space-y-3 max-h-[calc(100vh-350px)] overflow-y-auto pr-2">
+                {groupedJobs.byTruck.flatMap(({ jobs: truckJobs }) => truckJobs).map(job => (
+                  <JobCard 
+                    key={job.id} 
+                    job={job}
+                    getSiteName={getSiteName}
+                    getMaterialName={getMaterialName}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    isDragging={draggedJob?.id === job.id}
+                  />
+                ))}
+                {groupedJobs.byTruck.every(({ jobs: truckJobs }) => truckJobs.length === 0) && (
+                  <p className="text-sm text-gray-400 text-center py-4">
+                    אין נסיעות
+                  </p>
+                )}
+              </div>
+            </div>
 
             {/* Closed Jobs Column */}
             <div className="bg-gray-100 rounded-lg shadow p-4 min-w-[280px] w-[280px] flex-shrink-0 border-2 border-gray-300">
