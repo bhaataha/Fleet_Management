@@ -733,6 +733,52 @@ export default function DispatchPage() {
               </div>
             ))}
 
+            {/* Subcontractor Boxes */}
+            {groupedJobs.bySubcontractor.map(({ subcontractor, jobs: subcontractorJobs }) => (
+              <div
+                key={subcontractor.id}
+                className={`bg-white rounded-lg p-3 min-h-[200px] border-2 transition-all shadow-sm ${
+                  draggedJob && draggedJob.subcontractor_id !== subcontractor.id
+                    ? 'border-purple-400'
+                    : 'border-gray-200'
+                }`}
+                onDragOver={handleDragOver}
+                onDrop={() => handleDrop(null, subcontractor.id)}
+              >
+                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-bold text-sm">👷</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold text-sm text-purple-900 truncate">
+                      🚛 {subcontractor.truck_plate_number || `קבלן #${subcontractor.id}`}
+                    </h3>
+                    {subcontractor.name && (
+                      <p className="text-xs text-purple-600 font-medium truncate">{subcontractor.name}</p>
+                    )}
+                    <p className="text-xs text-gray-500">{subcontractorJobs.length} נסיעות</p>
+                  </div>
+                </div>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {subcontractorJobs.map(job => (
+                    <CompactJobCard
+                      key={job.id}
+                      job={job}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                      isDragging={draggedJob?.id === job.id}
+                      getSiteName={getSiteName}
+                      getMaterialName={getMaterialName}
+                      getSubcontractorName={getSubcontractorName}
+                    />
+                  ))}
+                  {subcontractorJobs.length === 0 && (
+                    <p className="text-xs text-gray-400 text-center py-3">אין נסיעות</p>
+                  )}
+                </div>
+              </div>
+            ))}
+
             {/* Closed Jobs Box */}
             <div className="bg-gray-100 rounded-lg p-3 min-h-[200px] border-2 border-gray-300">
               <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-400">
