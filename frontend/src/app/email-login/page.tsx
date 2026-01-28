@@ -61,16 +61,21 @@ export default function EmailLoginPage() {
         router.push('/dashboard')
       }
     } catch (err: any) {
-      if (err.response?.data?.detail) {
-        const detail = err.response.data.detail
-        if (detail === "Incorrect credentials") {
+      const detail = err.response?.data?.detail
+      if (detail) {
+        if (Array.isArray(detail)) {
+          const messages = detail.map((item: any) => item?.msg).filter(Boolean)
+          setError(messages.join(', ') || 'שגיאה בפרטי התחברות')
+        } else if (detail === "Incorrect credentials") {
           setError('אימייל או סיסמה שגויים')
-        } else if (detail.includes("suspended")) {
+        } else if (typeof detail === 'string' && detail.includes("suspended")) {
           setError('הארגון מושעה - אנא פנה לתמיכה')
         } else if (detail === "User account is inactive") {
           setError('חשבון המשתמש אינו פעיל')
-        } else {
+        } else if (typeof detail === 'string') {
           setError(detail)
+        } else {
+          setError('שגיאה בהתחברות')
         }
       } else {
         setError('שגיאה בהתחברות - אנא נסה שוב')

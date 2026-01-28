@@ -87,10 +87,18 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error('Login error:', err.response?.status, err.response?.data)
+      const detail = err.response?.data?.detail
       if (err.response?.status === 401) {
         setError('סיסמה או טלפון שגויים')
-      } else if (err.response?.data?.detail) {
-        setError(err.response.data.detail)
+      } else if (detail) {
+        if (Array.isArray(detail)) {
+          const messages = detail.map((item: any) => item?.msg).filter(Boolean)
+          setError(messages.join(', ') || 'שגיאה בהתחברות')
+        } else if (typeof detail === 'string') {
+          setError(detail)
+        } else {
+          setError('שגיאה בהתחברות')
+        }
       } else {
         setError(usePassword ? 'שגיאה בהתחברות' : 'שגיאה בשליחת קוד אימות')
       }
@@ -121,10 +129,18 @@ export default function LoginPage() {
       router.push('/dashboard')
     } catch (err: any) {
       console.error('OTP verification error:', err.response?.status, err.response?.data)
+      const detail = err.response?.data?.detail
       if (err.response?.status === 401) {
         setError('קוד אימות שגוי או פג תוקף')
-      } else if (err.response?.data?.detail) {
-        setError(err.response.data.detail)
+      } else if (detail) {
+        if (Array.isArray(detail)) {
+          const messages = detail.map((item: any) => item?.msg).filter(Boolean)
+          setError(messages.join(', ') || 'קוד אימות שגוי או פג תוקף')
+        } else if (typeof detail === 'string') {
+          setError(detail)
+        } else {
+          setError('קוד אימות שגוי או פג תוקף')
+        }
       } else {
         setError('קוד אימות שגוי או פג תוקף')
       }
