@@ -56,10 +56,16 @@ async def login(credentials: LoginRequest, db: Session = Depends(get_db)):
             detail="Incorrect credentials"
         )
     
-    if not verify_password(credentials.password, user.password_hash):
+    try:
+        if not verify_password(credentials.password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect credentials"
+            )
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect credentials"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Password verification error: {str(e)}"
         )
     
     if not user.is_active:
