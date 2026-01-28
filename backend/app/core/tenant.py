@@ -149,7 +149,7 @@ def validate_org_resource(
     db: Session,
     model: Type[T],
     resource_id: int,
-    org_id: UUID,
+    org_id: Union[int, UUID],
     resource_name: str = "Resource"
 ) -> T:
     """
@@ -183,7 +183,7 @@ def validate_org_resource(
     return resource
 
 
-def get_org_stats(db: Session, org_id: UUID) -> dict:
+def get_org_stats(db: Session, org_id: Union[int, UUID]) -> dict:
     """
     Get statistics for an organization
     

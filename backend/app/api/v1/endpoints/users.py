@@ -4,7 +4,7 @@ endpoints: /api/users
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime
 from uuid import UUID
 
@@ -42,7 +42,7 @@ class UserUpdate(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
-    org_id: UUID
+    org_id: Union[int, UUID]
     name: str
     email: str
     phone: str

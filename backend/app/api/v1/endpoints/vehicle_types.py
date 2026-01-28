@@ -3,7 +3,7 @@ Vehicle Types API endpoints - Manage custom vehicle types
 """
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Union
 from app.core.database import get_db
 from app.models import VehicleType
 from app.middleware.tenant import get_current_org_id, get_current_user_id
@@ -38,7 +38,7 @@ class VehicleTypeUpdate(BaseModel):
 
 class VehicleTypeResponse(VehicleTypeBase):
     id: int
-    org_id: UUID
+    org_id: Union[int, UUID]
     is_system_default: bool
     created_at: datetime
     updated_at: Optional[datetime]

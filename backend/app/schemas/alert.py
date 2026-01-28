@@ -2,7 +2,7 @@
 Alert schemas for API
 """
 from pydantic import BaseModel, Field
-from typing import Optional, Any
+from typing import Optional, Any, Union
 from datetime import datetime
 from uuid import UUID
 
@@ -21,7 +21,7 @@ class AlertBase(BaseModel):
 
 class AlertCreate(AlertBase):
     """Schema for creating alert"""
-    org_id: UUID
+    org_id: Union[int, UUID]
     created_for_user_id: Optional[int] = None
     created_for_role: Optional[str] = None
     expires_at: Optional[datetime] = None
@@ -40,7 +40,7 @@ class AlertUpdate(BaseModel):
 class AlertResponse(AlertBase):
     """Schema for alert response"""
     id: int
-    org_id: UUID
+    org_id: Union[int, UUID]
     status: str
     read_at: Optional[datetime] = None
     dismissed_at: Optional[datetime] = None

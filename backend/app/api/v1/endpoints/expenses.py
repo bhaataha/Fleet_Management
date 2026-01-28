@@ -3,7 +3,7 @@ Expenses API Endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Union
 from datetime import datetime, date
 from decimal import Decimal
 from uuid import UUID
@@ -57,7 +57,7 @@ class DriverNested(BaseModel):
 
 class ExpenseResponse(BaseModel):
     id: int
-    org_id: UUID
+    org_id: Union[int, UUID]
     category: str
     amount: float
     expense_date: datetime

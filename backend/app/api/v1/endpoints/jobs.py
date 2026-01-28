@@ -122,7 +122,7 @@ class JobUpdate(BaseModel):
 
 class JobResponse(JobBase):
     id: int
-    org_id: UUID
+    org_id: Union[int, UUID]
     driver_id: Optional[int]
     truck_id: Optional[int]
     trailer_id: Optional[int]

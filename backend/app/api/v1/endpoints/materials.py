@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Union
 from app.core.database import get_db
 from app.models import Material, BillingUnit
 from app.middleware.tenant import get_current_org_id
@@ -23,7 +23,7 @@ class MaterialCreate(MaterialBase):
 
 class MaterialResponse(MaterialBase):
     id: int
-    org_id: UUID
+    org_id: Union[int, UUID]
     is_active: bool
     created_at: datetime
     

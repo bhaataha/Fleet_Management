@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Union
 from app.core.database import get_db
 from app.models import Driver, User
 from app.middleware.tenant import get_current_org_id
@@ -37,7 +37,7 @@ class DriverUpdate(BaseModel):
 
 class DriverResponse(DriverBase):
     id: int
-    org_id: UUID
+    org_id: Union[int, UUID]
     user_id: Optional[int] = None
     is_active: bool
     created_at: datetime

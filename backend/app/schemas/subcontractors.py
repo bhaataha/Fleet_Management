@@ -3,7 +3,7 @@ Pydantic schemas for Subcontractors
 """
 
 from pydantic import BaseModel, Field, validator
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime, date
 from decimal import Decimal
 from uuid import UUID
@@ -51,7 +51,7 @@ class SubcontractorUpdate(BaseModel):
 class SubcontractorResponse(SubcontractorBase):
     """Response schema for subcontractor"""
     id: int
-    org_id: UUID
+    org_id: Union[int, UUID]
     created_at: datetime
     updated_at: Optional[datetime]
     created_by: Optional[int]
@@ -172,7 +172,7 @@ class SubcontractorPriceListUpdate(BaseModel):
 class SubcontractorPriceListResponse(SubcontractorPriceListBase):
     """Response schema for price list"""
     id: int
-    org_id: UUID
+    org_id: Union[int, UUID]
     subcontractor_id: int
     created_at: datetime
     updated_at: Optional[datetime]
