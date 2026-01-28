@@ -84,7 +84,10 @@ export default function LoginPage() {
         setCountdown(60) // 60 seconds until resend allowed
       }
     } catch (err: any) {
-      if (err.response?.data?.detail) {
+      console.error('Login error:', err.response?.status, err.response?.data)
+      if (err.response?.status === 401) {
+        setError('סיסמה או טלפון שגויים')
+      } else if (err.response?.data?.detail) {
         setError(err.response.data.detail)
       } else {
         setError(usePassword ? 'שגיאה בהתחברות' : 'שגיאה בשליחת קוד אימות')
@@ -115,7 +118,10 @@ export default function LoginPage() {
       setAuth(user, access_token)
       router.push('/dashboard')
     } catch (err: any) {
-      if (err.response?.data?.detail) {
+      console.error('OTP verification error:', err.response?.status, err.response?.data)
+      if (err.response?.status === 401) {
+        setError('קוד אימות שגוי או פג תוקף')
+      } else if (err.response?.data?.detail) {
         setError(err.response.data.detail)
       } else {
         setError('קוד אימות שגוי או פג תוקף')
