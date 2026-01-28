@@ -18,9 +18,12 @@ interface CompactJobCardProps {
   getSiteName: (id: number | null) => string
   getMaterialName: (id: number | null) => string
   getSubcontractorName?: (id: number | null) => string
+  showAssignActions?: boolean
+  onAssignTruck?: (job: Job) => void
+  onAssignSubcontractor?: (job: Job) => void
 }
 
-function CompactJobCard({ job, onDragStart, onDragEnd, isDragging, getSiteName, getMaterialName, getSubcontractorName }: CompactJobCardProps) {
+function CompactJobCard({ job, onDragStart, onDragEnd, isDragging, getSiteName, getMaterialName, getSubcontractorName, showAssignActions, onAssignTruck, onAssignSubcontractor }: CompactJobCardProps) {
   const statusColor = jobStatusColors[job.status as keyof typeof jobStatusColors] || 'gray'
   const statusLabel = jobStatusLabels[job.status as keyof typeof jobStatusLabels] || job.status
 
@@ -64,6 +67,32 @@ function CompactJobCard({ job, onDragStart, onDragEnd, isDragging, getSiteName, 
           {job.planned_qty} {billingUnitLabels[job.unit] || job.unit}
         </div>
       </div>
+      {showAssignActions && (
+        <div className="mt-2 flex gap-2">
+          <button
+            type="button"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onAssignTruck?.(job)
+            }}
+            className="flex-1 text-[10px] bg-orange-50 text-orange-700 border border-orange-200 rounded px-2 py-1 hover:bg-orange-100"
+          >
+            שיבוץ משאית
+          </button>
+          <button
+            type="button"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onAssignSubcontractor?.(job)
+            }}
+            className="flex-1 text-[10px] bg-purple-50 text-purple-700 border border-purple-200 rounded px-2 py-1 hover:bg-purple-100"
+          >
+            קבלן משנה
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -84,6 +113,10 @@ export default function DispatchPage() {
   const [showSubcontractorModal, setShowSubcontractorModal] = useState(false)
   const [selectedSubcontractorId, setSelectedSubcontractorId] = useState<number | null>(null)
   const [pendingJobForSubcontractor, setPendingJobForSubcontractor] = useState<Job | null>(null)
+  const [showTruckAssignModal, setShowTruckAssignModal] = useState(false)
+  const [pendingJobForTruck, setPendingJobForTruck] = useState<Job | null>(null)
+  const [selectedTruckId, setSelectedTruckId] = useState<number | null>(null)
+  const [selectedDriverId, setSelectedDriverId] = useState<number | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [viewMode, setViewMode] = useState<'columns' | 'grid' | 'subcontractors'>('columns')
   const autoScrollIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -291,6 +324,41 @@ export default function DispatchPage() {
     }
   }
 
+  const openSubcontractorAssign = (job: Job) => {
+    setPendingJobForSubcontractor(job)
+    setSelectedSubcontractorId(null)
+    setShowSubcontractorModal(true)
+  }
+
+  const openTruckAssignModal = (job: Job) => {
+    setPendingJobForTruck(job)
+    setSelectedTruckId(null)
+    setSelectedDriverId(null)
+    setShowTruckAssignModal(true)
+  }
+
+  const handleTruckAssign = async () => {
+    if (!pendingJobForTruck || !selectedTruckId) return
+
+    try {
+      await jobsApi.update(pendingJobForTruck.id, {
+        truck_id: selectedTruckId,
+        driver_id: selectedDriverId || null,
+        subcontractor_id: null,
+        is_subcontractor: false,
+        status: 'ASSIGNED'
+      })
+      setShowTruckAssignModal(false)
+      setPendingJobForTruck(null)
+      setSelectedTruckId(null)
+      setSelectedDriverId(null)
+      await loadData()
+    } catch (error) {
+      console.error('Error assigning truck:', error)
+      alert('שגיאה בשיבוץ משאית')
+    }
+  }
+
   const handleDrop = async (truckId: number | null, subcontractorId?: number | null) => {
     if (!draggedJob) return
     
@@ -434,6 +502,74 @@ export default function DispatchPage() {
         </div>
       )}
 
+      {/* Truck Assignment Modal */}
+      {showTruckAssignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setShowTruckAssignModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">שיבוץ משאית</h3>
+
+            {pendingJobForTruck && (
+              <div className="mb-4 text-sm text-gray-600">
+                נסיעה #{pendingJobForTruck.id} • {getMaterialName(pendingJobForTruck.material_id)}
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">משאית</label>
+              <select
+                value={selectedTruckId || ''}
+                onChange={(e) => setSelectedTruckId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                <option value="">-- בחר משאית --</option>
+                {trucks.map(truck => (
+                  <option key={truck.id} value={truck.id}>
+                    🚛 {truck.plate_number}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">נהג (אופציונלי)</label>
+              <select
+                value={selectedDriverId || ''}
+                onChange={(e) => setSelectedDriverId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+              >
+                <option value="">-- ללא נהג --</option>
+                {drivers.map(driver => (
+                  <option key={driver.id} value={driver.id}>
+                    👤 {driver.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleTruckAssign}
+                disabled={!selectedTruckId}
+                className="flex-1 bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                ✓ אשר
+              </button>
+              <button
+                onClick={() => {
+                  setShowTruckAssignModal(false)
+                  setPendingJobForTruck(null)
+                  setSelectedTruckId(null)
+                  setSelectedDriverId(null)
+                }}
+                className="flex-1 bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition"
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -531,6 +667,9 @@ export default function DispatchPage() {
                     isDragging={draggedJob?.id === job.id}
                     getSiteName={getSiteName}
                     getMaterialName={getMaterialName}
+                    showAssignActions
+                    onAssignTruck={openTruckAssignModal}
+                    onAssignSubcontractor={openSubcontractorAssign}
                   />
                 ))}
               </div>
@@ -726,6 +865,9 @@ export default function DispatchPage() {
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                     isDragging={draggedJob?.id === job.id}
+                    showAssignActions
+                    onAssignTruck={openTruckAssignModal}
+                    onAssignSubcontractor={openSubcontractorAssign}
                   />
                 ))}
                 {groupedJobs.unassigned.length === 0 && (
@@ -943,6 +1085,9 @@ export default function DispatchPage() {
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                     isDragging={draggedJob?.id === job.id}
+                    showAssignActions
+                    onAssignTruck={openTruckAssignModal}
+                    onAssignSubcontractor={openSubcontractorAssign}
                   />
                 ))}
                 {groupedJobs.unassigned.length === 0 && (
@@ -1045,13 +1190,16 @@ export default function DispatchPage() {
   )
 }
 
-function JobCard({ job, getSiteName, getMaterialName, onDragStart, onDragEnd, isDragging }: { 
+function JobCard({ job, getSiteName, getMaterialName, onDragStart, onDragEnd, isDragging, showAssignActions, onAssignTruck, onAssignSubcontractor }: { 
   job: Job
   getSiteName: (id: number | null) => string
   getMaterialName: (id: number | null) => string
   onDragStart?: (job: Job) => void
   onDragEnd?: () => void
   isDragging?: boolean
+  showAssignActions?: boolean
+  onAssignTruck?: (job: Job) => void
+  onAssignSubcontractor?: (job: Job) => void
 }) {
   const { t } = useI18n()
   const scheduledDate = job.scheduled_date ? new Date(job.scheduled_date) : null
@@ -1099,6 +1247,32 @@ function JobCard({ job, getSiteName, getMaterialName, onDragStart, onDragEnd, is
           {job.planned_qty} {billingUnitLabels[job.unit] || t(`billingUnit.${job.unit}`)}
         </div>
       </div>
+      {showAssignActions && (
+        <div className="mt-3 flex gap-2">
+          <button
+            type="button"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onAssignTruck?.(job)
+            }}
+            className="flex-1 text-xs bg-orange-50 text-orange-700 border border-orange-200 rounded px-2 py-1.5 hover:bg-orange-100"
+          >
+            שיבוץ משאית
+          </button>
+          <button
+            type="button"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation()
+              onAssignSubcontractor?.(job)
+            }}
+            className="flex-1 text-xs bg-purple-50 text-purple-700 border border-purple-200 rounded px-2 py-1.5 hover:bg-purple-100"
+          >
+            קבלן משנה
+          </button>
+        </div>
+      )}
     </div>
   )
 }
