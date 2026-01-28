@@ -279,6 +279,10 @@ export default function DispatchPage() {
 
   const groupedJobs = {
     unassigned: activeJobs.filter(j => !j.truck_id && !j.subcontractor_id),
+    byDriver: drivers.map(driver => ({
+      driver,
+      jobs: activeJobs.filter(j => j.driver_id === driver.id && !j.subcontractor_id)
+    })),
     byTruck: trucks.map(truck => ({
       truck,
       jobs: activeJobs.filter(j => j.truck_id === truck.id && !j.subcontractor_id)
@@ -330,11 +334,16 @@ export default function DispatchPage() {
     setShowSubcontractorModal(true)
   }
 
-  const openTruckAssignModal = (job: Job) => {
+  const openTruckAssignModal = (job: Job, preselectedDriverId?: number | null) => {
     setPendingJobForTruck(job)
     setSelectedTruckId(null)
-    setSelectedDriverId(null)
+    setSelectedDriverId(preselectedDriverId ?? null)
     setShowTruckAssignModal(true)
+  }
+
+  const handleDriverDrop = (driverId: number) => {
+    if (!draggedJob) return
+    openTruckAssignModal(draggedJob, driverId)
   }
 
   const handleTruckAssign = async () => {
@@ -680,87 +689,33 @@ export default function DispatchPage() {
               </div>
             </div>
 
-            {/* All Subcontractors in ONE Box - Scalable Solution! */}
-            <div
-              className={`bg-white rounded-lg p-3 min-h-[200px] border-2 transition-all shadow-sm ${
-                draggedJob && !draggedJob.is_subcontractor
-                  ? 'border-purple-400'
-                  : 'border-gray-200'
-              }`}
-              onDragOver={handleDragOver}
-              onDrop={() => handleDrop(null, -1)}
-            >
-              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
-                <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-white font-bold text-sm">
-                    👷
-                  </span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-sm text-purple-900">
-                    קבלני משנה (כל הקבלנים)
-                  </h3>
-                  <p className="text-xs text-gray-500">{groupedJobs.allSubcontractorJobs.length} נסיעות</p>
-                </div>
-              </div>
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {groupedJobs.allSubcontractorJobs.map(job => (
-                  <CompactJobCard
-                    key={job.id}
-                    job={job}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                    isDragging={draggedJob?.id === job.id}
-                    getSiteName={getSiteName}
-                    getMaterialName={getMaterialName}
-                    getSubcontractorName={getSubcontractorName}
-                  />
-                ))}
-                {groupedJobs.allSubcontractorJobs.length === 0 && (
-                  <p className="text-xs text-gray-400 text-center py-3">אין נסיעות לקבלני משנה</p>
-                )}
-              </div>
-            </div>
-
-            {/* Truck Boxes */}
-            {groupedJobs.byTruck.map(({ truck, jobs: truckJobs }) => (
+            {/* Driver Boxes */}
+            {groupedJobs.byDriver.map(({ driver, jobs: driverJobs }) => (
               <div
-                key={truck.id}
+                key={driver.id}
                 className={`bg-white rounded-lg p-3 min-h-[200px] border-2 transition-all shadow-sm ${
-                  draggedJob && draggedJob.truck_id !== truck.id
+                  draggedJob && draggedJob.driver_id !== driver.id
                     ? 'border-orange-400'
                     : 'border-gray-200'
                 }`}
                 onDragOver={handleDragOver}
-                onDrop={() => handleDrop(truck.id)}
+                onDrop={() => handleDriverDrop(driver.id)}
               >
                 <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
                   <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
                     <span className="text-white font-bold text-sm">
-                      🚛
+                      👤
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    {/* Truck Number - Primary */}
                     <h3 className="font-bold text-sm text-gray-900 truncate">
-                      {truck.plate_number}
+                      {driver.name}
                     </h3>
-                    {/* Driver Name - Secondary (if assigned) */}
-                    {(() => {
-                      const jobWithDriver = truckJobs.find(j => j.driver_id)
-                      if (jobWithDriver?.driver_id) {
-                        const driver = drivers.find(d => d.id === jobWithDriver.driver_id)
-                        return driver ? (
-                          <p className="text-xs text-orange-600 font-medium truncate">{driver.name}</p>
-                        ) : null
-                      }
-                      return null
-                    })()}
-                    <p className="text-xs text-gray-500">{truckJobs.length} נסיעות</p>
+                    <p className="text-xs text-gray-500">{driverJobs.length} נסיעות</p>
                   </div>
                 </div>
                 <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                  {truckJobs.map(job => (
+                  {driverJobs.map(job => (
                     <CompactJobCard
                       key={job.id}
                       job={job}
@@ -771,7 +726,7 @@ export default function DispatchPage() {
                       getMaterialName={getMaterialName}
                     />
                   ))}
-                  {truckJobs.length === 0 && (
+                  {driverJobs.length === 0 && (
                     <p className="text-xs text-gray-400 text-center py-3">אין נסיעות</p>
                   )}
                 </div>
