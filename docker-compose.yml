@@ -34,6 +34,9 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-}
       BACKEND_CORS_ORIGINS: '["http://localhost:3010","http://localhost:3000","http://127.0.0.1:3010","http://truckflow.site:3010","http://64.176.173.36:3010"]'
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@truckflow.com}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-Admin123456!}
+      FIRST_ORG_NAME: ${FIRST_ORG_NAME:-Fleet Management Demo}
     ports:
       - "8001:8000"
     volumes:

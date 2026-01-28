@@ -76,6 +76,10 @@ export default function FinancialReportsPage() {
   const [totalExpenses, setTotalExpenses] = useState(0)
   const [netProfit, setNetProfit] = useState(0)
   const [profitMargin, setProfitMargin] = useState(0)
+  const [notImplemented] = useState<string[]>([
+    'דוח חובות לקוחות (Aging)',
+    'ייצוא Excel'
+  ])
 
   useEffect(() => {
     loadReferenceData()
@@ -105,18 +109,24 @@ export default function FinancialReportsPage() {
   const loadReportData = async () => {
     setLoading(true)
     try {
-      // Load jobs with financial data (max 200 per backend validation)
-      const jobsRes = await jobsApi.list({
-        limit: 200
+      // Load jobs with financial data (use date range, larger limit)
+      const jobsRes = await jobsApi.getAll({
+        limit: 1000,
+        from_date: dateFrom,
+        to_date: dateTo
       })
       const jobs = jobsRes.data || []
       
-      // Filter by date range
+      // Filter by date range, status, and optional filters
       const filteredJobs = jobs.filter((job: any) => {
         const jobDate = new Date(job.scheduled_date)
         const from = new Date(dateFrom)
         const to = new Date(dateTo)
-        return jobDate >= from && jobDate <= to && job.status === 'CLOSED'
+        const statusMatch = ['DELIVERED', 'CLOSED'].includes(job.status)
+        const customerMatch = selectedCustomer ? job.customer_id === selectedCustomer : true
+        const truckMatch = selectedTruck ? job.truck_id === selectedTruck : true
+        const companyOnly = !job.is_subcontractor
+        return jobDate >= from && jobDate <= to && statusMatch && customerMatch && truckMatch && companyOnly
       })
 
       // Calculate revenue by customer
@@ -174,7 +184,8 @@ export default function FinancialReportsPage() {
       // Load expenses
       const expensesRes = await expensesApi.list({
         from_date: dateFrom,
-        to_date: dateTo
+        to_date: dateTo,
+        truck_id: selectedTruck || undefined
       })
       const expenses = expensesRes.data || []
       
@@ -307,6 +318,11 @@ export default function FinancialReportsPage() {
               דוחות פיננסיים
             </h1>
             <p className="text-gray-600 mt-1">מעקב אחר הכנסות, הוצאות ורווחיות</p>
+            {notImplemented.length > 0 && (
+              <div className="mt-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                <strong>שימו לב:</strong> {notImplemented.join(' • ')} עדיין לא הושלמו.
+              </div>
+            )}
           </div>
           <button
             onClick={exportToExcel}

@@ -185,6 +185,17 @@ export default function PricingPage() {
           </div>
         </div>
 
+        {/* Pricing Logic */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 className="font-semibold text-blue-900 mb-2">לוגיקת עדיפות במחירונים</h3>
+          <ul className="list-disc pr-5 text-sm text-blue-800 space-y-1">
+            <li>מחירון לקוח ספציפי תמיד גובר על מחירון כללי.</li>
+            <li>בתוך אותו סוג מחירון: קודם מסלול ספציפי (מאתר + לאתר), ואז כללי ללא מסלול.</li>
+            <li>אם יש כמה התאמות, נבחר מחירון עם תאריך התחלה הכי חדש.</li>
+            <li>אם אין מחירון ללקוח, משתמשים במחירון כללי בלבד.</li>
+          </ul>
+        </div>
+
         {/* Statistics */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-white rounded-lg shadow p-4">

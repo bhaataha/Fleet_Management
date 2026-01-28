@@ -29,6 +29,8 @@ class TruckBase(BaseModel):
         """Accept both date and datetime formats"""
         if v is None:
             return v
+        if isinstance(v, str) and not v.strip():
+            return None
         if isinstance(v, (datetime, date)):
             return v
         if isinstance(v, str):
@@ -67,6 +69,8 @@ class TruckUpdate(BaseModel):
         """Accept both date and datetime formats"""
         if v is None:
             return v
+        if isinstance(v, str) and not v.strip():
+            return None
         if isinstance(v, (datetime, date)):
             return v
         if isinstance(v, str):

@@ -68,25 +68,32 @@ def create_super_admin():
             session.close()
             return
         
-        # Create organization (id is auto-incremented)
+        # Create organization (id is UUID)
         now = datetime.utcnow()
         
         print("🏢 Creating organization...")
         
-        # Create organization and get its ID
-        org_result = session.execute(
+        # Import uuid for generating UUID
+        import uuid
+        org_id = uuid.uuid4()
+        
+        # Create organization with UUID
+        session.execute(
             text("""
-                INSERT INTO organizations (name, created_at, updated_at)
-                VALUES (:name, :created_at, :updated_at)
-                RETURNING id
+                INSERT INTO organizations (id, name, slug, contact_email, plan_type, status, created_at, updated_at)
+                VALUES (:id, :name, :slug, :contact_email, :plan_type, :status, :created_at, :updated_at)
             """),
             {
+                "id": org_id,
                 "name": org_name,
+                "slug": org_name.lower().replace(" ", "-"),
+                "contact_email": admin_email,
+                "plan_type": "trial",
+                "status": "active",
                 "created_at": now,
                 "updated_at": now
             }
         )
-        org_id = org_result.scalar()
         
         print(f"✅ Organization created: {org_name} (ID: {org_id})")
         
@@ -99,13 +106,14 @@ def create_super_admin():
         # Create super admin user
         user_result = session.execute(
             text("""
-                INSERT INTO users (org_id, name, email, password_hash, is_active, is_super_admin, created_at, updated_at)
-                VALUES (:org_id, :name, :email, :password_hash, true, true, :created_at, :updated_at)
+                INSERT INTO users (org_id, name, phone, email, password_hash, is_active, is_super_admin, created_at, updated_at)
+                VALUES (:org_id, :name, :phone, :email, :password_hash, true, true, :created_at, :updated_at)
                 RETURNING id
             """),
             {
                 "org_id": org_id,
                 "name": "Super Admin",
+                "phone": "0500000000",
                 "email": admin_email,
                 "password_hash": password_hash,
                 "created_at": now,

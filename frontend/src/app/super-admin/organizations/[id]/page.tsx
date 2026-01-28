@@ -43,7 +43,8 @@ export default function EditOrganizationPage() {
   const [saving, setSaving] = useState(false)
   const [org, setOrg] = useState<OrganizationData | null>(null)
   const [showPasswordReset, setShowPasswordReset] = useState(false)
-  const [resetEmail, setResetEmail] = useState('')
+  const [orgAdminEmail, setOrgAdminEmail] = useState('')
+  const [orgAdminOptions, setOrgAdminOptions] = useState<string[]>([])
   const [newPassword, setNewPassword] = useState('')
   const [resetting, setResetting] = useState(false)
   
@@ -94,6 +95,20 @@ export default function EditOrganizationPage() {
       const response = await superAdminApi.getOrganization(params.id as string)
       const orgData = response.data
       setOrg(orgData)
+
+      try {
+        const usersResponse = await superAdminApi.getOrganizationUsers(params.id as string)
+        const users = usersResponse.data?.items || []
+        const adminUsers = users.filter((u: any) =>
+          ['admin', 'owner'].includes(String(u.org_role || '').toLowerCase()) && u.email
+        )
+        const adminEmails = adminUsers.map((u: any) => u.email)
+        setOrgAdminOptions(adminEmails)
+        setOrgAdminEmail(adminEmails[0] || orgData.contact_email || '')
+      } catch (userError) {
+        setOrgAdminOptions([])
+        setOrgAdminEmail(orgData.contact_email || '')
+      }
       
       // Populate form
       setFormData({
@@ -159,10 +174,14 @@ export default function EditOrganizationPage() {
     }
   }
 
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!resetEmail || !newPassword) {
+  const handleResetPassword = async () => {
+    const adminEmail = orgAdminEmail || org?.contact_email
+    if (!adminEmail) {
+      alert('לא נמצא אימייל מנהל לארגון הזה')
+      return
+    }
+
+    if (!newPassword) {
       alert('יש למלא את כל השדות')
       return
     }
@@ -172,20 +191,19 @@ export default function EditOrganizationPage() {
       return
     }
     
-    if (!confirm(`האם אתה בטוח שברצונך לאפס את הסיסמה עבור ${resetEmail}?`)) {
+    if (!confirm(`האם אתה בטוח שברצונך לאפס את הסיסמה עבור ${adminEmail}?`)) {
       return
     }
     
     setResetting(true)
     
     try {
-      await superAdminApi.resetOrganizationPassword(params.id as string, {
-        email: resetEmail,
-        new_password: newPassword
+      await superAdminApi.resetOrganizationAdminPassword(params.id as string, {
+        new_password: newPassword,
+        email: adminEmail
       })
       alert('הסיסמה אופסה בהצלחה!')
       setShowPasswordReset(false)
-      setResetEmail('')
       setNewPassword('')
     } catch (error: any) {
       console.error('Failed to reset password:', error)
@@ -436,22 +454,32 @@ export default function EditOrganizationPage() {
             
             {showPasswordReset && (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <form onSubmit={handleResetPassword} className="space-y-4">
+                <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        אימייל משתמש *
+                        אימייל מנהל הארגון
                       </label>
-                      <input
-                        type="email"
-                        required
-                        value={resetEmail}
-                        onChange={(e) => setResetEmail(e.target.value)}
-                        placeholder={org?.contact_email || 'user@example.com'}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-yellow-500 focus:border-yellow-500"
-                      />
+                      {orgAdminOptions.length > 0 ? (
+                        <select
+                          value={orgAdminEmail}
+                          onChange={(e) => setOrgAdminEmail(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-yellow-500 focus:border-yellow-500"
+                        >
+                          {orgAdminOptions.map((email) => (
+                            <option key={email} value={email}>{email}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="email"
+                          value={orgAdminEmail || org?.contact_email || ''}
+                          disabled
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-yellow-500 focus:border-yellow-500"
+                        />
+                      )}
                       <p className="mt-1 text-xs text-gray-500">
-                        הכנס את האימייל של המשתמש בארגון זה
+                        בחר מנהל/Owner לאיפוס סיסמה
                       </p>
                     </div>
                     
@@ -479,7 +507,6 @@ export default function EditOrganizationPage() {
                       type="button"
                       onClick={() => {
                         setShowPasswordReset(false)
-                        setResetEmail('')
                         setNewPassword('')
                       }}
                       className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
@@ -487,7 +514,8 @@ export default function EditOrganizationPage() {
                       ביטול
                     </button>
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={handleResetPassword}
                       disabled={resetting}
                       className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -509,7 +537,7 @@ export default function EditOrganizationPage() {
                       </div>
                     </div>
                   </div>
-                </form>
+                </div>
               </div>
             )}
           </div>

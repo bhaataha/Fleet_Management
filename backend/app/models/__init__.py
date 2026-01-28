@@ -240,7 +240,7 @@ class VehicleType(Base):
     __tablename__ = "vehicle_types"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     name = Column(String(100), nullable=False)
     name_hebrew = Column(String(100))
     description = Column(Text)
@@ -488,7 +488,7 @@ class Statement(Base):
     __tablename__ = "statements"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     number = Column(String(50), unique=True, nullable=False)
     period_from = Column(DateTime(timezone=True), nullable=False)
@@ -510,7 +510,7 @@ class StatementLine(Base):
     __tablename__ = "statement_lines"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     statement_id = Column(Integer, ForeignKey("statements.id"), nullable=False)
     job_id = Column(Integer, ForeignKey("jobs.id"), nullable=False)
     description = Column(Text)
@@ -528,7 +528,7 @@ class Payment(Base):
     __tablename__ = "payments"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)
     paid_at = Column(DateTime(timezone=True), nullable=False)
@@ -546,7 +546,7 @@ class PaymentAllocation(Base):
     __tablename__ = "payment_allocations"
     
     id = Column(Integer, primary_key=True, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False, index=True)
+    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False, index=True)
     payment_id = Column(Integer, ForeignKey("payments.id"), nullable=False)
     statement_id = Column(Integer, ForeignKey("statements.id"), nullable=False)
     amount = Column(Numeric(10, 2), nullable=False)

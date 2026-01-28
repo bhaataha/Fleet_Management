@@ -6,7 +6,7 @@ import Combobox from '@/components/ui/Combobox'
 import { useI18n } from '@/lib/i18n'
 import { customersApi, jobsApi, sitesApi, materialsApi, driversApi, trucksApi } from '@/lib/api'
 import api from '@/lib/api'
-import { ArrowRight, Printer, Download, DollarSign, Package, TrendingUp, Calendar } from 'lucide-react'
+import { ArrowRight, Printer, Download, DollarSign, Package, TrendingUp, Calendar, Mail, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 import type { Customer, Job, Site, Material } from '@/types'
 import { billingUnitLabels } from '@/lib/utils'
@@ -93,11 +93,13 @@ export default function CustomerReportPage() {
   }
 
   const loadPricingForJobs = async (jobsList: Job[]) => {
-    const pricingPromises = jobsList.map(async (job) => {
+    const pricingPromises = jobsList
+      .filter((job) => !(job.manual_override_total || job.pricing_total))
+      .map(async (job) => {
       try {
-        const quantity = typeof job.planned_qty === 'string' 
-          ? parseFloat(job.planned_qty) || 0
-          : Number(job.planned_qty) || 0
+        const quantity = typeof (job.actual_qty ?? job.planned_qty) === 'string'
+          ? parseFloat(String(job.actual_qty ?? job.planned_qty)) || 0
+          : Number(job.actual_qty ?? job.planned_qty) || 0
         
         const response = await api.post('/pricing/quote', {
           customer_id: job.customer_id,
@@ -136,52 +138,158 @@ export default function CustomerReportPage() {
     return pricingData.find(p => p.job_id === jobId)?.pricing
   }
 
+  const toNumber = (value: any) => {
+    const num = typeof value === 'string' ? parseFloat(value) : Number(value)
+    return Number.isFinite(num) ? num : 0
+  }
+
+  const getJobQuantity = (job: Job) => {
+    return toNumber(job.actual_qty ?? job.planned_qty)
+  }
+
+  const getJobAmountData = (job: Job) => {
+    const qty = getJobQuantity(job)
+    const storedTotal = toNumber(job.manual_override_total ?? job.pricing_total)
+    const breakdown: any = (job as any).pricing_breakdown_json || null
+    const quote = getJobPricing(job.id)
+
+    if (storedTotal > 0) {
+      const baseAmount = breakdown?.base_amount ?? storedTotal
+      const adjustments = toNumber(breakdown?.min_charge_adjustment) +
+        toNumber(breakdown?.wait_fee) +
+        toNumber(breakdown?.night_surcharge)
+      const unitPrice = qty > 0 ? storedTotal / qty : 0
+      return { unitPrice, baseAmount, adjustments, total: storedTotal }
+    }
+
+    if (quote) {
+      const unitPrice = toNumber(quote.details?.unit_price)
+      const baseAmount = toNumber(quote.details?.base_amount)
+      const adjustments = toNumber(quote.min_charge_adjustment) +
+        toNumber(quote.wait_fee) +
+        toNumber(quote.night_surcharge)
+      const total = toNumber(quote.total)
+      return { unitPrice, baseAmount, adjustments, total }
+    }
+
+    return { unitPrice: 0, baseAmount: 0, adjustments: 0, total: 0 }
+  }
+
   const selectedCustomer = customers.find(c => c.id === selectedCustomerId)
 
   // Statistics
-  const totalRevenue = pricingData.reduce((sum, p) => {
-    const total = p.pricing?.total
-    const numTotal = typeof total === 'string' ? parseFloat(total) : Number(total)
-    return sum + (isNaN(numTotal) ? 0 : numTotal)
-  }, 0)
+  const totalRevenue = jobs.reduce((sum, job) => sum + getJobAmountData(job).total, 0)
   const totalJobs = jobs.length
-  const totalQuantity = jobs.reduce((sum, j) => {
-    const qty = typeof j.planned_qty === 'string' 
-      ? parseFloat(j.planned_qty) || 0
-      : Number(j.planned_qty) || 0
-    return sum + qty
-  }, 0)
+  const totalQuantity = jobs.reduce((sum, j) => sum + getJobQuantity(j), 0)
   const avgPricePerJob = totalJobs > 0 ? (totalRevenue / totalJobs) : 0
 
   const handlePrint = () => {
     window.print()
   }
 
-  const handleExport = () => {
+  const encodeBase64 = (text: string) => {
+    const bytes = new TextEncoder().encode(text)
+    let binary = ''
+    bytes.forEach((b) => {
+      binary += String.fromCharCode(b)
+    })
+    return btoa(binary)
+  }
+
+  const buildCsv = () => {
     const headers = ['#', 'תאריך', 'מאתר', 'לאתר', 'חומר', 'כמות', 'יחידה', 'מחיר יחידה', 'סכום ביניים', 'תוספות', 'סה"כ']
     const rows = jobs.map(job => {
-      const pricing = getJobPricing(job.id)
+      const { unitPrice, baseAmount, adjustments, total } = getJobAmountData(job)
       return [
         job.id,
         formatDate(job.scheduled_date),
         getSiteName(job.from_site_id),
         getSiteName(job.to_site_id),
         getMaterialName(job.material_id),
-        job.planned_qty,
+        getJobQuantity(job),
         job.unit,
-        pricing?.details?.unit_price || 0,
-        pricing?.details?.base_amount || 0,
-        (pricing?.min_charge_adjustment || 0) + (pricing?.wait_fee || 0) + (pricing?.night_surcharge || 0),
-        pricing?.total || 0
+        unitPrice || 0,
+        baseAmount || 0,
+        adjustments || 0,
+        total || 0
       ]
     })
 
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n')
+    return [headers, ...rows].map(row => row.join(',')).join('\n')
+  }
+
+  const handleExport = () => {
+    const csv = buildCsv()
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     link.download = `customer-report-${selectedCustomer?.name}-${dateFrom}-${dateTo}.csv`
     link.click()
+  }
+
+  const handleSendEmail = async () => {
+    if (jobs.length === 0) return
+    const defaultEmail = selectedCustomer?.email || ''
+    const toEmail = window.prompt('לאיזה אימייל לשלוח?', defaultEmail)
+    if (!toEmail) return
+
+    try {
+      const csv = buildCsv()
+      const base64 = encodeBase64('\ufeff' + csv)
+      await api.post('/reports/send-email', {
+        to_email: toEmail,
+        subject: `דוח לקוח ${selectedCustomer?.name || ''} ${dateFrom} - ${dateTo}`,
+        body: `מצורף דוח לקוח לתקופה ${dateFrom} עד ${dateTo}.`,
+        attachment_filename: `customer-report-${selectedCustomer?.name || 'customer'}-${dateFrom}-${dateTo}.csv`,
+        attachment_mime: 'text/csv',
+        attachment_base64: base64
+      })
+      alert('האימייל נשלח בהצלחה')
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail || 'שגיאה בשליחת אימייל'
+      alert(detail)
+    }
+  }
+
+  const handleSendWhatsApp = () => {
+    const send = async () => {
+      if (jobs.length === 0) return
+      try {
+        const payload = {
+          customer_name: selectedCustomer?.name || '',
+          period_from: dateFrom,
+          period_to: dateTo,
+          lines: jobs.map(job => {
+            const { unitPrice, total } = getJobAmountData(job)
+            return {
+              date: formatDate(job.scheduled_date),
+              job_id: job.id,
+              from_site: getSiteName(job.from_site_id),
+              to_site: getSiteName(job.to_site_id),
+              material: getMaterialName(job.material_id),
+              quantity: String(getJobQuantity(job)),
+              unit: job.unit,
+              unit_price: unitPrice.toFixed(2),
+              total: total.toFixed(2)
+            }
+          })
+        }
+
+        const shareRes = await api.post('/reports/customer-report/share', payload)
+        const shareUrl = shareRes.data?.share_url
+        const phone = selectedCustomer?.phone || window.prompt('לאיזה מספר לשלוח ב-WhatsApp?', '') || ''
+        const clean = phone.replace(/[^0-9]/g, '')
+        const message = `דוח לקוח ${selectedCustomer?.name || ''}\nתקופה: ${dateFrom} עד ${dateTo}\nPDF: ${shareUrl}`
+        const url = clean.length >= 9
+          ? `https://wa.me/972${clean.replace(/^0/, '')}?text=${encodeURIComponent(message)}`
+          : `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`
+        window.open(url, '_blank')
+      } catch (error: any) {
+        const detail = error?.response?.data?.detail || 'שגיאה ביצירת קישור PDF'
+        alert(detail)
+      }
+    }
+    send()
   }
 
   return (
@@ -199,6 +307,22 @@ export default function CustomerReportPage() {
             </div>
           </div>
           <div className="flex gap-3">
+            <button
+              onClick={handleSendEmail}
+              disabled={jobs.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Mail className="w-5 h-5" />
+              שלח אימייל
+            </button>
+            <button
+              onClick={handleSendWhatsApp}
+              disabled={jobs.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <MessageCircle className="w-5 h-5" />
+              שלח WhatsApp
+            </button>
             <button
               onClick={handleExport}
               disabled={jobs.length === 0}
@@ -364,18 +488,7 @@ export default function CustomerReportPage() {
                       </tr>
                     ) : (
                       jobs.map((job) => {
-                        const pricing = getJobPricing(job.id)
-                        const minCharge = pricing?.min_charge_adjustment
-                        const waitFee = pricing?.wait_fee
-                        const nightSurcharge = pricing?.night_surcharge
-                        
-                        const numMinCharge = typeof minCharge === 'string' ? parseFloat(minCharge) : Number(minCharge)
-                        const numWaitFee = typeof waitFee === 'string' ? parseFloat(waitFee) : Number(waitFee)
-                        const numNightSurcharge = typeof nightSurcharge === 'string' ? parseFloat(nightSurcharge) : Number(nightSurcharge)
-                        
-                        const adjustments = (isNaN(numMinCharge) ? 0 : numMinCharge) + 
-                                          (isNaN(numWaitFee) ? 0 : numWaitFee) + 
-                                          (isNaN(numNightSurcharge) ? 0 : numNightSurcharge)
+                        const amountData = getJobAmountData(job)
                         return (
                           <tr key={job.id} className="hover:bg-gray-50">
                             <td className="px-3 py-2 text-xs font-medium text-gray-900">#{job.id}</td>
@@ -386,31 +499,19 @@ export default function CustomerReportPage() {
                             <td className="px-3 py-2 text-xs text-gray-700">{getSiteName(job.to_site_id)}</td>
                             <td className="px-3 py-2 text-xs text-gray-700">{getMaterialName(job.material_id)}</td>
                             <td className="px-3 py-2 text-xs text-gray-700 font-medium">
-                              {job.planned_qty} {billingUnitLabels[job.unit] || job.unit}
+                              {getJobQuantity(job)} {billingUnitLabels[job.unit] || job.unit}
                             </td>
                             <td className="px-3 py-2 text-xs text-gray-900">
-                              {loadingPricing ? '...' : pricing ? (() => {
-                                const price = pricing.details?.unit_price
-                                const numPrice = typeof price === 'string' ? parseFloat(price) : Number(price)
-                                return `₪${(isNaN(numPrice) ? 0 : numPrice).toFixed(2)}`
-                              })() : '-'}
+                              {loadingPricing ? '...' : `₪${amountData.unitPrice.toFixed(2)}`}
                             </td>
                             <td className="px-3 py-2 text-xs text-blue-600 font-medium">
-                              {loadingPricing ? '...' : pricing ? (() => {
-                                const amount = pricing.details?.base_amount
-                                const numAmount = typeof amount === 'string' ? parseFloat(amount) : Number(amount)
-                                return `₪${(isNaN(numAmount) ? 0 : numAmount).toFixed(2)}`
-                              })() : '-'}
+                              {loadingPricing ? '...' : `₪${amountData.baseAmount.toFixed(2)}`}
                             </td>
                             <td className="px-3 py-2 text-xs text-orange-600">
-                              {loadingPricing ? '...' : adjustments > 0 ? `₪${(Number(adjustments) || 0).toFixed(2)}` : '-'}
+                              {loadingPricing ? '...' : amountData.adjustments > 0 ? `₪${amountData.adjustments.toFixed(2)}` : '-'}
                             </td>
                             <td className="px-3 py-2 text-xs text-green-600 font-bold">
-                              {loadingPricing ? '...' : pricing ? (() => {
-                                const total = pricing.total
-                                const numTotal = typeof total === 'string' ? parseFloat(total) : Number(total)
-                                return `₪${(isNaN(numTotal) ? 0 : numTotal).toFixed(2)}`
-                              })() : '-'}
+                              {loadingPricing ? '...' : `₪${amountData.total.toFixed(2)}`}
                             </td>
                           </tr>
                         )
@@ -420,28 +521,10 @@ export default function CustomerReportPage() {
                       <tr className="bg-gray-50 font-bold border-t-2 border-gray-300">
                         <td colSpan={7} className="px-3 py-3 text-sm text-gray-900 text-left">סה"כ</td>
                         <td className="px-3 py-3 text-sm text-blue-600">
-                          ₪{pricingData.reduce((sum, p) => {
-                            const amount = p.pricing?.details?.base_amount
-                            const numAmount = typeof amount === 'string' ? parseFloat(amount) : Number(amount)
-                            return sum + (isNaN(numAmount) ? 0 : numAmount)
-                          }, 0).toFixed(2)}
+                          ₪{jobs.reduce((sum, job) => sum + getJobAmountData(job).baseAmount, 0).toFixed(2)}
                         </td>
                         <td className="px-3 py-3 text-sm text-orange-600">
-                          ₪{pricingData.reduce((sum, p) => {
-                            const pricing = p.pricing
-                            const minCharge = pricing?.min_charge_adjustment
-                            const waitFee = pricing?.wait_fee
-                            const nightSurcharge = pricing?.night_surcharge
-                            
-                            const numMinCharge = typeof minCharge === 'string' ? parseFloat(minCharge) : Number(minCharge)
-                            const numWaitFee = typeof waitFee === 'string' ? parseFloat(waitFee) : Number(waitFee)
-                            const numNightSurcharge = typeof nightSurcharge === 'string' ? parseFloat(nightSurcharge) : Number(nightSurcharge)
-                            
-                            const adjustments = (isNaN(numMinCharge) ? 0 : numMinCharge) + 
-                                   (isNaN(numWaitFee) ? 0 : numWaitFee) + 
-                                   (isNaN(numNightSurcharge) ? 0 : numNightSurcharge)
-                            return sum + adjustments
-                          }, 0).toFixed(2)}
+                          ₪{jobs.reduce((sum, job) => sum + getJobAmountData(job).adjustments, 0).toFixed(2)}
                         </td>
                         <td className="px-3 py-3 text-sm text-green-600">
                           ₪{totalRevenue.toFixed(2)}

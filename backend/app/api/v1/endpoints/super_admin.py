@@ -108,6 +108,11 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class ResetOrgAdminPasswordRequest(BaseModel):
+    new_password: str
+    email: Optional[EmailStr] = None
+
+
 # Endpoints
 
 @router.get("/organizations", response_model=dict)
@@ -241,7 +246,7 @@ def create_organization(
 
 @router.get("/organizations/{org_id}", response_model=OrganizationDetail)
 def get_organization(
-    org_id: int,
+    org_id: str,
     request: Request,
     db: Session = Depends(get_db)
 ):
@@ -250,7 +255,17 @@ def get_organization(
     """
     require_super_admin(request)
     
-    org = db.query(Organization).filter(Organization.id == org_id).first()
+    # Convert org_id string to UUID
+    from uuid import UUID as UUIDType
+    try:
+        org_uuid = UUIDType(org_id) if isinstance(org_id, str) else org_id
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid organization ID format"
+        )
+    
+    org = db.query(Organization).filter(Organization.id == org_uuid).first()
     
     if not org:
         raise HTTPException(
@@ -269,7 +284,7 @@ def get_organization(
 
 @router.patch("/organizations/{org_id}", response_model=OrganizationDetail)
 def update_organization(
-    org_id: int,
+    org_id: str,
     request: Request,
     data: OrganizationUpdate,
     db: Session = Depends(get_db)
@@ -279,7 +294,17 @@ def update_organization(
     """
     require_super_admin(request)
     
-    org = db.query(Organization).filter(Organization.id == org_id).first()
+    # Convert org_id string to UUID
+    from uuid import UUID as UUIDType
+    try:
+        org_uuid = UUIDType(org_id) if isinstance(org_id, str) else org_id
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid organization ID format"
+        )
+    
+    org = db.query(Organization).filter(Organization.id == org_uuid).first()
     
     if not org:
         raise HTTPException(
@@ -308,7 +333,7 @@ def update_organization(
 
 @router.post("/organizations/{org_id}/suspend", response_model=dict)
 def suspend_organization(
-    org_id: int,
+    org_id: str,
     request: Request,
     suspend_data: SuspendRequest,
     db: Session = Depends(get_db)
@@ -319,7 +344,17 @@ def suspend_organization(
     """
     require_super_admin(request)
     
-    org = db.query(Organization).filter(Organization.id == org_id).first()
+    # Convert org_id string to UUID
+    from uuid import UUID as UUIDType
+    try:
+        org_uuid = UUIDType(org_id) if isinstance(org_id, str) else org_id
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid organization ID format"
+        )
+    
+    org = db.query(Organization).filter(Organization.id == org_uuid).first()
     
     if not org:
         raise HTTPException(
@@ -348,7 +383,7 @@ def suspend_organization(
 
 @router.post("/organizations/{org_id}/activate", response_model=dict)
 def activate_organization(
-    org_id: int,
+    org_id: str,
     request: Request,
     db: Session = Depends(get_db)
 ):
@@ -357,7 +392,17 @@ def activate_organization(
     """
     require_super_admin(request)
     
-    org = db.query(Organization).filter(Organization.id == org_id).first()
+    # Convert org_id string to UUID
+    from uuid import UUID as UUIDType
+    try:
+        org_uuid = UUIDType(org_id) if isinstance(org_id, str) else org_id
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid organization ID format"
+        )
+    
+    org = db.query(Organization).filter(Organization.id == org_uuid).first()
     
     if not org:
         raise HTTPException(
@@ -380,7 +425,7 @@ def activate_organization(
 
 @router.delete("/organizations/{org_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_organization(
-    org_id: int,
+    org_id: str,
     request: Request,
     confirm: bool = False,
     db: Session = Depends(get_db)
@@ -401,7 +446,17 @@ def delete_organization(
             detail="Must pass confirm=true to delete organization. This will delete ALL org data!"
         )
     
-    org = db.query(Organization).filter(Organization.id == org_id).first()
+    # Convert org_id string to UUID
+    from uuid import UUID as UUIDType
+    try:
+        org_uuid = UUIDType(org_id) if isinstance(org_id, str) else org_id
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid organization ID format"
+        )
+    
+    org = db.query(Organization).filter(Organization.id == org_uuid).first()
     
     if not org:
         raise HTTPException(
@@ -427,7 +482,7 @@ def delete_organization(
 
 @router.get("/organizations/{org_id}/users", response_model=dict)
 def list_organization_users(
-    org_id: int,
+    org_id: str,
     request: Request,
     skip: int = 0,
     limit: int = 100,
@@ -438,7 +493,17 @@ def list_organization_users(
     """
     require_super_admin(request)
     
-    org = db.query(Organization).filter(Organization.id == org_id).first()
+    # Convert org_id string to UUID
+    from uuid import UUID as UUIDType
+    try:
+        org_uuid = UUIDType(org_id) if isinstance(org_id, str) else org_id
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid organization ID format"
+        )
+    
+    org = db.query(Organization).filter(Organization.id == org_uuid).first()
     
     if not org:
         raise HTTPException(
@@ -446,7 +511,7 @@ def list_organization_users(
             detail="Organization not found"
         )
     
-    query = db.query(User).filter(User.org_id == org_id)
+    query = db.query(User).filter(User.org_id == org_uuid)
     total = query.count()
     users = query.offset(skip).limit(limit).all()
     
@@ -518,7 +583,7 @@ def get_system_stats(
 
 @router.post("/organizations/{org_id}/reset-password", response_model=dict)
 def reset_organization_user_password(
-    org_id: int,
+    org_id: str,
     request: Request,
     reset_data: ResetPasswordRequest,
     db: Session = Depends(get_db)
@@ -531,8 +596,18 @@ def reset_organization_user_password(
     """
     require_super_admin(request)
     
+    # Convert org_id string to UUID if needed
+    from uuid import UUID as UUIDType
+    try:
+        org_uuid = UUIDType(org_id) if isinstance(org_id, str) else org_id
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid organization ID format"
+        )
+    
     # Verify organization exists
-    org = db.query(Organization).filter(Organization.id == org_id).first()
+    org = db.query(Organization).filter(Organization.id == org_uuid).first()
     if not org:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -541,7 +616,7 @@ def reset_organization_user_password(
     
     # Find user by email in that organization
     user = db.query(User).filter(
-        User.org_id == org_id,
+        User.org_id == org_uuid,
         User.email == reset_data.email
     ).first()
     
@@ -560,6 +635,88 @@ def reset_organization_user_password(
     return {
         "success": True,
         "message": f"Password reset successfully for user '{user.email}' in organization '{org.name}'",
+        "user_id": user.id,
+        "user_email": user.email,
+        "user_name": user.name
+    }
+
+
+@router.post("/organizations/{org_id}/reset-admin-password", response_model=dict)
+def reset_organization_admin_password(
+    org_id: str,
+    request: Request,
+    reset_data: ResetOrgAdminPasswordRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Reset password for the organization admin user (by organization contact email)
+    """
+    require_super_admin(request)
+
+    # Convert org_id string to UUID if needed
+    from uuid import UUID as UUIDType
+    try:
+        org_uuid = UUIDType(org_id) if isinstance(org_id, str) else org_id
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid organization ID format"
+        )
+
+    # Verify organization exists
+    org = db.query(Organization).filter(Organization.id == org_uuid).first()
+    if not org:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Organization not found"
+        )
+
+    admin_roles = ["admin", "owner", "ADMIN", "OWNER"]
+
+    # If email provided, reset only that admin user
+    user = None
+    if reset_data.email:
+        user = db.query(User).filter(
+            User.org_id == org_uuid,
+            User.email == reset_data.email,
+            User.org_role.in_(admin_roles)
+        ).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Admin user with email '{reset_data.email}' not found in organization '{org.name}'"
+            )
+
+    # Prefer admin user matching org contact email
+    if not user and org.contact_email:
+        user = db.query(User).filter(
+            User.org_id == org_uuid,
+            User.email == org.contact_email,
+            User.org_role.in_(admin_roles)
+        ).first()
+
+    # Fallback: first admin/owner user in org
+    if not user:
+        user = db.query(User).filter(
+            User.org_id == org_uuid,
+            User.org_role.in_(admin_roles)
+        ).order_by(User.id.asc()).first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No admin user found in organization '{org.name}'"
+        )
+
+    # Hash and update password
+    user.password_hash = get_password_hash(reset_data.new_password)
+    user.updated_at = datetime.utcnow()
+
+    db.commit()
+
+    return {
+        "success": True,
+        "message": f"Password reset successfully for organization admin '{user.email}'",
         "user_id": user.id,
         "user_email": user.email,
         "user_name": user.name

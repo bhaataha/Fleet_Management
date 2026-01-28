@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useI18n } from '@/lib/i18n'
-import api, { customersApi, sitesApi, materialsApi, driversApi, trucksApi, subcontractorsApi } from '@/lib/api'
+import api, { customersApi, sitesApi, materialsApi, driversApi, trucksApi, subcontractorsApi, organizationApi } from '@/lib/api'
 import { billingUnitLabels, formatDate } from '@/lib/utils'
 import { 
   ArrowLeft, 
@@ -256,12 +256,44 @@ export default function JobDetailPage() {
   const [driver, setDriver] = useState<any>(null)
   const [truck, setTruck] = useState<any>(null)
   const [subcontractor, setSubcontractor] = useState<any>(null)
+  const [messageTemplates, setMessageTemplates] = useState({
+    whatsapp_driver: '🚛 נסיעה #{job_id}\nתאריך: {date}\nמאתר: {from_site}\nלאתר: {to_site}',
+    whatsapp_customer: '🚛 נסיעה #{job_id}\nתאריך: {date}\nמאתר: {from_site}\nלאתר: {to_site}',
+    email_subject: 'נסיעה #{job_id}',
+    email_body: 'שלום {customer_name},\n\nנסיעה #{job_id}\nתאריך: {date}\nמאתר: {from_site}\nלאתר: {to_site}\n\nבברכה,\nTruckFlow'
+  })
 
   useEffect(() => {
     if (params.id) {
       loadJobDetails()
     }
   }, [params.id])
+
+  useEffect(() => {
+    const loadTemplates = async () => {
+      try {
+        const res = await organizationApi.getProfile()
+        const templates = res.data?.settings_json?.message_templates
+        if (templates) {
+          setMessageTemplates((prev) => ({
+            ...prev,
+            ...templates
+          }))
+        }
+      } catch (error) {
+        console.error('Failed to load message templates:', error)
+      }
+    }
+    loadTemplates()
+  }, [])
+  const renderTemplate = (template: string) => {
+    return template
+      .replaceAll('{job_id}', String(job?.id || ''))
+      .replaceAll('{date}', formatDate(job?.scheduled_date || ''))
+      .replaceAll('{customer_name}', customer?.name || '')
+      .replaceAll('{from_site}', fromSite?.name || '')
+      .replaceAll('{to_site}', toSite?.name || '')
+  }
 
   const loadJobDetails = async () => {
     try {
@@ -386,7 +418,7 @@ export default function JobDetailPage() {
   const handlePrint = () => {
     window.print()
   }
-  
+
   const handleSavePDF = async () => {
     try {
       const token = localStorage.getItem('access_token')
@@ -395,15 +427,15 @@ export default function JobDetailPage() {
         router.push('/login')
         return
       }
-      
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api'}/jobs/${params.id}/pdf`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       })
-      
+
       if (!response.ok) throw new Error('Failed to download PDF')
-      
+
       const blob = await response.blob()
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -419,17 +451,6 @@ export default function JobDetailPage() {
     }
   }
   
-  const handleOpenPDFInBrowser = () => {
-    const token = localStorage.getItem('access_token')
-    if (!token) {
-      alert('אנא התחבר מחדש למערכת')
-      router.push('/login')
-      return
-    }
-    const pdfUrl = `http://truckflow.site:8001/api/jobs/${params.id}/pdf?token=${token}`
-    window.open(pdfUrl, '_blank')
-  }
-
   const handleStatusChange = async (newStatus: string) => {
     if (!confirm(`האם לשנות סטטוס ל-${t(`jobs.status.${newStatus}`)}?`)) {
       return
@@ -514,6 +535,47 @@ _נשלח מ-TruckFlow_`
     }
   }
 
+  const handleSendEmail = async () => {
+    const email = customer?.email || ''
+    if (!email) {
+      alert('ללקוח אין אימייל')
+      return
+    }
+
+    try {
+      await api.post(`/jobs/${params.id}/send-email`, {
+        to_email: email,
+        subject: renderTemplate(messageTemplates.email_subject),
+        body: renderTemplate(messageTemplates.email_body),
+        attach_pdf: true
+      })
+      alert('האימייל נשלח בהצלחה')
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail || 'שגיאה בשליחת אימייל'
+      alert(detail)
+    }
+  }
+
+  const openWhatsApp = (phone?: string, message?: string) => {
+    const clean = (phone || '').replace(/[^0-9]/g, '')
+    const hasPhone = clean.length >= 9
+    const text = encodeURIComponent(message || '')
+    const url = hasPhone
+      ? `https://wa.me/972${clean.replace(/^0/, '')}?text=${text}`
+      : `https://web.whatsapp.com/send?text=${text}`
+    window.open(url, '_blank')
+  }
+
+  const handleWhatsAppDriver = () => {
+    const msg = renderTemplate(messageTemplates.whatsapp_driver)
+    openWhatsApp(driver?.phone, msg)
+  }
+
+  const handleWhatsAppCustomer = () => {
+    const msg = renderTemplate(messageTemplates.whatsapp_customer)
+    openWhatsApp(customer?.phone, msg)
+  }
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -559,20 +621,28 @@ _נשלח מ-TruckFlow_`
           
           <div className="flex items-center gap-3">
             <button
-              onClick={handleSendWhatsApp}
-              className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center gap-2 print:hidden"
-              title="שלח ב-WhatsApp"
+              onClick={handleSendEmail}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center gap-2 print:hidden"
+              title="שלח אימייל"
             >
-              <MessageCircle className="w-4 h-4" />
-              שלח ב-WhatsApp
+              <Mail className="w-4 h-4" />
+              שלח אימייל
             </button>
             <button
-              onClick={handleOpenPDFInBrowser}
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-2 print:hidden"
-              title="פתח PDF בדפדפן"
+              onClick={handleWhatsAppDriver}
+              className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors flex items-center gap-2 print:hidden"
+              title="WhatsApp לנהג"
             >
-              <FileText className="w-4 h-4" />
-              צפה ב-PDF
+              <MessageCircle className="w-4 h-4" />
+              WhatsApp לנהג
+            </button>
+            <button
+              onClick={handleWhatsAppCustomer}
+              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors flex items-center gap-2 print:hidden"
+              title="WhatsApp ללקוח"
+            >
+              <MessageCircle className="w-4 h-4" />
+              WhatsApp ללקוח
             </button>
             <button
               onClick={handleSavePDF}

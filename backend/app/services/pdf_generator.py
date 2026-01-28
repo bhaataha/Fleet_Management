@@ -2,7 +2,7 @@
 PDF Generator for Delivery Notes and Job Reports
 תעודות משלוח וסיכומי עבודה
 """
-from reportlab.lib.pagesizes import A4
+from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -11,9 +11,10 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.enums import TA_RIGHT, TA_CENTER
 from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
 from io import BytesIO
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import os
 from bidi.algorithm import get_display
 import arabic_reshaper
@@ -119,16 +120,6 @@ class NumberedCanvas(canvas.Canvas):
         copyright_text = fix_hebrew(f"© {datetime.now().year} TruckFlow. כל הזכויות שמורות.")
         self.drawRightString(A4[0] - 2*cm, 1.7*cm, copyright_text)
         
-        # Developer info
-        self.setFillColor(colors.HexColor('#1e40af'))
-        self.setFont(FONT_NAME, 8)
-        dev_text = fix_hebrew("פותח ונבנה על ידי")
-        self.drawRightString(A4[0] - 2*cm, 1.2*cm, dev_text)
-        
-        self.setFont(FONT_NAME, 9)
-        self.setFillColor(colors.HexColor('#374151'))
-        self.drawRightString(A4[0] - 2*cm, 0.7*cm, fix_hebrew("נינגה תקשורת והנדסה") + " • 054-774-8823")
-        
         # Page number
         self.setFillColor(colors.HexColor('#6b7280'))
         self.setFont(FONT_NAME, 8)
@@ -136,6 +127,223 @@ class NumberedCanvas(canvas.Canvas):
         self.drawString(2*cm, 0.7*cm, page_text)
         
         self.restoreState()
+
+
+class StatementCanvas(canvas.Canvas):
+    """Canvas for statement PDF with org header and TruckFlow footer"""
+
+    def __init__(self, org_info: Dict[str, Any], *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states = []
+        self.org_info = org_info or {}
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.draw_page_decorations(num_pages)
+            canvas.Canvas.showPage(self)
+        canvas.Canvas.save(self)
+
+    def _resolve_logo_path(self, logo_url: Optional[str]) -> Optional[str]:
+        if not logo_url:
+            return None
+        if logo_url.startswith('/uploads/'):
+            return f"/app{logo_url}"
+        return None
+
+    def draw_page_decorations(self, page_count: int):
+        self.saveState()
+
+        page_width, page_height = self._pagesize
+
+        # Header background (light)
+        self.setFillColor(colors.HexColor('#f8fafc'))
+        self.rect(0, page_height - 2.2*cm, page_width, 2.2*cm, fill=1, stroke=0)
+
+        # Header line
+        self.setStrokeColor(colors.HexColor('#e5e7eb'))
+        self.setLineWidth(1)
+        self.line(2*cm, page_height - 2.2*cm, page_width - 2*cm, page_height - 2.2*cm)
+
+        # Logo (left)
+        logo_url = self.org_info.get('logo_url')
+        logo_path = self._resolve_logo_path(logo_url)
+        if logo_path and os.path.exists(logo_path):
+            try:
+                img = ImageReader(logo_path)
+                self.drawImage(img, 2*cm, page_height - 1.9*cm, width=3*cm, height=1.4*cm, preserveAspectRatio=True, mask='auto')
+            except Exception:
+                pass
+
+        # Org name and email (right)
+        org_name = self.org_info.get('org_name') or ""
+        org_email = self.org_info.get('org_email') or ""
+        org_phone = self.org_info.get('org_phone') or ""
+        org_vat = self.org_info.get('org_vat') or ""
+        self.setFillColor(colors.HexColor('#111827'))
+        self.setFont(FONT_NAME, 14)
+        self.drawRightString(page_width - 2*cm, page_height - 1.1*cm, fix_hebrew(org_name))
+        details = []
+        if org_email:
+            details.append(org_email)
+        if org_phone:
+            details.append(f"{fix_hebrew('טל')}: {org_phone}")
+        if org_vat:
+            details.append(f"{fix_hebrew('ח.פ')}: {org_vat}")
+
+        if details:
+            self.setFont(FONT_NAME, 9)
+            self.setFillColor(colors.HexColor('#6b7280'))
+            self.drawRightString(page_width - 2*cm, page_height - 1.6*cm, " | ".join(details))
+
+        # Footer
+        self.setFillColor(colors.HexColor('#f3f4f6'))
+        self.rect(0, 0, page_width, 2.6*cm, fill=1, stroke=0)
+
+        self.setStrokeColor(colors.HexColor('#e5e7eb'))
+        self.setLineWidth(1)
+        self.line(2*cm, 2.5*cm, page_width - 2*cm, 2.5*cm)
+
+        # TruckFlow brand (left)
+        self.setFillColor(colors.HexColor('#1e40af'))
+        self.setFont(FONT_NAME, 11)
+        self.drawString(2*cm, 1.7*cm, "TruckFlow")
+        self.setFillColor(colors.HexColor('#6b7280'))
+        self.setFont(FONT_NAME, 8)
+        self.drawString(2*cm, 1.2*cm, "FLEET MANAGEMENT")
+
+        # Footer details (right)
+        self.setFillColor(colors.HexColor('#6b7280'))
+        self.setFont(FONT_NAME, 8)
+        self.drawRightString(page_width - 2*cm, 1.9*cm, fix_hebrew("© 2026 TruckFlow. כל הזכויות שמורות."))
+        self.drawRightString(page_width - 2*cm, 1.3*cm, fix_hebrew("פותח ונבנה על ידי נינגה תקשורת והנדסה"))
+        self.drawRightString(page_width - 2*cm, 0.9*cm, fix_hebrew("054-774-8823"))
+
+        # Page number
+        self.setFont(FONT_NAME, 8)
+        page_text = fix_hebrew(f"עמוד {self._pageNumber} מתוך {page_count}")
+        self.drawRightString(page_width - 2*cm, 0.4*cm, page_text)
+
+        self.restoreState()
+
+
+def _normalize_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (int, float)):
+        return str(value)
+    return str(value)
+
+
+def generate_simple_report_pdf(
+    title: str,
+    subtitle: str,
+    headers: list,
+    rows: list,
+    org_info: Optional[Dict[str, Any]] = None,
+) -> BytesIO:
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=2*cm, leftMargin=2*cm, topMargin=2.5*cm, bottomMargin=2.5*cm)
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='HebrewTitle', fontName=FONT_NAME, fontSize=18, alignment=TA_CENTER, spaceAfter=12))
+    styles.add(ParagraphStyle(name='HebrewSubtitle', fontName=FONT_NAME, fontSize=10, alignment=TA_CENTER, textColor=colors.HexColor('#6b7280'), spaceAfter=10))
+    styles.add(ParagraphStyle(name='HebrewCell', fontName=FONT_NAME, fontSize=9, alignment=TA_RIGHT))
+
+    elements = []
+    elements.append(Paragraph(fix_hebrew(title), styles['HebrewTitle']))
+    if subtitle:
+        elements.append(Paragraph(fix_hebrew(subtitle), styles['HebrewSubtitle']))
+
+    table_data = []
+    table_data.append([fix_hebrew(_normalize_text(h)) for h in headers])
+    for row in rows:
+        table_data.append([fix_hebrew(_normalize_text(cell)) for cell in row])
+
+    table = Table(table_data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e5e7eb')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#111827')),
+        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+        ('FONTNAME', (0, 0), (-1, -1), FONT_NAME),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d1d5db')),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9fafb')])
+    ]))
+
+    elements.append(table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
+class CustomerReportPDF:
+    def generate(self, payload: Dict[str, Any], org_info: Optional[Dict[str, Any]] = None) -> BytesIO:
+        title = "דוח לקוח"
+        subtitle = f"{payload.get('customer_name', '')} | {payload.get('period_from', '')} - {payload.get('period_to', '')}"
+        headers = ["תאריך", "נסיעה #", "מאתר", "לאתר", "חומר", "כמות", "יחידה", "מחיר יחידה", "סה\"כ"]
+        rows = [
+            [
+                line.get('date', ''),
+                line.get('job_id', ''),
+                line.get('from_site', ''),
+                line.get('to_site', ''),
+                line.get('material', ''),
+                line.get('quantity', ''),
+                translate_unit(line.get('unit', '')),
+                line.get('unit_price', ''),
+                line.get('total', '')
+            ]
+            for line in payload.get('lines', [])
+        ]
+        return generate_simple_report_pdf(title, subtitle, headers, rows, org_info)
+
+
+class ARAgingPDF:
+    def generate(self, payload: Dict[str, Any], org_info: Optional[Dict[str, Any]] = None) -> BytesIO:
+        title = "דוח חובות לקוחות"
+        subtitle = f"נכון ליום: {payload.get('as_of_date', '')}"
+        headers = ["לקוח", "0-30", "31-60", "61-90", "90+", "סה\"כ"]
+        rows = [
+            [
+                line.get('customer', ''),
+                line.get('current', ''),
+                line.get('days_30', ''),
+                line.get('days_60', ''),
+                line.get('days_90', ''),
+                line.get('total', '')
+            ]
+            for line in payload.get('lines', [])
+        ]
+        return generate_simple_report_pdf(title, subtitle, headers, rows, org_info)
+
+
+class DailyJobsPDF:
+    def generate(self, payload: Dict[str, Any], org_info: Optional[Dict[str, Any]] = None) -> BytesIO:
+        title = "דוח נסיעות יומי"
+        subtitle = f"תאריך: {payload.get('date', '')}"
+        headers = ["נסיעה #", "לקוח", "נהג", "משאית", "מאתר", "לאתר", "חומר", "כמות", "יחידה", "סטטוס"]
+        rows = [
+            [
+                line.get('job_id', ''),
+                line.get('customer', ''),
+                line.get('driver', ''),
+                line.get('truck', ''),
+                line.get('from_site', ''),
+                line.get('to_site', ''),
+                line.get('material', ''),
+                line.get('quantity', ''),
+                translate_unit(line.get('unit', '')),
+                line.get('status', '')
+            ]
+            for line in payload.get('lines', [])
+        ]
+        return generate_simple_report_pdf(title, subtitle, headers, rows, org_info)
 
 
 class DeliveryNotePDF:
@@ -204,13 +412,31 @@ class DeliveryNotePDF:
         ]))
         story.append(line_table)
         story.append(Spacer(1, 0.5*cm))
+
+        # Document Info (professional header box)
+        issue_date = datetime.now().strftime('%d/%m/%Y %H:%M')
+        doc_number = f"DN-{job_data.get('id', 'N/A')}"
+        doc_info = [
+            [fix_hebrew('מספר תעודה'), doc_number, fix_hebrew('תאריך הנפקה'), issue_date],
+            [fix_hebrew('מספר נסיעה'), f"#{job_data.get('id', 'N/A')}", fix_hebrew('סטטוס'), self._get_status_hebrew(job_data.get('status', 'unknown'))],
+        ]
+        doc_table = Table(doc_info, colWidths=[3.5*cm, 5*cm, 3.5*cm, 5*cm])
+        doc_table.setStyle(TableStyle([
+            ('FONT', (0, 0), (-1, -1), FONT_NAME, 10),
+            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#eef2ff')),
+            ('BACKGROUND', (2, 0), (2, -1), colors.HexColor('#eef2ff')),
+            ('GRID', (0, 0), (-1, -1), 0.75, colors.HexColor('#c7d2fe')),
+            ('PADDING', (0, 0), (-1, -1), 8),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#1e40af')),
+            ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#1e40af')),
+        ]))
+        story.append(doc_table)
+        story.append(Spacer(1, 0.7*cm))
         
         # Job Info Table with enhanced styling
-        job_info = [
-            [f"#{job_data.get('id', 'N/A')}", fix_hebrew('נסיעה #')],
-            [job_data.get('scheduled_date', 'N/A'), fix_hebrew('תאריך:')],
-            [self._get_status_hebrew(job_data.get('status', 'unknown')), fix_hebrew('סטטוס:')],
-        ]
+        job_info = []
         
         if job_data.get('customer_name'):
             customer_info = fix_hebrew(job_data['customer_name'])
@@ -233,8 +459,9 @@ class DeliveryNotePDF:
             ('FONTSIZE', (1, 0), (1, -1), 10),
             ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#1e40af')),
         ]))
-        story.append(job_table)
-        story.append(Spacer(1, 1*cm))
+        if job_info:
+            story.append(job_table)
+            story.append(Spacer(1, 1*cm))
         
         # Route Section
         story.append(Paragraph(fix_hebrew('מסלול'), section_style))
@@ -378,15 +605,17 @@ class DeliveryNotePDF:
         # Signature section
         story.append(Spacer(1, 1*cm))
         signature_data = [
-            ['____________', fix_hebrew('תאריך:'), '________________________', fix_hebrew('חתימת מקבל:')],
+            [fix_hebrew('שם המקבל:'), '________________________', fix_hebrew('חתימת מקבל:'), '________________________'],
+            [fix_hebrew('תאריך:'), '____________', fix_hebrew('חותמת:'), '____________'],
         ]
-        sig_table = Table(signature_data, colWidths=[5*cm, 2*cm, 7*cm, 3*cm])
+        sig_table = Table(signature_data, colWidths=[3*cm, 6.5*cm, 3*cm, 4.5*cm])
         sig_table.setStyle(TableStyle([
             ('FONT', (0, 0), (-1, -1), FONT_NAME, 11),
             ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TEXTCOLOR', (0, 0), (0, 0), colors.HexColor('#1e40af')),
-            ('TEXTCOLOR', (2, 0), (2, 0), colors.HexColor('#1e40af')),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#1e40af')),
+            ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#1e40af')),
+            ('PADDING', (0, 0), (-1, -1), 6),
         ]))
         story.append(sig_table)
         
@@ -408,3 +637,285 @@ class DeliveryNotePDF:
             'CANCELED': fix_hebrew('בוטל')
         }
         return status_map.get(status.upper(), status)
+
+
+class StatementPDF:
+    """Generate professional monthly statement PDF"""
+
+    def __init__(self):
+        self.buffer = BytesIO()
+        self.pagesize = A4
+        self.width, self.height = self.pagesize
+
+    def generate(self, statement_data: Dict[str, Any]) -> BytesIO:
+        doc = SimpleDocTemplate(
+            self.buffer,
+            pagesize=self.pagesize,
+            rightMargin=2*cm,
+            leftMargin=2*cm,
+            topMargin=3.2*cm,
+            bottomMargin=3.2*cm
+        )
+
+        story = []
+        styles = getSampleStyleSheet()
+
+        title_style = ParagraphStyle(
+            'Title',
+            parent=styles['Heading1'],
+            alignment=TA_CENTER,
+            fontSize=21,
+            fontName=FONT_NAME,
+            textColor=colors.HexColor('#0f172a'),
+            spaceAfter=6,
+        )
+
+        subtitle_style = ParagraphStyle(
+            'Subtitle',
+            parent=styles['Normal'],
+            alignment=TA_CENTER,
+            fontSize=10,
+            fontName=FONT_NAME,
+            textColor=colors.HexColor('#64748b'),
+            spaceAfter=12,
+        )
+
+        section_style = ParagraphStyle(
+            'Section',
+            parent=styles['Normal'],
+            alignment=TA_RIGHT,
+            fontSize=12,
+            fontName=FONT_NAME,
+            textColor=colors.HexColor('#1e40af'),
+            spaceAfter=6,
+            spaceBefore=10,
+        )
+
+        story.append(Paragraph(fix_hebrew('סיכום חודשי ללקוח'), title_style))
+        story.append(Paragraph(fix_hebrew('דוח חיוב מרכזי לתקופה'), subtitle_style))
+
+        # Statement header
+        info = [
+            [fix_hebrew('מספר סיכום'), statement_data.get('number', ''), fix_hebrew('תאריך הפקה'), statement_data.get('issued_at', '')],
+            [fix_hebrew('לקוח'), fix_hebrew(statement_data.get('customer_name', '')),
+             fix_hebrew('תקופה'), statement_data.get('period', '')],
+        ]
+        info_table = Table(info, colWidths=[3.4*cm, 6.2*cm, 3.4*cm, 4.2*cm])
+        info_table.setStyle(TableStyle([
+            ('FONT', (0, 0), (-1, -1), FONT_NAME, 10),
+            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+            ('PADDING', (0, 0), (-1, -1), 8),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#1e40af')),
+            ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#1e40af')),
+        ]))
+        story.append(info_table)
+        story.append(Spacer(1, 0.6*cm))
+
+        # Summary totals
+        story.append(Paragraph(fix_hebrew('סיכום'), section_style))
+        totals = [
+            [fix_hebrew('סה"כ לפני מע"מ'), statement_data.get('subtotal', ''),
+             fix_hebrew('מע"מ'), statement_data.get('tax', '')],
+            [fix_hebrew('סה"כ לתשלום'), statement_data.get('total', ''),
+             fix_hebrew('יתרה'), statement_data.get('balance', '')],
+        ]
+        totals_table = Table(totals, colWidths=[3.4*cm, 6.2*cm, 3.4*cm, 4.2*cm])
+        totals_table.setStyle(TableStyle([
+            ('FONT', (0, 0), (-1, -1), FONT_NAME, 10),
+            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ecfdf3')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#bbf7d0')),
+            ('PADDING', (0, 0), (-1, -1), 8),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#166534')),
+            ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#166534')),
+        ]))
+        story.append(totals_table)
+        story.append(Spacer(1, 0.6*cm))
+
+        # Lines table
+        story.append(Paragraph(fix_hebrew('פירוט נסיעות'), section_style))
+        header = [
+            fix_hebrew('סה"כ'),
+            fix_hebrew('מחיר יחידה'),
+            fix_hebrew('כמות'),
+            fix_hebrew('משאית'),
+            fix_hebrew('חומר'),
+            fix_hebrew('נסיעה #'),
+        ]
+        rows = [header]
+        for line in statement_data.get('lines', []):
+            rows.append([
+                str(line.get('total', '')),
+                str(line.get('unit_price', '')),
+                str(line.get('qty', '')),
+                fix_hebrew(line.get('truck_plate') or '-'),
+                fix_hebrew(line.get('material_name') or '-'),
+                f"#{line.get('job_id', '')}",
+            ])
+
+        lines_table = Table(rows, colWidths=[2.8*cm, 2.6*cm, 2.2*cm, 3*cm, 4.2*cm, 2.1*cm])
+        lines_table.setStyle(TableStyle([
+            ('FONT', (0, 0), (-1, -1), FONT_NAME, 9),
+            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e7ff')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+            ('PADDING', (0, 0), (-1, -1), 6),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+        ]))
+        story.append(lines_table)
+
+        org_info = {
+            "org_name": statement_data.get('org_name'),
+            "org_email": statement_data.get('org_email'),
+            "org_phone": statement_data.get('org_phone'),
+            "org_vat": statement_data.get('org_vat'),
+            "logo_url": statement_data.get('logo_url'),
+        }
+
+        def _canvasmaker(*args, **kwargs):
+            return StatementCanvas(org_info, *args, **kwargs)
+
+        doc.build(story, canvasmaker=_canvasmaker)
+        self.buffer.seek(0)
+        return self.buffer
+
+
+class SubcontractorPaymentPDF:
+    """Generate subcontractor payment report PDF"""
+
+    def __init__(self):
+        self.buffer = BytesIO()
+        self.pagesize = landscape(A4)
+        self.width, self.height = self.pagesize
+
+    def generate(self, report_data: Dict[str, Any], org_info: Dict[str, Any]) -> BytesIO:
+        doc = SimpleDocTemplate(
+            self.buffer,
+            pagesize=self.pagesize,
+            rightMargin=1.5*cm,
+            leftMargin=1.5*cm,
+            topMargin=3.0*cm,
+            bottomMargin=3.0*cm
+        )
+
+        story = []
+        styles = getSampleStyleSheet()
+
+        title_style = ParagraphStyle(
+            'Title',
+            parent=styles['Heading1'],
+            alignment=TA_CENTER,
+            fontSize=20,
+            fontName=FONT_NAME,
+            textColor=colors.HexColor('#0f172a'),
+            spaceAfter=6,
+        )
+
+        subtitle_style = ParagraphStyle(
+            'Subtitle',
+            parent=styles['Normal'],
+            alignment=TA_CENTER,
+            fontSize=10,
+            fontName=FONT_NAME,
+            textColor=colors.HexColor('#64748b'),
+            spaceAfter=12,
+        )
+
+        section_style = ParagraphStyle(
+            'Section',
+            parent=styles['Normal'],
+            alignment=TA_RIGHT,
+            fontSize=12,
+            fontName=FONT_NAME,
+            textColor=colors.HexColor('#1e40af'),
+            spaceAfter=6,
+            spaceBefore=10,
+        )
+
+        story.append(Paragraph(fix_hebrew('דוח תשלום לקבלן משנה'), title_style))
+        story.append(Paragraph(fix_hebrew('חישוב תשלום לפי נסיעות ומחירון'), subtitle_style))
+
+        info = [
+            [fix_hebrew('קבלן'), fix_hebrew(report_data.get('subcontractor_name', '')),
+             fix_hebrew('טלפון'), fix_hebrew(report_data.get('subcontractor_phone', '') or '-')],
+            [fix_hebrew('משאית'), fix_hebrew(report_data.get('subcontractor_plate', '') or '-'),
+             fix_hebrew('תקופה'), f"{report_data.get('period_from', '')} - {report_data.get('period_to', '')}"],
+            [fix_hebrew('תאריך הפקה'), report_data.get('generated_at', ''), '', '']
+        ]
+        info_table = Table(info, colWidths=[3.2*cm, 6.2*cm, 3.2*cm, 4.4*cm])
+        info_table.setStyle(TableStyle([
+            ('FONT', (0, 0), (-1, -1), FONT_NAME, 10),
+            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+            ('PADDING', (0, 0), (-1, -1), 8),
+            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#1e40af')),
+            ('TEXTCOLOR', (2, 0), (2, -1), colors.HexColor('#1e40af')),
+        ]))
+        story.append(info_table)
+        story.append(Spacer(1, 0.6*cm))
+
+        totals = report_data.get('totals', {})
+        totals_table = Table([
+            [fix_hebrew('סה"כ נסיעות'), totals.get('total_jobs', '0'), fix_hebrew('סה"כ כמות'), totals.get('total_quantity', '0')],
+            [fix_hebrew('סה"כ לתשלום'), totals.get('total_amount', '0'), '', '']
+        ], colWidths=[3.2*cm, 6.2*cm, 3.2*cm, 4.4*cm])
+        totals_table.setStyle(TableStyle([
+            ('FONT', (0, 0), (-1, -1), FONT_NAME, 10),
+            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ecfdf3')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#bbf7d0')),
+            ('PADDING', (0, 0), (-1, -1), 8),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#166534')),
+        ]))
+        story.append(totals_table)
+        story.append(Spacer(1, 0.6*cm))
+
+        story.append(Paragraph(fix_hebrew('פירוט נסיעות'), section_style))
+        header = [
+            fix_hebrew('סה"כ'),
+            fix_hebrew('יחידת חיוב'),
+            fix_hebrew('כמות'),
+            fix_hebrew('חומר'),
+            fix_hebrew('לאתר'),
+            fix_hebrew('מאתר'),
+            fix_hebrew('לקוח'),
+            fix_hebrew('נסיעה #'),
+            fix_hebrew('תאריך'),
+        ]
+        rows = [header]
+        for line in report_data.get('lines', []):
+            rows.append([
+                line.get('price', ''),
+                fix_hebrew(line.get('unit', '') or '-'),
+                line.get('quantity', ''),
+                fix_hebrew(translate_unit(line.get('unit')) if line.get('unit') else '-'),
+                fix_hebrew(line.get('material') or '-'),
+                fix_hebrew(line.get('to_site') or '-'),
+                fix_hebrew(line.get('from_site') or '-'),
+                fix_hebrew(line.get('customer') or '-'),
+                f"#{line.get('job_id', '')}",
+                line.get('date', ''),
+            ])
+
+        lines_table = Table(rows, colWidths=[2.2*cm, 2.0*cm, 1.7*cm, 3.0*cm, 3.1*cm, 3.1*cm, 3.0*cm, 1.9*cm, 2.0*cm])
+        lines_table.setStyle(TableStyle([
+            ('FONT', (0, 0), (-1, -1), FONT_NAME, 7),
+            ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e0e7ff')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#1e3a8a')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e5e7eb')),
+            ('PADDING', (0, 0), (-1, -1), 5),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8fafc')]),
+        ]))
+        story.append(lines_table)
+
+        def _canvasmaker(*args, **kwargs):
+            return StatementCanvas(org_info, *args, **kwargs)
+
+        doc.build(story, canvasmaker=_canvasmaker)
+        self.buffer.seek(0)
+        return self.buffer

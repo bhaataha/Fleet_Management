@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useI18n } from '@/lib/i18n'
-import { customersApi, jobsApi } from '@/lib/api'
-import { ArrowRight, Printer, Download, AlertCircle, Clock, CheckCircle } from 'lucide-react'
+import api, { customersApi, jobsApi } from '@/lib/api'
+import { ArrowRight, Printer, Download, AlertCircle, Clock, CheckCircle, Mail, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 import type { Customer, Job } from '@/types'
 
@@ -128,7 +128,16 @@ export default function ARAgingReportPage() {
     window.print()
   }
 
-  const handleExport = () => {
+  const encodeBase64 = (text: string) => {
+    const bytes = new TextEncoder().encode(text)
+    let binary = ''
+    bytes.forEach((b) => {
+      binary += String.fromCharCode(b)
+    })
+    return btoa(binary)
+  }
+
+  const buildCsv = () => {
     const headers = ['לקוח', 'שוטף (0-30)', '31-60 יום', '61-90 יום', '90+ יום', 'סה"כ']
     const rows = agingData.map(a => [
       a.customer_name,
@@ -139,12 +148,71 @@ export default function ARAgingReportPage() {
       a.total.toFixed(2)
     ])
 
-    const csv = [headers, ...rows].map(row => row.join(',')).join('\n')
+    return [headers, ...rows].map(row => row.join(',')).join('\n')
+  }
+
+  const handleExport = () => {
+    const csv = buildCsv()
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
     const link = document.createElement('a')
     link.href = URL.createObjectURL(blob)
     link.download = `ar-aging-${asOfDate}.csv`
     link.click()
+  }
+
+  const handleSendEmail = async () => {
+    if (agingData.length === 0) return
+    const toEmail = window.prompt('לאיזה אימייל לשלוח?', '')
+    if (!toEmail) return
+    try {
+      const csv = buildCsv()
+      const base64 = encodeBase64('\ufeff' + csv)
+      await api.post('/reports/send-email', {
+        to_email: toEmail,
+        subject: `דוח חובות לקוחות ${asOfDate}`,
+        body: `מצורף דוח חובות לקוחות נכון ל-${asOfDate}.`,
+        attachment_filename: `ar-aging-${asOfDate}.csv`,
+        attachment_mime: 'text/csv',
+        attachment_base64: base64
+      })
+      alert('האימייל נשלח בהצלחה')
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail || 'שגיאה בשליחת אימייל'
+      alert(detail)
+    }
+  }
+
+  const handleSendWhatsApp = () => {
+    const send = async () => {
+      if (agingData.length === 0) return
+      try {
+        const payload = {
+          as_of_date: asOfDate,
+          lines: agingData.map(a => ({
+            customer: a.customer_name,
+            current: a.current.toFixed(2),
+            days_30: a.days_30.toFixed(2),
+            days_60: a.days_60.toFixed(2),
+            days_90: a.days_90.toFixed(2),
+            total: a.total.toFixed(2)
+          }))
+        }
+
+        const shareRes = await api.post('/reports/ar-aging/share', payload)
+        const shareUrl = shareRes.data?.share_url
+        const phone = window.prompt('לאיזה מספר לשלוח ב-WhatsApp?', '') || ''
+        const clean = phone.replace(/[^0-9]/g, '')
+        const message = `דוח חובות לקוחות\nנכון ליום: ${asOfDate}\nPDF: ${shareUrl}`
+        const url = clean.length >= 9
+          ? `https://wa.me/972${clean.replace(/^0/, '')}?text=${encodeURIComponent(message)}`
+          : `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`
+        window.open(url, '_blank')
+      } catch (error: any) {
+        const detail = error?.response?.data?.detail || 'שגיאה ביצירת קישור PDF'
+        alert(detail)
+      }
+    }
+    send()
   }
 
   return (
@@ -162,6 +230,22 @@ export default function ARAgingReportPage() {
             </div>
           </div>
           <div className="flex gap-3">
+            <button
+              onClick={handleSendEmail}
+              disabled={agingData.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              <Mail className="w-5 h-5" />
+              שלח אימייל
+            </button>
+            <button
+              onClick={handleSendWhatsApp}
+              disabled={agingData.length === 0}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors disabled:opacity-50"
+            >
+              <MessageCircle className="w-5 h-5" />
+              שלח WhatsApp
+            </button>
             <button
               onClick={handleExport}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"

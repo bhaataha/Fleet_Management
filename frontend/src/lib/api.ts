@@ -306,6 +306,9 @@ export const superAdminApi = {
   // Password Reset
   resetOrganizationPassword: (orgId: string, data: { email: string; new_password: string }) =>
     api.post(`/super-admin/organizations/${orgId}/reset-password`, data),
+
+  resetOrganizationAdminPassword: (orgId: string, data: { new_password: string; email?: string }) =>
+    api.post(`/super-admin/organizations/${orgId}/reset-admin-password`, data),
   
   // System Stats
   getSystemStats: () => api.get<any>("/super-admin/stats"),
@@ -430,6 +433,55 @@ export const expensesApi = {
       total_expenses: number
       total_count: number
     }>('/expenses/summary/by-category', { params }),
+}
+
+// Statements & Payments API
+export const statementsApi = {
+  list: (params?: { customer_id?: number; status?: string }) =>
+    api.get<any[]>('/statements', { params }),
+
+  generate: (data: {
+    customer_id: number
+    period_from: string
+    period_to: string
+    job_ids?: number[]
+  }) => api.post<any>('/statements/generate', data),
+
+  updateStatus: (statementId: number, status: string) =>
+    api.patch(`/statements/${statementId}/status`, null, { params: { status } }),
+
+  downloadPdf: (statementId: number) =>
+    api.get(`/statements/${statementId}/pdf`, { responseType: 'blob' }),
+}
+
+export const organizationApi = {
+  getProfile: () => api.get<any>('/organization'),
+  updateProfile: (data: Partial<{
+    display_name: string
+    contact_name: string
+    contact_email: string
+    contact_phone: string
+    vat_id: string
+    address: string
+    city: string
+    logo_url: string
+    settings_json: Record<string, any>
+  }>) => api.patch<any>('/organization', data),
+  uploadLogo: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    return api.post<any>('/organization/logo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  }
+}
+
+export const paymentsApi = {
+  create: (data: { customer_id: number; amount: number; paid_at: string; method: string; reference?: string }) =>
+    api.post<{ id: number; message: string }>('/payments', data),
+
+  allocate: (paymentId: number, allocations: Array<{ statement_id: number; amount: number }>) =>
+    api.post('/payments/' + paymentId + '/allocate', allocations),
 }
 
 // Vehicle Types API

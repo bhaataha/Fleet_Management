@@ -4,11 +4,12 @@ from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional, Union
 from decimal import Decimal
 from app.core.database import get_db
-from app.models import Job, JobStatus, JobStatusEvent, BillingUnit, ShareUrl, Driver
+from app.models import Job, JobStatus, JobStatusEvent, BillingUnit, ShareUrl, Driver, Organization
 from app.models.alert import AlertType, AlertSeverity, AlertCategory
 from app.middleware.tenant import get_current_org_id, get_current_user_id
 from app.core.security import create_access_token
 from app.services.pdf_generator import DeliveryNotePDF
+from app.services.email_service import send_email_smtp
 from app.services.alert_service import AlertService
 from app.schemas.alert import AlertCreate
 from pydantic import BaseModel
@@ -134,7 +135,7 @@ class JobResponse(JobBase):
     pricing_total: Optional[float]
     manual_override_total: Optional[float]
     manual_override_reason: Optional[str]
-    is_billable: bool
+    is_billable: Optional[bool] = False
     created_at: datetime
     status_events: List[JobStatusEventResponse] = []
     
@@ -158,6 +159,13 @@ class JobStatusUpdate(BaseModel):
     note: Optional[str] = None
     lat: Optional[float] = None
     lng: Optional[float] = None
+
+
+class JobEmailSendRequest(BaseModel):
+    to_email: str
+    subject: Optional[str] = None
+    body: Optional[str] = None
+    attach_pdf: bool = True
 
 
 @router.get("", response_model=List[JobResponse])
@@ -599,3 +607,81 @@ async def download_job_pdf(
             "Access-Control-Expose-Headers": "Content-Disposition"
         }
     )
+
+
+@router.post("/{job_id}/send-email", response_model=dict)
+async def send_job_email(
+    job_id: int,
+    email_data: JobEmailSendRequest,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Send job delivery note via SMTP email using organization SMTP settings.
+    """
+    org_id = get_current_org_id(request)
+
+    db_job = db.query(Job).options(
+        joinedload(Job.customer),
+        joinedload(Job.from_site),
+        joinedload(Job.to_site),
+        joinedload(Job.material),
+        joinedload(Job.driver),
+        joinedload(Job.truck)
+    ).filter(Job.id == job_id, Job.org_id == org_id).first()
+
+    if not db_job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    org = db.query(Organization).filter(Organization.id == org_id).first()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    settings_json = org.settings_json or {}
+    smtp_settings = settings_json.get("smtp")
+    if not smtp_settings:
+        raise HTTPException(status_code=400, detail="SMTP settings not configured")
+
+    subject = email_data.subject or f"נסיעה #{db_job.id}"
+    body = email_data.body or ""
+
+    attachments = []
+    if email_data.attach_pdf:
+        job_data = {
+            'id': db_job.id,
+            'scheduled_date': db_job.scheduled_date.strftime('%d/%m/%Y') if db_job.scheduled_date else 'N/A',
+            'status': db_job.status.value if db_job.status else 'PLANNED',
+            'customer_name': db_job.customer.name if db_job.customer else None,
+            'from_site_name': db_job.from_site.name if db_job.from_site else 'N/A',
+            'from_site_address': db_job.from_site.address if db_job.from_site else '-',
+            'to_site_name': db_job.to_site.name if db_job.to_site else 'N/A',
+            'to_site_address': db_job.to_site.address if db_job.to_site else '-',
+            'material_name': db_job.material.name if db_job.material else 'N/A',
+            'planned_qty': float(db_job.planned_qty) if db_job.planned_qty else 0,
+            'actual_qty': float(db_job.actual_qty) if db_job.actual_qty else None,
+            'unit': db_job.unit.value if db_job.unit else 'TON',
+            'driver_name': db_job.driver.name if db_job.driver else None,
+            'truck_plate': db_job.truck.plate_number if db_job.truck else None,
+            'notes': db_job.notes,
+            'manual_override_total': float(db_job.manual_override_total) if db_job.manual_override_total else None,
+            'manual_override_reason': db_job.manual_override_reason if db_job.manual_override_reason else None
+        }
+        pdf_gen = DeliveryNotePDF()
+        pdf_buffer = pdf_gen.generate(job_data)
+        pdf_bytes = pdf_buffer.getvalue()
+        attachments.append((f"delivery_note_{db_job.id}.pdf", pdf_bytes, "application/pdf"))
+
+    try:
+        send_email_smtp(
+            smtp_settings=smtp_settings,
+            to_email=email_data.to_email,
+            subject=subject,
+            body=body,
+            attachments=attachments
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send email: {str(e)}")
+
+    return {"success": True, "message": "Email sent"}

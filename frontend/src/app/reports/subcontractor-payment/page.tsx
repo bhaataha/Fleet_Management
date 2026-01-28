@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
-import { jobsApi, subcontractorsApi } from '@/lib/api'
-import { formatDate } from '@/lib/utils'
-import { Download, Printer } from 'lucide-react'
+import Combobox from '@/components/ui/Combobox'
+import api, { jobsApi, subcontractorsApi } from '@/lib/api'
+import { formatDate, billingUnitLabels } from '@/lib/utils'
+import { Download, Printer, Mail, MessageCircle } from 'lucide-react'
 
 export default function SubcontractorPaymentReport() {
   // Calculate default dates: first and last day of current month
@@ -223,11 +224,184 @@ export default function SubcontractorPaymentReport() {
     link.click()
   }
 
+  const handleDownloadPdf = async () => {
+    if (!selectedSubcontractorId || jobs.length === 0) return
+    try {
+      const payload = {
+        subcontractor_name: selectedSubcontractor?.name || `קבלן #${selectedSubcontractorId}`,
+        subcontractor_plate: selectedSubcontractor?.truck_plate_number || '',
+        subcontractor_phone: selectedSubcontractor?.phone || '',
+        period_from: dateFrom,
+        period_to: dateTo,
+        generated_at: formatDate(new Date()),
+        totals: {
+          total_jobs: summary.total_jobs,
+          total_quantity: summary.total_quantity.toFixed(2),
+          total_amount: summary.total_to_pay.toFixed(2)
+        },
+        lines: jobs.map((job) => ({
+          date: formatDate(job.scheduled_date),
+          job_id: job.id,
+          customer: job.customer?.name || '',
+          from_site: job.from_site?.name || '',
+          to_site: job.to_site?.name || '',
+          material: job.material?.name || '',
+          quantity: (job.actual_qty || job.planned_qty || 0).toFixed(2),
+          unit: job.subcontractor_billing_unit || job.unit,
+          price: (job.calculated_price || 0).toFixed(2),
+          status: job.status
+        }))
+      }
+
+      const res = await api.post('/reports/subcontractor-payment/pdf', payload, {
+        responseType: 'blob'
+      })
+      const blob = new Blob([res.data], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `subcontractor_payment_${dateFrom}_${dateTo}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Failed to download subcontractor report PDF:', error)
+      alert('שגיאה בהורדת PDF')
+    }
+  }
+
+  const blobToBase64 = (blob: Blob) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      resolve(result.split(',')[1] || '')
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+
+  const handleSendEmail = async () => {
+    if (!selectedSubcontractorId || jobs.length === 0) return
+    const toEmail = window.prompt('לאיזה אימייל לשלוח?', '')
+    if (!toEmail) return
+
+    try {
+      const payload = {
+        subcontractor_name: selectedSubcontractor?.name || `קבלן #${selectedSubcontractorId}`,
+        subcontractor_plate: selectedSubcontractor?.truck_plate_number || '',
+        subcontractor_phone: selectedSubcontractor?.phone || '',
+        period_from: dateFrom,
+        period_to: dateTo,
+        generated_at: formatDate(new Date()),
+        totals: {
+          total_jobs: summary.total_jobs,
+          total_quantity: summary.total_quantity.toFixed(2),
+          total_amount: summary.total_to_pay.toFixed(2)
+        },
+        lines: jobs.map((job) => ({
+          date: formatDate(job.scheduled_date),
+          job_id: job.id,
+          customer: job.customer?.name || '',
+          from_site: job.from_site?.name || '',
+          to_site: job.to_site?.name || '',
+          material: job.material?.name || '',
+          quantity: (job.actual_qty || job.planned_qty || 0).toFixed(2),
+          unit: job.subcontractor_billing_unit || job.unit,
+          price: (job.calculated_price || 0).toFixed(2),
+          status: job.status
+        }))
+      }
+
+      const res = await api.post('/reports/subcontractor-payment/pdf', payload, {
+        responseType: 'blob'
+      })
+      const pdfBlob = new Blob([res.data], { type: 'application/pdf' })
+      const base64 = await blobToBase64(pdfBlob)
+
+      await api.post('/reports/send-email', {
+        to_email: toEmail,
+        subject: `דוח תשלום קבלן משנה ${dateFrom} - ${dateTo}`,
+        body: `מצורף דוח תשלום קבלן משנה לתקופה ${dateFrom} עד ${dateTo}.`,
+        attachment_filename: `subcontractor_payment_${dateFrom}_${dateTo}.pdf`,
+        attachment_mime: 'application/pdf',
+        attachment_base64: base64
+      })
+
+      alert('האימייל נשלח בהצלחה')
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail || 'שגיאה בשליחת אימייל'
+      alert(detail)
+    }
+  }
+
+  const handleSendWhatsApp = () => {
+    const send = async () => {
+      if (!selectedSubcontractorId || jobs.length === 0) return
+      try {
+        const payload = {
+          subcontractor_name: selectedSubcontractor?.name || `קבלן #${selectedSubcontractorId}`,
+          subcontractor_plate: selectedSubcontractor?.truck_plate_number || '',
+          subcontractor_phone: selectedSubcontractor?.phone || '',
+          period_from: dateFrom,
+          period_to: dateTo,
+          generated_at: formatDate(new Date()),
+          totals: {
+            total_jobs: summary.total_jobs,
+            total_quantity: summary.total_quantity.toFixed(2),
+            total_amount: summary.total_to_pay.toFixed(2)
+          },
+          lines: jobs.map((job) => ({
+            date: formatDate(job.scheduled_date),
+            job_id: job.id,
+            customer: job.customer?.name || '',
+            from_site: job.from_site?.name || '',
+            to_site: job.to_site?.name || '',
+            material: job.material?.name || '',
+            quantity: (job.actual_qty || job.planned_qty || 0).toFixed(2),
+            unit: job.subcontractor_billing_unit || job.unit,
+            price: (job.calculated_price || 0).toFixed(2),
+            status: job.status
+          }))
+        }
+
+        const shareRes = await api.post('/reports/subcontractor-payment/share', payload)
+        const shareUrl = shareRes.data?.share_url
+        const phone = selectedSubcontractor?.phone || window.prompt('לאיזה מספר לשלוח ב-WhatsApp?', '') || ''
+        const clean = phone.replace(/[^0-9]/g, '')
+        const message = `דוח תשלום קבלן משנה\nתקופה: ${dateFrom} עד ${dateTo}\nPDF: ${shareUrl}`
+        const url = clean.length >= 9
+          ? `https://wa.me/972${clean.replace(/^0/, '')}?text=${encodeURIComponent(message)}`
+          : `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`
+        window.open(url, '_blank')
+      } catch (error: any) {
+        const detail = error?.response?.data?.detail || 'שגיאה ביצירת קישור PDF'
+        alert(detail)
+      }
+    }
+    send()
+  }
+
   const selectedSubcontractor = subcontractors.find(s => s.id === selectedSubcontractorId)
 
   return (
     <DashboardLayout>
-      <div className="space-y-6 print:p-8">
+      <style jsx global>{`
+        @media print {
+          @page { size: A4 landscape; margin: 10mm; }
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          header, nav, aside { display: none !important; }
+          [data-sidebar], [data-header] { display: none !important; }
+          .print\:hidden { display: none !important; }
+          body { background: #fff !important; }
+          html, body { width: 297mm; }
+          main, #__next { margin: 0 !important; padding: 0 !important; width: 297mm; }
+          .print-landscape { width: 297mm; min-height: 210mm; }
+          table { width: 100% !important; }
+          .rounded-lg, .shadow, .shadow-sm { box-shadow: none !important; }
+        }
+      `}</style>
+      <div className="space-y-6 print:p-8 print-landscape">
         {/* Header */}
         <div className="flex justify-between items-center print:mb-4">
           <div>
@@ -236,11 +410,35 @@ export default function SubcontractorPaymentReport() {
           </div>
           <div className="flex gap-2 print:hidden">
             <button
+              onClick={handleSendEmail}
+              disabled={jobs.length === 0}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-300 flex items-center gap-2"
+            >
+              <Mail className="w-4 h-4" />
+              שלח אימייל
+            </button>
+            <button
+              onClick={handleSendWhatsApp}
+              disabled={jobs.length === 0}
+              className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:bg-gray-300 flex items-center gap-2"
+            >
+              <MessageCircle className="w-4 h-4" />
+              שלח WhatsApp
+            </button>
+            <button
               onClick={handlePrint}
               className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition flex items-center gap-2"
             >
               <Printer className="w-4 h-4" />
               הדפס
+            </button>
+            <button
+              onClick={handleDownloadPdf}
+              disabled={jobs.length === 0}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-gray-300 flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              הורד PDF
             </button>
             <button
               onClick={handleExport}
@@ -261,19 +459,20 @@ export default function SubcontractorPaymentReport() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 קבלן משנה *
               </label>
-              <select
-                value={selectedSubcontractorId || ''}
-                onChange={(e) => setSelectedSubcontractorId(Number(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">-- בחר קבלן --</option>
-                {subcontractors.map(sub => (
-                  <option key={sub.id} value={sub.id}>
-                    🚛 {sub.truck_plate_number || sub.name || `קבלן #${sub.id}`}
-                    {sub.name && sub.truck_plate_number && ` (${sub.name})`}
-                  </option>
-                ))}
-              </select>
+              <Combobox
+                placeholder="חפש קבלן..."
+                options={subcontractors.map((sub: any) => ({
+                  value: sub.id,
+                  label: [sub.truck_plate_number, sub.name]
+                    .filter(Boolean)
+                    .join(' - ') || `קבלן #${sub.id}`,
+                  subLabel: [sub.name, sub.phone]
+                    .filter(Boolean)
+                    .join(' • ')
+                }))}
+                value={selectedSubcontractorId ?? ''}
+                onChange={(value) => setSelectedSubcontractorId(value ? Number(value) : null)}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -389,7 +588,7 @@ export default function SubcontractorPaymentReport() {
                         </td>
                         <td className="px-4 py-3 text-sm">
                           <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800 font-medium">
-                            {job.subcontractor_billing_unit || job.unit}
+                            {billingUnitLabels[job.subcontractor_billing_unit || job.unit] || (job.subcontractor_billing_unit || job.unit)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm font-bold text-green-600">

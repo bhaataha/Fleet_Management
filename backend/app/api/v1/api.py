@@ -19,6 +19,8 @@ from app.api.v1.endpoints import (
     alerts,
     phone_auth,
     admin_users,
+    organization,
+    reports,
 )
 
 api_router = APIRouter()
@@ -44,3 +46,5 @@ api_router.include_router(alerts.router, tags=["alerts"])
 api_router.include_router(phone_auth.router, tags=["phone-auth"])
 api_router.include_router(phone_auth.permissions_router, tags=["permissions"])
 api_router.include_router(admin_users.router, tags=["admin"])
+api_router.include_router(organization.router, tags=["organization"])
+api_router.include_router(reports.router, tags=["reports"])

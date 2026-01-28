@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { useI18n } from '@/lib/i18n'
 import { jobsApi, sitesApi, materialsApi, driversApi, customersApi, trucksApi, subcontractorsApi } from '@/lib/api'
-import { Truck, Calendar, User, Package, Plus, Search, Filter, Building2, FileText, Share2 } from 'lucide-react'
+import { Truck, Calendar, User, Package, Plus, Search, Filter, Building2, FileText, Share2, ChevronLeft, ChevronRight } from 'lucide-react'
 import type { Job, Site, Material, Driver, Customer, Truck as TruckType } from '@/types'
 import { billingUnitLabels, formatDate } from '@/lib/utils'
 
@@ -33,6 +33,8 @@ export default function JobsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list')
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date())
   const [currentPage, setCurrentPage] = useState(1)
   const [editingJobId, setEditingJobId] = useState<number | null>(null)
 
@@ -244,6 +246,66 @@ _נשלח מ-TruckFlow_`
     }
   }
 
+  const formatDateInput = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const shiftDate = (dateStr: string, deltaDays: number) => {
+    if (!dateStr) return ''
+    const date = new Date(`${dateStr}T00:00:00`)
+    date.setDate(date.getDate() + deltaDays)
+    return formatDateInput(date)
+  }
+
+  const getMonthRange = (date: Date) => {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1)
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+    return {
+      from: formatDateInput(start),
+      to: formatDateInput(end)
+    }
+  }
+
+  const setMonthRange = (date: Date) => {
+    const range = getMonthRange(date)
+    setDateFrom(range.from)
+    setDateTo(range.to)
+  }
+
+  const handleShiftDays = (deltaDays: number) => {
+    if (dateFrom || dateTo) {
+      setDateFrom(dateFrom ? shiftDate(dateFrom, deltaDays) : '')
+      setDateTo(dateTo ? shiftDate(dateTo, deltaDays) : '')
+      return
+    }
+
+    const today = formatDateInput(new Date())
+    const shifted = shiftDate(today, deltaDays)
+    setDateFrom(shifted)
+    setDateTo(shifted)
+  }
+
+  const handleCalendarPrevMonth = () => {
+    const next = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() - 1, 1)
+    setCalendarMonth(next)
+    setMonthRange(next)
+  }
+
+  const handleCalendarNextMonth = () => {
+    const next = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 1)
+    setCalendarMonth(next)
+    setMonthRange(next)
+  }
+
+  useEffect(() => {
+    if (viewMode === 'calendar') {
+      setMonthRange(calendarMonth)
+    }
+  }, [viewMode])
+
   // Filter jobs
   let filteredJobs = jobs.filter(job => {
     if (searchTerm) {
@@ -270,6 +332,24 @@ _נשלח מ-TruckFlow_`
     currentPage * itemsPerPage
   )
 
+  const monthLabel = new Intl.DateTimeFormat('he-IL', { month: 'long', year: 'numeric' }).format(calendarMonth)
+  const daysInMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + 1, 0).getDate()
+  const firstDayIndex = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), 1).getDay()
+  const calendarCells = Array.from({ length: 42 }, (_, index) => {
+    const dayNumber = index - firstDayIndex + 1
+    if (dayNumber < 1 || dayNumber > daysInMonth) return null
+    const date = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth(), dayNumber)
+    return formatDateInput(date)
+  })
+
+  const jobsByDate = jobs.reduce<Record<string, Job[]>>((acc, job) => {
+    const dateKey = job.scheduled_date ? job.scheduled_date.split('T')[0] : ''
+    if (!dateKey) return acc
+    if (!acc[dateKey]) acc[dateKey] = []
+    acc[dateKey].push(job)
+    return acc
+  }, {})
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -288,6 +368,47 @@ _נשלח מ-TruckFlow_`
         </div>
 
         <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`px-4 py-2 text-sm ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+              >
+                רשימה
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('calendar')}
+                className={`px-4 py-2 text-sm ${viewMode === 'calendar' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+              >
+                לוח שנה
+              </button>
+            </div>
+
+            {viewMode === 'calendar' && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCalendarPrevMonth}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <div className="text-sm font-medium text-gray-700 min-w-[120px] text-center">
+                  {monthLabel}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCalendarNextMonth}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -341,6 +462,25 @@ _נשלח מ-TruckFlow_`
               />
             </div>
           </div>
+
+          <div className="mt-3 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => handleShiftDays(-1)}
+              className="inline-flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              <ChevronRight className="w-4 h-4" />
+              יום אחורה
+            </button>
+            <button
+              type="button"
+              onClick={() => handleShiftDays(1)}
+              className="inline-flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              יום קדימה
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
           
           {(searchTerm || statusFilter !== 'all' || dateFrom || dateTo) && (
             <div className="mt-3 flex justify-end">
@@ -363,6 +503,49 @@ _נשלח מ-TruckFlow_`
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
+            </div>
+          ) : viewMode === 'calendar' ? (
+            <div className="p-4">
+              <div className="grid grid-cols-7 text-center text-xs font-medium text-gray-500 mb-2">
+                {['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ש'].map(day => (
+                  <div key={day} className="py-2">{day}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-2">
+                {calendarCells.map((dateKey, idx) => {
+                  const dayJobs = dateKey ? (jobsByDate[dateKey] || []) : []
+                  const dayNumber = dateKey ? parseInt(dateKey.split('-')[2], 10) : ''
+                  return (
+                    <div
+                      key={`${dateKey || 'empty'}-${idx}`}
+                      className={`min-h-[110px] border rounded-lg p-2 text-sm ${dateKey ? 'bg-white' : 'bg-gray-50'}`}
+                    >
+                      {dateKey && (
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold text-gray-700">{dayNumber}</span>
+                          {dayJobs.length > 0 && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                              {dayJobs.length}
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {dateKey && dayJobs.slice(0, 3).map(job => (
+                        <div key={job.id} className="text-xs text-gray-600 truncate">
+                          #{job.id} • {getCustomerName(job.customer_id)}
+                        </div>
+                      ))}
+
+                      {dateKey && dayJobs.length > 3 && (
+                        <div className="text-xs text-gray-400 mt-1">
+                          +{dayJobs.length - 3} נוספות
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           ) : paginatedJobs.length === 0 ? (
             <div className="text-center py-12">

@@ -32,11 +32,13 @@ export default function EditTruckPage() {
     is_active: true
   })
 
-  const [documents, setDocuments] = useState([
-    { id: 1, name: 'ביטוח חובה 2024', type: 'insurance' as const, expiry_date: '2024-12-31', notes: 'מנורה מבטחים' },
-    { id: 2, name: 'טסט תקני 2024', type: 'test' as const, expiry_date: '2024-06-15', notes: 'עבר בהצלחה' },
-    { id: 3, name: 'רישוי רכב', type: 'registration' as const, expiry_date: '2024-11-20', notes: 'משרד התחבורה' }
-  ])
+  const [documents, setDocuments] = useState([] as Array<{
+    id: number
+    name: string
+    type: 'insurance' | 'test' | 'registration' | 'other'
+    expiry_date?: string
+    notes?: string
+  }>)
 
   useEffect(() => {
     loadTruck()
