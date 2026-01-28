@@ -19,12 +19,8 @@ export default function EmailLoginPage() {
 
   useEffect(() => {
     setMounted(true)
-    
-    // If already authenticated, redirect to dashboard
-    if (isAuthenticated) {
-      router.push('/dashboard')
-    }
-  }, [isAuthenticated, router])
+    // Don't redirect - allow users to login even if they have an old token
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
