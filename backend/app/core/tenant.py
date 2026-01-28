@@ -4,7 +4,7 @@ Tenant Helper Functions - Utilities for multi-tenant operations
 from fastapi import Request, HTTPException, status
 from sqlalchemy.orm import Session, Query
 from uuid import UUID
-from typing import Type, TypeVar
+from typing import Type, TypeVar, Union
 from app.models import Organization
 import logging
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar('T')
 
 
-def get_org_id(request: Request) -> UUID:
+def get_org_id(request: Request) -> Union[int, UUID]:
     """
     Extract org_id from request.state
     
@@ -21,7 +21,7 @@ def get_org_id(request: Request) -> UUID:
         HTTPException: 403 if org_id is missing from request state
     
     Returns:
-        UUID: Organization ID
+        Union[int, UUID]: Organization ID (supports both Integer and UUID)
     """
     org_id = getattr(request.state, "org_id", None)
     if not org_id:

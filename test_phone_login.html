@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בדיקת התחברות טלפון - Fleet Management</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 600;
+        }
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: #48bb78;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #38a169;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(72, 187, 120, 0.4);
+        }
+        .btn-danger {
+            background: #f56565;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+        .response {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .response.success {
+            background: #c6f6d5;
+            border: 2px solid #48bb78;
+            color: #22543d;
+        }
+        .response.error {
+            background: #fed7d7;
+            border: 2px solid #f56565;
+            color: #742a2a;
+        }
+        .response pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 12px;
+            direction: ltr;
+            text-align: left;
+        }
+        .toggle-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: #f7fafc;
+            padding: 8px;
+            border-radius: 8px;
+        }
+        .toggle-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid transparent;
+            background: transparent;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .toggle-btn.active {
+            background: white;
+            border-color: #667eea;
+            color: #667eea;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .endpoint-info {
+            background: #edf2f7;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            color: #4a5568;
+        }
+        .endpoint-info strong {
+            color: #2d3748;
+        }
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .loading.show {
+            display: block;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚛 בדיקת התחברות טלפון</h1>
+        <p class="subtitle">Fleet Management System</p>
+
+        <!-- Mode Toggle -->
+        <div class="toggle-buttons">
+            <button class="toggle-btn active" onclick="setMode('password')">
+                🔑 טלפון + סיסמה
+            </button>
+            <button class="toggle-btn" onclick="setMode('otp')">
+                📱 טלפון + SMS
+            </button>
+            <button class="toggle-btn" onclick="setMode('email')">
+                ✉️ אימייל + סיסמה
+            </button>
+        </div>
+
+        <!-- Endpoint Info -->
+        <div class="endpoint-info" id="endpointInfo">
+            <strong>Endpoint:</strong> <span id="currentEndpoint">POST /api/phone-auth/login-with-password</span>
+        </div>
+
+        <!-- Form -->
+        <form id="loginForm">
+            <!-- Server URL -->
+            <div class="form-group">
+                <label for="serverUrl">🌐 כתובת שרת</label>
+                <input type="text" id="serverUrl" value="http://64.176.173.36:8001" placeholder="http://localhost:8001">
+            </div>
+
+            <!-- Organization -->
+            <div class="form-group">
+                <label for="orgSlug">🏢 ארגון (Slug)</label>
+                <input type="text" id="orgSlug" value="default" placeholder="default">
+            </div>
+
+            <!-- Email (for email mode) -->
+            <div class="form-group" id="emailGroup" style="display: none;">
+                <label for="email">✉️ אימייל</label>
+                <input type="email" id="email" value="admin@truckflow.com" placeholder="user@example.com">
+            </div>
+
+            <!-- Phone -->
+            <div class="form-group" id="phoneGroup">
+                <label for="phone">📱 מספר טלפון</label>
+                <input type="tel" id="phone" value="0507771111" placeholder="0501234567" dir="ltr">
+            </div>
+
+            <!-- Password -->
+            <div class="form-group" id="passwordGroup">
+                <label for="password">🔒 סיסמה</label>
+                <input type="password" id="password" value="demo123" placeholder="password">
+            </div>
+
+            <!-- OTP Code (hidden initially) -->
+            <div class="form-group" id="otpGroup" style="display: none;">
+                <label for="otpCode">🔢 קוד אימות (SMS)</label>
+                <input type="text" id="otpCode" placeholder="123456" maxlength="6" dir="ltr">
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="button-group" id="actionButtons">
+                <button type="submit" class="btn-primary">
+                    🚀 התחבר
+                </button>
+            </div>
+
+            <!-- OTP Buttons (hidden initially) -->
+            <div class="button-group" id="otpButtons" style="display: none;">
+                <button type="button" class="btn-secondary" onclick="sendOTP()">
+                    📤 שלח קוד
+                </button>
+                <button type="button" class="btn-primary" onclick="verifyOTP()">
+                    ✅ אמת קוד
+                </button>
+            </div>
+
+            <!-- Clear Button -->
+            <button type="button" class="btn-danger" onclick="clearResponse()">
+                🗑️ נקה תוצאות
+            </button>
+        </form>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px;">שולח בקשה...</p>
+        </div>
+
+        <!-- Response -->
+        <div id="response"></div>
+    </div>
+
+    <script>
+        let currentMode = 'password';
+
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update toggle buttons
+            document.querySelectorAll('.toggle-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Show/hide fields
+            const emailGroup = document.getElementById('emailGroup');
+            const phoneGroup = document.getElementById('phoneGroup');
+            const passwordGroup = document.getElementById('passwordGroup');
+            const otpGroup = document.getElementById('otpGroup');
+            const actionButtons = document.getElementById('actionButtons');
+            const otpButtons = document.getElementById('otpButtons');
+            const endpointSpan = document.getElementById('currentEndpoint');
+
+            if (mode === 'email') {
+                emailGroup.style.display = 'block';
+                phoneGroup.style.display = 'none';
+                passwordGroup.style.display = 'block';
+                otpGroup.style.display = 'none';
+                actionButtons.style.display = 'flex';
+                otpButtons.style.display = 'none';
+                endpointSpan.textContent = 'POST /api/auth/login';
+            } else if (mode === 'password') {
+                emailGroup.style.display = 'none';
+                phoneGroup.style.display = 'block';
+                passwordGroup.style.display = 'block';
+                otpGroup.style.display = 'none';
+                actionButtons.style.display = 'flex';
+                otpButtons.style.display = 'none';
+                endpointSpan.textContent = 'POST /api/phone-auth/login-with-password';
+            } else if (mode === 'otp') {
+                emailGroup.style.display = 'none';
+                phoneGroup.style.display = 'block';
+                passwordGroup.style.display = 'none';
+                otpGroup.style.display = 'block';
+                actionButtons.style.display = 'none';
+                otpButtons.style.display = 'flex';
+                endpointSpan.textContent = 'POST /api/phone-auth/send-otp → verify-otp';
+            }
+
+            clearResponse();
+        }
+
+        async function sendOTP() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const phone = document.getElementById('phone').value;
+            const orgSlug = document.getElementById('orgSlug').value;
+
+            showLoading(true);
+
+            try {
+                const response = await fetch(`${serverUrl}/api/phone-auth/send-otp`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, org_slug: orgSlug })
+                });
+
+                const data = await response.json();
+                displayResponse(response.ok, data);
+            } catch (error) {
+                displayResponse(false, { error: error.message });
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function verifyOTP() {
+            const serverUrl = document.getElementById('serverUrl').value;
+            const phone = document.getElementById('phone').value;
+            const otpCode = document.getElementById('otpCode').value;
+            const orgSlug = document.getElementById('orgSlug').value;
+
+            if (!otpCode || otpCode.length !== 6) {
+                displayResponse(false, { error: 'נא להזין קוד בן 6 ספרות' });
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                const response = await fetch(`${serverUrl}/api/phone-auth/verify-otp`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, otp_code: otpCode, org_slug: orgSlug })
+                });
+
+                const data = await response.json();
+                displayResponse(response.ok, data);
+            } catch (error) {
+                displayResponse(false, { error: error.message });
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const serverUrl = document.getElementById('serverUrl').value;
+            const orgSlug = document.getElementById('orgSlug').value;
+            
+            let endpoint, body;
+
+            if (currentMode === 'email') {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                endpoint = `${serverUrl}/api/auth/login`;
+                body = { email, password };
+            } else if (currentMode === 'password') {
+                const phone = document.getElementById('phone').value;
+                const password = document.getElementById('password').value;
+                endpoint = `${serverUrl}/api/phone-auth/login-with-password`;
+                body = { phone, password, org_slug: orgSlug };
+            } else {
+                return; // OTP mode uses separate buttons
+            }
+
+            showLoading(true);
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                const data = await response.json();
+                displayResponse(response.ok, data);
+            } catch (error) {
+                displayResponse(false, { error: error.message });
+            } finally {
+                showLoading(false);
+            }
+        });
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('show', show);
+        }
+
+        function displayResponse(success, data) {
+            const responseDiv = document.getElementById('response');
+            responseDiv.className = `response ${success ? 'success' : 'error'}`;
+            
+            let html = `<h3>${success ? '✅ הצלחה!' : '❌ שגיאה'}</h3>`;
+            html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            
+            if (success && data.access_token) {
+                html += `<hr style="margin: 15px 0;">`;
+                html += `<p><strong>🔑 Token נוצר בהצלחה!</strong></p>`;
+                html += `<p style="font-size: 12px; margin-top: 10px;">ניתן להשתמש ב-token זה לבקשות מאומתות:</p>`;
+                html += `<pre style="background: #2d3748; color: #e2e8f0; padding: 10px; border-radius: 4px; margin-top: 10px;">Authorization: Bearer ${data.access_token.substring(0, 30)}...</pre>`;
+            }
+            
+            responseDiv.innerHTML = html;
+        }
+
+        function clearResponse() {
+            document.getElementById('response').innerHTML = '';
+        }
+    </script>
+</body>
+</html>
