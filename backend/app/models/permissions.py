@@ -4,7 +4,6 @@ User Permissions and Phone Authentication Models
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
 import enum
 from datetime import datetime, timedelta
@@ -18,7 +17,7 @@ class UserPermission(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
+    org_id = Column(Integer, ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False)
     permission_name = Column(String(100), nullable=False)
     granted = Column(Boolean, default=True, nullable=False)
     granted_by = Column(Integer, ForeignKey("users.id"))
@@ -52,7 +51,7 @@ class PhoneOTP(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     phone = Column(String(20), nullable=False, index=True)
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id"), nullable=False)
+    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
     otp_code = Column(String(6), nullable=False)
     attempts = Column(Integer, default=0)
     used = Column(Boolean, default=False)

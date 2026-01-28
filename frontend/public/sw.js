@@ -196,34 +196,3 @@ self.addEventListener('message', (event) => {
 });
 
 console.log(`[SW v${APP_VERSION}] Service Worker loaded`);
- 
-        url.pathname === '/manifest.json' ||
-        url.pathname.startsWith('/driver/')) {
-      event.respondWith(
-        caches.match(event.request)
-          .then((response) => {
-            if (response) {
-              return response;
-            }
-            return fetch(event.request).catch((error) => {
-              console.error('Fetch failed:', error);
-              throw error;
-            });
-          })
-          .catch((error) => {
-            console.error('SW Fetch Error:', error);
-            // Return a basic offline response if needed
-            return new Response('Offline - Please check your connection', {
-              status: 503,
-              statusText: 'Service Unavailable',
-              headers: new Headers({
-                'Content-Type': 'text/plain'
-              })
-            });
-          })
-      );
-    }
-  } catch (error) {
-    console.error('SW Fetch Handler Error:', error);
-  }
-});

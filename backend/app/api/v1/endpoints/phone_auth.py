@@ -9,9 +9,9 @@ from app.services.permission_service import PermissionService
 from app.models.permissions import Permission, UserPermission
 from app.models import User, Organization, Driver
 from app.core.security import create_access_token_for_user
+from app.core.config import settings
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
-from uuid import UUID
 
 router = APIRouter(prefix="/phone-auth", tags=["Phone Authentication"])
 permissions_router = APIRouter(prefix="/permissions", tags=["Permissions"])
@@ -85,13 +85,19 @@ async def send_otp(
     3. שולח קוד OTP ל-SMS
     """
     try:
-        # Find organization
+        # Find organization (require org_slug if multiple active orgs)
         org = None
         if request_data.org_slug:
             org = db.query(Organization).filter(Organization.slug == request_data.org_slug).first()
         else:
-            # If no slug provided, try to find by domain or use default
-            org = db.query(Organization).filter(Organization.status == "active").first()
+            active_orgs = db.query(Organization).filter(Organization.status == "active")
+            if active_orgs.count() == 1:
+                org = active_orgs.first()
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Organization slug is required"
+                )
         
         if not org:
             raise HTTPException(
@@ -161,12 +167,19 @@ async def verify_otp_and_login(
     3. מחזיר הרשאות המשתמש
     """
     try:
-        # Find organization
+        # Find organization (require org_slug if multiple active orgs)
         org = None
         if request_data.org_slug:
             org = db.query(Organization).filter(Organization.slug == request_data.org_slug).first()
         else:
-            org = db.query(Organization).filter(Organization.status == "active").first()
+            active_orgs = db.query(Organization).filter(Organization.status == "active")
+            if active_orgs.count() == 1:
+                org = active_orgs.first()
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Organization slug is required"
+                )
         
         if not org:
             raise HTTPException(
@@ -229,7 +242,7 @@ async def verify_otp_and_login(
                 "name": user.name,
                 "phone": user.phone,
                 "email": user.email,
-                "org_id": str(user.org_id),
+                "org_id": user.org_id,
                 "org_name": org.name,
                 "org_slug": org.slug,
                 "org_role": user.org_role,
@@ -276,6 +289,13 @@ async def login_with_password(
         LoginResponse עם access token והרשאות
     """
     try:
+        # Block dev password login in production
+        if settings.ENVIRONMENT == "production":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Password login is disabled"
+            )
+
         # Validate password provided
         if not request_data.password:
             raise HTTPException(
@@ -283,12 +303,19 @@ async def login_with_password(
                 detail="Password is required"
             )
         
-        # Find organization
+        # Find organization (require org_slug if multiple active orgs)
         org = None
         if request_data.org_slug:
             org = db.query(Organization).filter(Organization.slug == request_data.org_slug).first()
         else:
-            org = db.query(Organization).filter(Organization.status == "active").first()
+            active_orgs = db.query(Organization).filter(Organization.status == "active")
+            if active_orgs.count() == 1:
+                org = active_orgs.first()
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Organization slug is required"
+                )
         
         if not org:
             raise HTTPException(

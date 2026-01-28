@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from typing import Optional, List
 from datetime import datetime, timedelta
-from uuid import UUID
 
 from app.models.alert import Alert, AlertType, AlertSeverity, AlertCategory, AlertStatus
 from app.schemas.alert import AlertCreate, AlertUpdate
@@ -60,7 +59,7 @@ class AlertService:
     @staticmethod
     def get_alerts(
         db: Session,
-        org_id: UUID,
+        org_id: int,
         user_id: Optional[int] = None,
         user_role: Optional[str] = None,
         status: Optional[AlertStatus] = None,
@@ -136,7 +135,7 @@ class AlertService:
     def get_alert_by_id(
         db: Session,
         alert_id: int,
-        org_id: UUID
+        org_id: int
     ) -> Optional[Alert]:
         """
         Get alert by ID (with org_id check)
@@ -158,7 +157,7 @@ class AlertService:
     def mark_as_read(
         db: Session,
         alert_id: int,
-        org_id: UUID
+        org_id: int
     ) -> Optional[Alert]:
         """
         Mark alert as read
@@ -190,7 +189,7 @@ class AlertService:
     def dismiss_alert(
         db: Session,
         alert_id: int,
-        org_id: UUID
+        org_id: int
     ) -> Optional[Alert]:
         """
         Dismiss alert
@@ -221,7 +220,7 @@ class AlertService:
     def resolve_alert(
         db: Session,
         alert_id: int,
-        org_id: UUID,
+        org_id: int,
         resolved_by: int
     ) -> Optional[Alert]:
         """
@@ -254,7 +253,7 @@ class AlertService:
     @staticmethod
     def get_unread_count(
         db: Session,
-        org_id: UUID,
+        org_id: int,
         user_id: Optional[int] = None,
         user_role: Optional[str] = None
     ) -> int:
@@ -304,7 +303,7 @@ class AlertService:
     @staticmethod
     def get_alert_stats(
         db: Session,
-        org_id: UUID,
+        org_id: int,
         user_id: Optional[int] = None,
         user_role: Optional[str] = None
     ) -> dict:
@@ -389,7 +388,7 @@ class AlertService:
     @staticmethod
     def auto_resolve_outdated_alerts(
         db: Session,
-        org_id: UUID,
+        org_id: int,
         alert_type: AlertType,
         entity_type: str,
         entity_id: int

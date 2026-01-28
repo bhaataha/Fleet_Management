@@ -241,7 +241,7 @@ def create_organization(
 
 @router.get("/organizations/{org_id}", response_model=OrganizationDetail)
 def get_organization(
-    org_id: UUID,
+    org_id: int,
     request: Request,
     db: Session = Depends(get_db)
 ):
@@ -269,7 +269,7 @@ def get_organization(
 
 @router.patch("/organizations/{org_id}", response_model=OrganizationDetail)
 def update_organization(
-    org_id: UUID,
+    org_id: int,
     request: Request,
     data: OrganizationUpdate,
     db: Session = Depends(get_db)
@@ -308,7 +308,7 @@ def update_organization(
 
 @router.post("/organizations/{org_id}/suspend", response_model=dict)
 def suspend_organization(
-    org_id: UUID,
+    org_id: int,
     request: Request,
     suspend_data: SuspendRequest,
     db: Session = Depends(get_db)
@@ -348,7 +348,7 @@ def suspend_organization(
 
 @router.post("/organizations/{org_id}/activate", response_model=dict)
 def activate_organization(
-    org_id: UUID,
+    org_id: int,
     request: Request,
     db: Session = Depends(get_db)
 ):
@@ -380,7 +380,7 @@ def activate_organization(
 
 @router.delete("/organizations/{org_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_organization(
-    org_id: UUID,
+    org_id: int,
     request: Request,
     confirm: bool = False,
     db: Session = Depends(get_db)
@@ -427,7 +427,7 @@ def delete_organization(
 
 @router.get("/organizations/{org_id}/users", response_model=dict)
 def list_organization_users(
-    org_id: UUID,
+    org_id: int,
     request: Request,
     skip: int = 0,
     limit: int = 100,
@@ -518,7 +518,7 @@ def get_system_stats(
 
 @router.post("/organizations/{org_id}/reset-password", response_model=dict)
 def reset_organization_user_password(
-    org_id: UUID,
+    org_id: int,
     request: Request,
     reset_data: ResetPasswordRequest,
     db: Session = Depends(get_db)

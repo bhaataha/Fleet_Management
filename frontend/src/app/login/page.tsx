@@ -14,7 +14,7 @@ export default function LoginPage() {
   const router = useRouter()
   const { setAuth, isAuthenticated } = useAuth()
   const { t, language, setLanguage } = useI18n()
-  const [phone, setPhone] = useState('0507771111')
+  const [phone, setPhone] = useState('')
   const [otpCode, setOtpCode] = useState('')
   const [orgSlug] = useState('default-org') // Default to default org
   const [error, setError] = useState('')
@@ -24,8 +24,10 @@ export default function LoginPage() {
   const [authStep, setAuthStep] = useState<AuthStep>('phone')
   const [otpSent, setOtpSent] = useState(false)
   const [countdown, setCountdown] = useState(0)
-  const [usePassword, setUsePassword] = useState(true) // Dev mode: use password by default
-  const [password, setPassword] = useState('demo123')
+  const passwordLoginEnabled = process.env.NEXT_PUBLIC_ENABLE_PASSWORD_LOGIN === 'true'
+  const showDemoCredentials = process.env.NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS === 'true'
+  const [usePassword, setUsePassword] = useState(passwordLoginEnabled)
+  const [password, setPassword] = useState('')
 
   useEffect(() => {
     setMounted(true)
@@ -238,30 +240,32 @@ export default function LoginPage() {
           {authStep === 'phone' ? (
             <form onSubmit={handleSendOTP} className="space-y-6">
               {/* Toggle Password/OTP Mode */}
-              <div className="flex items-center justify-center gap-4 p-3 bg-gray-50 rounded-lg">
-                <button
-                  type="button"
-                  onClick={() => setUsePassword(true)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                    usePassword 
-                      ? 'bg-blue-600 text-white shadow' 
-                      : 'text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  🔑 סיסמה
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setUsePassword(false)}
-                  className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                    !usePassword 
-                      ? 'bg-blue-600 text-white shadow' 
-                      : 'text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  📱 קוד SMS
-                </button>
-              </div>
+              {passwordLoginEnabled && (
+                <div className="flex items-center justify-center gap-4 p-3 bg-gray-50 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setUsePassword(true)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      usePassword 
+                        ? 'bg-blue-600 text-white shadow' 
+                        : 'text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    🔑 סיסמה
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUsePassword(false)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                      !usePassword 
+                        ? 'bg-blue-600 text-white shadow' 
+                        : 'text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    📱 קוד SMS
+                  </button>
+                </div>
+              )}
 
               {/* Phone Field */}
               <div>
@@ -291,7 +295,7 @@ export default function LoginPage() {
               </div>
 
               {/* Password Field (only in password mode) */}
-              {usePassword && (
+              {passwordLoginEnabled && usePassword && (
                 <div>
                   <label 
                     htmlFor="password" 
@@ -309,9 +313,11 @@ export default function LoginPage() {
                     placeholder="הזן סיסמה"
                     disabled={loading}
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    💡 למשתמשי דמו: demo123
-                  </p>
+                  {showDemoCredentials && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      💡 למשתמשי דמו: demo123
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -395,27 +401,29 @@ export default function LoginPage() {
           )}
 
           {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <h3 className="text-sm font-medium text-gray-700 mb-2 text-center">משתמשי דמו:</h3>
-            <div className="text-xs text-gray-600 space-y-1">
-              <div className="flex justify-between">
-                <span>מנהל:</span>
-                <span dir="ltr">050-123-4567</span>
-              </div>
-              <div className="flex justify-between">
-                <span>סדרן:</span>
-                <span dir="ltr">050-123-4568</span>
-              </div>
-              <div className="flex justify-between">
-                <span>הנהלת חשבונות:</span>
-                <span dir="ltr">050-123-4569</span>
-              </div>
-              <div className="flex justify-between">
-                <span>נהג:</span>
-                <span dir="ltr">050-777-1111</span>
+          {showDemoCredentials && (
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <h3 className="text-sm font-medium text-gray-700 mb-2 text-center">משתמשי דמו:</h3>
+              <div className="text-xs text-gray-600 space-y-1">
+                <div className="flex justify-between">
+                  <span>מנהל:</span>
+                  <span dir="ltr">050-123-4567</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>סדרן:</span>
+                  <span dir="ltr">050-123-4568</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>הנהלת חשבונות:</span>
+                  <span dir="ltr">050-123-4569</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>נהג:</span>
+                  <span dir="ltr">050-777-1111</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Additional Login Options */}
           <div className="mt-4 pt-4 border-t border-gray-200 text-center">

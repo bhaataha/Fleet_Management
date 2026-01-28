@@ -64,35 +64,54 @@ export function usePWA(): UsePWAReturn {
     window.addEventListener('online', handleOnline)
     window.addEventListener('offline', handleOffline)
 
+    const cleanupServiceWorkers = () => {
+      if (!('serviceWorker' in navigator)) return
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => registration.unregister())
+      })
+      if ('caches' in window) {
+        caches.keys().then((cacheNames) => {
+          cacheNames.forEach((cacheName) => caches.delete(cacheName))
+        })
+      }
+    }
+
+    const disablePWA = process.env.NEXT_PUBLIC_DISABLE_PWA === 'true'
+
     // Register service worker
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker
-        .register('/sw.js')
-        .then((registration) => {
-          console.log('[PWA] Service Worker registered:', registration)
+      if (disablePWA) {
+        cleanupServiceWorkers()
+      } else {
+        navigator.serviceWorker
+          .register('/sw.js')
+          .then((registration) => {
+            console.log('[PWA] Service Worker registered:', registration)
 
-          // Check for updates every hour
-          setInterval(() => {
-            registration.update()
-          }, 60 * 60 * 1000)
+            // Check for updates every hour
+            setInterval(() => {
+              registration.update()
+            }, 60 * 60 * 1000)
 
-          // Listen for waiting service worker
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // New service worker available
-                  console.log('[PWA] New version available')
-                  // You can show a toast here to notify user
-                }
-              })
-            }
+            // Listen for waiting service worker
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New service worker available
+                    console.log('[PWA] New version available')
+                    // You can show a toast here to notify user
+                  }
+                })
+              }
+            })
           })
-        })
-        .catch((error) => {
-          console.error('[PWA] Service Worker registration failed:', error)
-        })
+          .catch((error) => {
+            console.error('[PWA] Service Worker registration failed:', error)
+            cleanupServiceWorkers()
+          })
+      }
     }
 
     // Cleanup

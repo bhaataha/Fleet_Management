@@ -7,7 +7,6 @@ from app.models import User, Driver, Organization
 from app.models.permissions import PermissionModel, UserPermission
 from pydantic import BaseModel, EmailStr
 from typing import Optional
-from uuid import UUID
 
 router = APIRouter()
 security = HTTPBearer()
@@ -29,7 +28,7 @@ class UserInfo(BaseModel):
     id: int
     name: str
     email: str
-    org_id: UUID
+    org_id: int
     roles: list[str]
 
 
@@ -98,7 +97,7 @@ async def login(credentials: LoginRequest, db: Session = Depends(get_db)):
             "id": user.id,
             "name": user.name,
             "email": user.email,
-            "org_id": str(user.org_id),  # UUID to string
+            "org_id": user.org_id,
             "org_name": org.name if org else None,
             "org_slug": org.slug if org else None,
             "plan_type": org.plan_type if org else None,

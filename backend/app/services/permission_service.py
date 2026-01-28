@@ -6,9 +6,9 @@ from sqlalchemy.sql import func
 from app.models.permissions import UserPermission, PhoneOTP, Permission
 from app.models import User, Organization
 from typing import List, Optional, Dict, Union
-from uuid import UUID
 from datetime import datetime, timedelta
 import logging
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +250,7 @@ class PermissionService:
     def send_otp(
         db: Session,
         phone: str,
-        org_id: UUID,
+        org_id: int,
         user_agent: Optional[str] = None,
         ip_address: Optional[str] = None
     ) -> PhoneOTP:
@@ -294,8 +294,9 @@ class PermissionService:
         db.refresh(otp)
         
         # TODO: Send SMS here (integration with SMS provider)
-        logger.info(f"Generated OTP {otp_code} for phone {normalized_phone} (original: {phone})")
-        print(f"🔐 OTP for {phone}: {otp_code} (expires in 5 minutes)")
+        logger.info(f"Generated OTP for phone {normalized_phone} (original: {phone})")
+        if settings.ENVIRONMENT != "production":
+            print(f"🔐 OTP for {phone}: {otp_code} (expires in 5 minutes)")
         
         return otp
     
@@ -304,7 +305,7 @@ class PermissionService:
         db: Session,
         phone: str,
         otp_code: str,
-        org_id: UUID
+        org_id: int
     ) -> bool:
         """
         Verify OTP code
@@ -345,7 +346,7 @@ class PermissionService:
         return True
     
     @staticmethod
-    def find_user_by_phone(db: Session, phone: str, org_id: Union[int, UUID]) -> Optional[User]:
+    def find_user_by_phone(db: Session, phone: str, org_id: int) -> Optional[User]:
         """
         Find user by phone number in organization
         Supports both normalized (0507771111) and formatted (050-777-1111) phone numbers
