@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בדיקת התחברות - TruckFlow</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #1d4ed8;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background: #d1fae5;
+            border: 1px solid #10b981;
+            color: #065f46;
+        }
+        .error {
+            background: #fee2e2;
+            border: 1px solid #ef4444;
+            color: #991b1b;
+        }
+        .info {
+            background: #dbeafe;
+            border: 1px solid #3b82f6;
+            color: #1e40af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚛 TruckFlow - בדיקת התחברות</h1>
+        <p>בדיקת התחברות עם טלפון וסיסמה (default-org)</p>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="phone">מספר טלפון:</label>
+                <input type="tel" id="phone" name="phone" value="0500000000" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">סיסמה:</label>
+                <input type="password" id="password" name="password" value="changeme123" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="orgSlug">ארגון (Slug):</label>
+                <input type="text" id="orgSlug" name="orgSlug" value="default-org" required>
+            </div>
+            
+            <button type="submit">התחבר</button>
+        </form>
+        
+        <div id="result" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const API_URL = 'https://truckflow.site/api';
+        
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('password').value;
+            const orgSlug = document.getElementById('orgSlug').value;
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.textContent = 'מתחבר...';
+            
+            try {
+                const response = await fetch(`${API_URL}/phone-auth/login-with-password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        phone: phone,
+                        password: password,
+                        org_slug: orgSlug
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ התחברות הצליחה!\n\n` +
+                        `משתמש: ${data.user.name}\n` +
+                        `אימייל: ${data.user.email}\n` +
+                        `ארגון: ${data.user.org_name}\n` +
+                        `תפקיד: ${data.user.org_role}\n` +
+                        `Super Admin: ${data.user.is_super_admin ? 'כן' : 'לא'}\n\n` +
+                        `Token: ${data.access_token.substring(0, 50)}...\n\n` +
+                        `הרשאות: ${data.permissions.length} הרשאות נמצאו`;
+                        
+                    // שמירת הtoken ב-localStorage
+                    localStorage.setItem('access_token', data.access_token);
+                    localStorage.setItem('user', JSON.stringify(data.user));
+                    
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ שגיאה: ${data.detail || 'התחברות נכשלה'}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ שגיאת רשת: ${error.message}`;
+            }
+        });
+    </script>
+</body>
+</html>

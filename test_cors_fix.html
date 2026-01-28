@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בדיקת CORS - TruckFlow</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+            direction: ltr;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            direction: ltr;
+        }
+        .success {
+            background: #d1fae5;
+            border: 1px solid #059669;
+            color: #059669;
+        }
+        .error {
+            background: #fecaca;
+            border: 1px solid #dc2626;
+            color: #dc2626;
+        }
+        .info {
+            background: #dbeafe;
+            border: 1px solid #2563eb;
+            color: #2563eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>בדיקת CORS - TruckFlow Production</h1>
+        
+        <div class="form-group">
+            <label for="phone">מספר טלפון:</label>
+            <input type="text" id="phone" value="0500000000" placeholder="05xxxxxxxx">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">סיסמה:</label>
+            <input type="password" id="password" value="changeme123" placeholder="סיסמה">
+        </div>
+        
+        <button onclick="testLogin()">בדיקת התחברות עם טלפון</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // בדיקת הגדרות סביבה
+        console.log('Environment check:');
+        console.log('Current origin:', window.location.origin);
+        console.log('Expected API URL: http://truckflow.site:8001/api');
+
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.className = `result ${type}`;
+            resultDiv.textContent = message;
+        }
+
+        async function testLogin() {
+            const phone = document.getElementById('phone').value;
+            const password = document.getElementById('password').value;
+            
+            if (!phone || !password) {
+                showResult('אנא מלא את כל השדות', 'error');
+                return;
+            }
+
+            showResult('מנסה התחברות...', 'info');
+
+            try {
+                // קודם נבדוק health endpoint
+                console.log('Checking health endpoint...');
+                const healthResponse = await fetch('http://truckflow.site:8001/health');
+                console.log('Health status:', healthResponse.status);
+
+                if (!healthResponse.ok) {
+                    throw new Error(`Health check failed: ${healthResponse.status}`);
+                }
+
+                // עכשיו נבדוק את endpoint ההתחברות
+                console.log('Testing login endpoint...');
+                const response = await fetch('http://truckflow.site:8001/api/phone-auth/login-with-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        phone: phone,
+                        password: password
+                    })
+                });
+
+                console.log('Login response status:', response.status);
+                console.log('Login response headers:', response.headers);
+
+                const data = await response.json();
+                console.log('Login response data:', data);
+
+                if (response.ok) {
+                    showResult(`✅ התחברות הצליחה!\n\nResponse:\n${JSON.stringify(data, null, 2)}`, 'success');
+                    
+                    // שמירת הטוקן
+                    if (data.access_token) {
+                        localStorage.setItem('access_token', data.access_token);
+                        localStorage.setItem('user', JSON.stringify(data.user));
+                        console.log('Token saved:', data.access_token.substring(0, 20) + '...');
+                    }
+                } else {
+                    showResult(`❌ התחברות נכשלה\nStatus: ${response.status}\nError: ${JSON.stringify(data, null, 2)}`, 'error');
+                }
+
+            } catch (error) {
+                console.error('Login error:', error);
+                showResult(`❌ שגיאת רשת: ${error.message}\n\nזה יכול להיות:\n1. בעיית CORS\n2. הבקאנד לא זמין\n3. בעיית חיבור\n\nפתח Developer Console לפרטים נוספים.`, 'error');
+            }
+        }
+
+        // בדיקה אוטומטית של ה-API כשהדף נטען
+        window.addEventListener('load', async () => {
+            try {
+                console.log('Auto-checking API availability...');
+                const healthResponse = await fetch('http://truckflow.site:8001/health');
+                console.log('Auto health check result:', healthResponse.status, healthResponse.ok);
+            } catch (error) {
+                console.error('Auto health check failed:', error);
+            }
+        });
+    </script>
+</body>
+</html>

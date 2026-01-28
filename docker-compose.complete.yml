@@ -1,10 +1,30 @@
 version: '3.8'
 
 services:
+  # Traefik Reverse Proxy with SSL
+  traefik:
+    image: traefik:v2.11
+    container_name: fleet_traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/traefik.yml:ro
+      - ./traefik/acme.json:/acme.json
+      - ./traefik/config.yml:/config.yml:ro
+    networks:
+      - fleet_network_prod
+
   # PostgreSQL Database
   fleet_db:
     image: postgres:15-alpine
-    container_name: fleet_db_prod
+    container_name: fleet_db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
@@ -16,7 +36,7 @@ services:
     ports:
       - "127.0.0.1:${POSTGRES_PORT}:5432"  # Bind to localhost only
     networks:
-      - fleet_network
+      - fleet_network_prod
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
@@ -26,7 +46,7 @@ services:
   # MinIO (S3-compatible storage)
   fleet_minio:
     image: minio/minio:latest
-    container_name: fleet_minio_prod
+    container_name: fleet_minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -38,7 +58,7 @@ services:
       - "127.0.0.1:9000:9000"   # API - localhost only
       - "127.0.0.1:9001:9001"   # Console - localhost only
     networks:
-      - fleet_network
+      - fleet_network_prod
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 30s
@@ -52,7 +72,7 @@ services:
       dockerfile: Dockerfile
       args:
         - ENVIRONMENT=production
-    container_name: fleet_backend_prod
+    container_name: fleet_backend
     restart: unless-stopped
     environment:
       DATABASE_URL: ${DATABASE_URL}
@@ -70,17 +90,18 @@ services:
     volumes:
       - ./backend/uploads:/app/uploads
       - backend_logs_prod:/app/logs
-    ports:
-      - "8001:8000"
+    # Remove external port exposure - only via Traefik
+    # ports:
+    #   - "8001:8000"
     networks:
-      - fleet_network
+      - fleet_network_prod
     depends_on:
       fleet_db:
         condition: service_healthy
       fleet_minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -102,20 +123,21 @@ services:
       args:
         - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
         - ENVIRONMENT=production
-    container_name: fleet_frontend_prod
+    container_name: fleet_frontend
     restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
       NODE_ENV: production
       NEXT_TELEMETRY_DISABLED: 1
-    ports:
-      - "3010:3000"
+    # Remove external port exposure - only via Traefik
+    # ports:
+    #   - "3010:3000"
     networks:
-      - fleet_network
+      - fleet_network_prod
     depends_on:
       - fleet_backend
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: ["CMD", "wget", "--spider", "--quiet", "http://0.0.0.0:3000"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -129,9 +151,8 @@ services:
       - "traefik.http.services.frontend.loadbalancer.server.port=3000"
 
 networks:
-  fleet_network:
+  fleet_network_prod:
     driver: bridge
-    name: fleet_network_prod
 
 volumes:
   postgres_data_prod:

@@ -16,7 +16,7 @@ export default function LoginPage() {
   const { t, language, setLanguage } = useI18n()
   const [phone, setPhone] = useState('0507771111')
   const [otpCode, setOtpCode] = useState('')
-  const [orgSlug] = useState('demo') // Default to demo org
+  const [orgSlug] = useState('default-org') // Default to default org
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
@@ -409,6 +409,18 @@ export default function LoginPage() {
                 <span dir="ltr">050-777-1111</span>
               </div>
             </div>
+          </div>
+
+          {/* Additional Login Options */}
+          <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+            <p className="text-sm text-gray-600 mb-3">שיטות התחברות נוספות:</p>
+            <button
+              type="button"
+              onClick={() => router.push('/email-login')}
+              className="text-blue-600 hover:text-blue-500 font-medium text-sm"
+            >
+              📧 התחבר עם אימייל וסיסמה
+            </button>
           </div>
         </div>
 

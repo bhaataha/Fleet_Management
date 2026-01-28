@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  # Traefik Reverse Proxy with SSL
+  traefik:
+    image: traefik:v2.11
+    container_name: fleet_traefik_ssl
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/traefik.yml:ro
+      - ./traefik/acme.json:/acme.json
+      - ./traefik/config.yml:/config.yml:ro
+    labels:
+      - "traefik.enable=true"
+      # Dashboard (optional, for debugging)
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.truckflow.site`)"
+      - "traefik.http.routers.dashboard.entrypoints=websecure"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dashboard.service=api@internal"
+      
+      # Global HTTP to HTTPS redirect middleware
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      
+      # Global HTTP redirect router
+      - "traefik.http.routers.http-catchall.rule=hostregexp(`{host:.+}`)"
+      - "traefik.http.routers.http-catchall.entrypoints=web"
+      - "traefik.http.routers.http-catchall.middlewares=redirect-to-https"
+    networks:
+      - fleet_network_prod
+    environment:
+      - CF_DNS_API_TOKEN_FILE=/run/secrets/cloudflare_dns_api_token
+    # Only if using Cloudflare DNS challenge
+    # secrets:
+    #   - cloudflare_dns_api_token
+
+networks:
+  fleet_network_prod:
+    external: true
+
+# secrets:
+#   cloudflare_dns_api_token:
+#     file: ./secrets/cloudflare_dns_api_token.txt

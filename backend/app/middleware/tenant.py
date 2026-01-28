@@ -33,6 +33,7 @@ async def tenant_middleware(request: Request, call_next):
     - Support Super Admin impersonation via X-Org-Id header
     - Inject org_id, user_id, is_super_admin into request.state
     """
+    logger.info(f"Tenant middleware processing: {request.method} {request.url.path}")
     
     # Skip OPTIONS requests (CORS preflight)
     if request.method == "OPTIONS":
@@ -95,6 +96,9 @@ async def tenant_middleware(request: Request, call_next):
         is_super_admin = payload.get("is_super_admin", False)
         user_id = payload.get("sub")
         
+        # Debug log
+        logger.error(f"Debug: org_id_value = '{org_id_value}', type = {type(org_id_value)}")
+        
         if org_id_value is None:
             logger.error(f"Token missing org_id for user {user_id}")
             return _error_response(
@@ -104,16 +108,16 @@ async def tenant_middleware(request: Request, call_next):
         
         # Convert org_id - support both Integer and UUID formats
         try:
-            # Try UUID first (future schema)
-            org_id = UUID(org_id_value)
-            logger.debug(f"Converted org_id to UUID: {org_id}")
-        except (ValueError, TypeError) as uuid_error:
-            # Fall back to Integer (current schema)
+            # Try Integer first (current schema)
+            org_id = int(org_id_value)
+            logger.info(f"Converted org_id to Integer: {org_id}")
+        except (ValueError, TypeError) as int_error:
+            # Fall back to UUID (future schema)
             try:
-                org_id = int(org_id_value)
-                logger.debug(f"Converted org_id to Integer: {org_id}")
-            except (ValueError, TypeError) as int_error:
-                logger.error(f"Failed to convert org_id '{org_id_value}'. UUID error: {uuid_error}, Int error: {int_error}")
+                org_id = UUID(org_id_value)
+                logger.info(f"Converted org_id to UUID: {org_id}")
+            except (ValueError, TypeError) as uuid_error:
+                logger.error(f"Failed to convert org_id '{org_id_value}'. Int error: {int_error}, UUID error: {uuid_error}")
                 return _error_response(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Invalid org_id format in token"

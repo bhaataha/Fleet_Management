@@ -45,7 +45,7 @@ def create_access_token_for_user(user, expires_delta: Optional[timedelta] = None
     to_encode = {
         "sub": str(user.id),
         "email": user.email,
-        "org_id": str(user.org_id),  # UUID → string for JSON
+        "org_id": user.org_id,  # Keep as Integer (current schema)
         "is_super_admin": user.is_super_admin or False,
         "org_role": user.org_role or "user",
         "exp": expire

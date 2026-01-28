@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 from app.models.permissions import UserPermission, PhoneOTP, Permission
 from app.models import User, Organization
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Union
 from uuid import UUID
 from datetime import datetime, timedelta
 import logging
@@ -345,7 +345,7 @@ class PermissionService:
         return True
     
     @staticmethod
-    def find_user_by_phone(db: Session, phone: str, org_id: UUID) -> Optional[User]:
+    def find_user_by_phone(db: Session, phone: str, org_id: Union[int, UUID]) -> Optional[User]:
         """
         Find user by phone number in organization
         Supports both normalized (0507771111) and formatted (050-777-1111) phone numbers
@@ -353,7 +353,7 @@ class PermissionService:
         Args:
             db: Database session
             phone: Phone number (with or without formatting)
-            org_id: Organization ID
+            org_id: Organization ID (Integer or UUID)
             
         Returns:
             User instance or None
