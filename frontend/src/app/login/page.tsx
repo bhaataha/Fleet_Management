@@ -1,17 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/stores/auth'
 import { useI18n } from '@/lib/i18n'
-import { phoneAuthApi } from '@/lib/api'
+import { authApi, phoneAuthApi } from '@/lib/api'
 import Logo from '@/components/ui/Logo'
-import { AlertCircle, Truck, Globe, Smartphone, CheckCircle } from 'lucide-react'
+import { AlertCircle, Globe, Smartphone, CheckCircle, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 
 type AuthStep = 'phone' | 'otp'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { setAuth, isAuthenticated, user } = useAuth()
   const { t, language, setLanguage } = useI18n()
   const [phone, setPhone] = useState('')
@@ -21,6 +22,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false)
+  const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>('phone')
   const [authStep, setAuthStep] = useState<AuthStep>('phone')
   const [otpSent, setOtpSent] = useState(false)
   const [countdown, setCountdown] = useState(0)
@@ -28,9 +30,17 @@ export default function LoginPage() {
   const showDemoCredentials = process.env.NEXT_PUBLIC_SHOW_DEMO_CREDENTIALS === 'true'
   const [usePassword, setUsePassword] = useState(passwordLoginEnabled)
   const [password, setPassword] = useState('')
+  const [email, setEmail] = useState('')
+  const [emailPassword, setEmailPassword] = useState('')
+  const [showEmailPassword, setShowEmailPassword] = useState(false)
 
   useEffect(() => {
     setMounted(true)
+
+    const method = searchParams?.get('method')
+    if (method === 'email') {
+      setLoginMethod('email')
+    }
     
     // If already authenticated, redirect to correct dashboard
     if (isAuthenticated && user) {
@@ -38,7 +48,7 @@ export default function LoginPage() {
       console.log('🔄 Already authenticated, redirecting to:', route, { user })
       router.push(route)
     }
-  }, [isAuthenticated, router, user])
+  }, [isAuthenticated, router, searchParams, user])
 
   const getPostLoginRoute = (user: any) => {
     if (!user) return '/dashboard'
@@ -222,6 +232,63 @@ export default function LoginPage() {
     setOtpSent(false)
   }
 
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoading(true)
+
+    if (!email || !emailPassword) {
+      setError('נא למלא את כל השדות')
+      setLoading(false)
+      return
+    }
+
+    if (!email.includes('@')) {
+      setError('נא להזין כתובת אימייל תקינה')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const response = await authApi.login({ email, password: emailPassword })
+      const { access_token, user } = response.data
+
+      if (!user || !access_token) {
+        throw new Error('תגובה לא תקינה מהשרת')
+      }
+
+      setAuth(user, access_token)
+      router.push(getPostLoginRoute(user))
+    } catch (err: any) {
+      const detail = err.response?.data?.detail
+      if (detail) {
+        if (Array.isArray(detail)) {
+          const messages = detail.map((item: any) => item?.msg).filter(Boolean)
+          setError(messages.join(', ') || 'שגיאה בפרטי התחברות')
+        } else if (detail === 'Incorrect credentials') {
+          setError('אימייל או סיסמה שגויים')
+        } else if (typeof detail === 'string' && detail.includes('suspended')) {
+          setError('הארגון מושעה - אנא פנה לתמיכה')
+        } else if (detail === 'User account is inactive') {
+          setError('חשבון המשתמש אינו פעיל')
+        } else if (typeof detail === 'string') {
+          setError(detail)
+        } else {
+          setError('שגיאה בהתחברות')
+        }
+      } else {
+        setError('שגיאה בהתחברות - אנא נסה שוב')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLoginMethodChange = (method: 'phone' | 'email') => {
+    setLoginMethod(method)
+    setError('')
+  }
+
   const handleLanguageChange = (lang: 'he' | 'en' | 'ar') => {
     setLanguage(lang)
     setLanguageMenuOpen(false)
@@ -247,14 +314,19 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 px-4">
+      {/* Decorative background */}
+      <div className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-blue-200/40 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-indigo-300/40 blur-3xl" />
+
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="max-w-lg w-full">
         {/* Language Toggle */}
         <div className="flex justify-end mb-4">
           <div className="relative">
             <button
               onClick={() => setLanguageMenuOpen(!languageMenuOpen)}
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-white rounded-lg shadow hover:shadow-md transition-shadow"
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-white/90 rounded-full shadow-sm hover:shadow-md transition-shadow border border-white/60"
             >
               <Globe className="w-4 h-4" />
               {getLanguageLabel()}
@@ -285,13 +357,40 @@ export default function LoginPage() {
         </div>
 
         {/* Login Card */}
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white/95 backdrop-blur rounded-3xl shadow-2xl p-8 sm:p-10 border border-white/60">
           {/* Logo and Title */}
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <Logo size="md" />
+              <Logo size="lg" />
             </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">כניסה למערכת</h1>
             <p className="text-gray-600">{t('auth.welcome')}</p>
+          </div>
+
+          {/* Login Method Tabs */}
+          <div className="flex items-center justify-center gap-2 mb-6">
+            <button
+              type="button"
+              onClick={() => handleLoginMethodChange('phone')}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all border ${
+                loginMethod === 'phone'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              📱 טלפון
+            </button>
+            <button
+              type="button"
+              onClick={() => handleLoginMethodChange('email')}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all border ${
+                loginMethod === 'email'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              ✉️ אימייל
+            </button>
           </div>
 
           {/* Error Message */}
@@ -303,7 +402,7 @@ export default function LoginPage() {
           )}
 
           {/* Login Form */}
-          {authStep === 'phone' ? (
+          {loginMethod === 'phone' && authStep === 'phone' && (
             <form onSubmit={handleSendOTP} className="space-y-6">
               {/* Toggle Password/OTP Mode */}
               {passwordLoginEnabled && (
@@ -391,13 +490,84 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading || !phone || (usePassword && !password)}
-                className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-gradient-to-l from-blue-600 to-indigo-600 text-white py-3.5 px-4 rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:ring-4 focus:ring-blue-300 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
               >
                 {loading ? 'מתחבר...' : (usePassword ? '🔓 התחבר' : '📨 שלח קוד אימות')}
               </button>
             </form>
-          ) : (
-            <form onSubmit={handleVerifyOTP} className="space-y-6">
+          )}
+
+          {loginMethod === 'email' && (
+            <form onSubmit={handleEmailLogin} className="space-y-6">
+              {/* Email Field */}
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  <Mail className="inline w-4 h-4 ml-2" />
+                  כתובת אימייל
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="block w-full pr-10 pl-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-right"
+                    placeholder="your-email@company.com"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              {/* Password Field */}
+              <div>
+                <label htmlFor="emailPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                  <Lock className="inline w-4 h-4 ml-2" />
+                  סיסמה
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    id="emailPassword"
+                    type={showEmailPassword ? 'text' : 'password'}
+                    required
+                    value={emailPassword}
+                    onChange={(e) => setEmailPassword(e.target.value)}
+                    className="block w-full pr-10 pl-10 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-right"
+                    placeholder="הזן את הסיסמה שלך"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 left-0 pl-3 flex items-center"
+                    onClick={() => setShowEmailPassword(!showEmailPassword)}
+                  >
+                    {showEmailPassword ? (
+                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex justify-center py-3.5 px-4 rounded-xl text-sm font-semibold text-white bg-gradient-to-l from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-4 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+              >
+                {loading ? 'מתחבר...' : 'התחבר'}
+              </button>
+            </form>
+          )}
+
+          {loginMethod === 'phone' && authStep !== 'phone' && (
+            <form onSubmit={handleVerifyOTP} className="space-y-6 mt-6">
               {/* OTP Success Message */}
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3">
                 <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
@@ -438,7 +608,7 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   disabled={loading || otpCode.length !== 6}
-                  className="w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 focus:ring-4 focus:ring-green-300 transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-gradient-to-l from-emerald-600 to-green-600 text-white py-3.5 px-4 rounded-xl hover:from-emerald-700 hover:to-green-700 focus:ring-4 focus:ring-green-300 transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
                   {loading ? 'מאמת...' : 'אימות והתחברות'}
                 </button>
@@ -491,24 +661,14 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Additional Login Options */}
-          <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-            <p className="text-sm text-gray-600 mb-3">שיטות התחברות נוספות:</p>
-            <button
-              type="button"
-              onClick={() => router.push('/email-login')}
-              className="text-blue-600 hover:text-blue-500 font-medium text-sm"
-            >
-              📧 התחבר עם אימייל וסיסמה
-            </button>
-          </div>
         </div>
 
         {/* Footer */}
-        <p className="text-center text-sm text-gray-600 mt-6">
-          Fleet Management System © 2026
+        <p className="text-center text-sm text-gray-500 mt-6">
+          TruckFlow © 2026
         </p>
       </div>
+    </div>
     </div>
   )
 }

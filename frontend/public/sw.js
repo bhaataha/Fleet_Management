@@ -3,7 +3,7 @@
 // Professional offline-first architecture
 // ==========================================
 
-const APP_VERSION = '2.0.4';
+const APP_VERSION = '2.0.5';
 const CACHE_NAME = `truckflow-v${APP_VERSION}`;
 const RUNTIME_CACHE = 'truckflow-runtime';
 const API_CACHE = 'truckflow-api';
