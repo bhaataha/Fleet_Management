@@ -240,6 +240,13 @@ export const jobsApi = {
     lng?: number
   }) =>
     api.post<Job>(`/jobs/${id}/status`, data),
+
+  updateLocation: (id: number, data: {
+    lat: number
+    lng: number
+    note?: string
+  }) =>
+    api.post<{ success: boolean }>(`/jobs/${id}/location`, data),
 }
 
 // Price Lists API

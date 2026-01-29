@@ -1,5 +1,6 @@
 """Web Push notification service."""
 from typing import List, Dict
+import json
 from datetime import datetime
 from pywebpush import webpush, WebPushException
 from sqlalchemy.orm import Session
@@ -11,13 +12,14 @@ logger = logging.getLogger(__name__)
 
 
 def _build_payload(data: Dict) -> str:
-    return {
+    payload = {
         "title": data.get("title", "TruckFlow"),
         "body": data.get("body", "התראה חדשה"),
         "icon": data.get("icon", "/icon-192.svg"),
         "tag": data.get("tag", "alert"),
         "url": data.get("url", "/mobile/alerts"),
     }
+    return json.dumps(payload, ensure_ascii=False)
 
 
 def send_push_to_subscriptions(

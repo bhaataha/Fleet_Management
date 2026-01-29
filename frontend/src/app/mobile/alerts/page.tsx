@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { alertsApi } from '@/lib/api'
 import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh'
-import { AlertCircle, CheckCircle2, Clock, RefreshCw } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Clock, RefreshCw, X, Check } from 'lucide-react'
 
 type AlertItem = {
   id: number
@@ -31,7 +31,7 @@ export default function MobileAlertsPage() {
           router.replace('/login')
           return
         }
-        const res = await alertsApi.list({ status: 'UNREAD', limit: 50 })
+        const res = await alertsApi.list({ limit: 50 })
         setAlerts(res.data?.items || [])
       } catch (error) {
         console.error('Failed to load alerts:', error)
@@ -54,7 +54,7 @@ export default function MobileAlertsPage() {
         router.replace('/login')
         return
       }
-      const res = await alertsApi.list({ status: 'UNREAD', limit: 50 })
+      const res = await alertsApi.list({ limit: 50 })
       setAlerts(res.data?.items || [])
       setError(null)
     } catch (error) {
@@ -64,6 +64,24 @@ export default function MobileAlertsPage() {
       setRefreshing(false)
     }
   }, [refreshing, router])
+
+  const handleMarkAsRead = async (alertId: number) => {
+    try {
+      const res = await alertsApi.markAsRead(alertId)
+      setAlerts((prev) => prev.map((a) => (a.id === alertId ? res.data : a)))
+    } catch (err) {
+      console.error('Failed to mark alert as read:', err)
+    }
+  }
+
+  const handleDismiss = async (alertId: number) => {
+    try {
+      await alertsApi.dismiss(alertId)
+      setAlerts((prev) => prev.filter((a) => a.id !== alertId))
+    } catch (err) {
+      console.error('Failed to dismiss alert:', err)
+    }
+  }
 
   const {
     containerRef,
@@ -105,7 +123,7 @@ export default function MobileAlertsPage() {
         </button>
       </div>
 
-      {alerts.map(alert => (
+      {alerts.map((alert) => (
         <div key={alert.id} className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
           <div className="flex items-start gap-3">
             <div className="mt-1">
@@ -116,11 +134,44 @@ export default function MobileAlertsPage() {
               )}
             </div>
             <div className="flex-1">
-              <div className="font-semibold text-gray-900 text-sm">{alert.title}</div>
-              <div className="text-sm text-gray-600 mt-1">{alert.message}</div>
-              <div className="flex items-center gap-1 text-xs text-gray-400 mt-2">
-                <Clock className="w-3 h-3" />
-                {new Date(alert.created_at).toLocaleString('he-IL')}
+              <div className="flex items-start justify-between gap-2">
+                <div className="font-semibold text-gray-900 text-sm">{alert.title}</div>
+                <div className="flex items-center gap-1">
+                  {alert.status === 'UNREAD' && (
+                    <button
+                      onClick={() => handleMarkAsRead(alert.id)}
+                      className="p-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"
+                      title="סמן כנקראה"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDismiss(alert.id)}
+                    className="p-1.5 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"
+                    title="הסר"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              {alert.message && (
+                <div className="text-sm text-gray-700 mt-1 whitespace-pre-line">{alert.message}</div>
+              )}
+              <div className="flex items-center gap-2 text-xs text-gray-500 mt-3">
+                <Clock className="w-4 h-4" />
+                <span>{new Date(alert.created_at).toLocaleString('he-IL')}</span>
+                {alert.status && (
+                  <span
+                    className={
+                      alert.status === 'UNREAD'
+                        ? 'text-orange-600 font-semibold'
+                        : 'text-green-600 font-semibold'
+                    }
+                  >
+                    {alert.status === 'UNREAD' ? 'לא נקראה' : 'נקראה'}
+                  </span>
+                )}
               </div>
             </div>
           </div>

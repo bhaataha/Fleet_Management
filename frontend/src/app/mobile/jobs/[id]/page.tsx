@@ -62,6 +62,28 @@ export default function MobileJobDetailPage() {
   const [success, setSuccess] = useState<string | null>(null)
   const [jobFiles, setJobFiles] = useState<any[]>([])  // Add files state
 
+  const getLocation = async (): Promise<{ lat?: number; lng?: number }> => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return {}
+    return new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {
+          try {
+            const cached = localStorage.getItem('last_known_gps')
+            if (cached) {
+              const parsed = JSON.parse(cached)
+              if (typeof parsed?.lat === 'number' && typeof parsed?.lng === 'number') {
+                return resolve({ lat: parsed.lat, lng: parsed.lng })
+              }
+            }
+          } catch {}
+          resolve({})
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      )
+    })
+  }
+
   useEffect(() => {
     loadJob()
 
@@ -106,7 +128,12 @@ export default function MobileJobDetailPage() {
     if (!jobId) return
 
     try {
-      await jobsApi.updateStatus(Number(jobId), { status: newStatus })
+      const location = await getLocation()
+      await jobsApi.updateStatus(Number(jobId), {
+        status: newStatus,
+        lat: location.lat,
+        lng: location.lng,
+      })
       await loadJob()
       setSuccess('הסטטוס עודכן בהצלחה!')
       setTimeout(() => setSuccess(null), 3000)

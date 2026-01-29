@@ -64,8 +64,19 @@ async function getLocation(): Promise<{ lat?: number; lng?: number }> {
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => resolve({}),
-      { enableHighAccuracy: true, timeout: 5000 }
+      () => {
+        try {
+          const cached = localStorage.getItem('last_known_gps')
+          if (cached) {
+            const parsed = JSON.parse(cached)
+            if (typeof parsed?.lat === 'number' && typeof parsed?.lng === 'number') {
+              return resolve({ lat: parsed.lat, lng: parsed.lng })
+            }
+          }
+        } catch {}
+        resolve({})
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
     )
   })
 }

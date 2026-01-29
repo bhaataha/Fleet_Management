@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Truck, MapPin, Clock, AlertCircle, ChevronLeft, Download, RefreshCw } from 'lucide-react'
@@ -26,6 +26,8 @@ export default function MobileHomePage() {
   const [userName, setUserName] = useState('נהג')
   const [driverId, setDriverId] = useState<number | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  const [activeJob, setActiveJob] = useState<MobileJob | null>(null)
+  const lastLocationSentAt = useRef<number>(0)
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -114,12 +116,18 @@ export default function MobileHomePage() {
         
         const result = res.data || []
         console.log('[Home] Loaded jobs:', result.length, result)
+
+        // Always load all jobs to detect active job (regardless of date)
+        const allJobsRes = await jobsApi.list({ driver_id: driverId, limit: 500 })
+        const allJobs = allJobsRes.data || []
+        const active = allJobs.find((job: any) =>
+          ['ASSIGNED', 'ENROUTE_PICKUP', 'LOADED', 'ENROUTE_DROPOFF'].includes(job.status)
+        ) || null
+        setActiveJob(active)
+        console.log('[Home] Active job from all jobs:', active?.id || 'none')
         
         if (result.length === 0) {
           console.log('[Home] No jobs for today, checking all jobs for this driver...')
-          // Fallback: load all jobs and filter locally
-          const fallback = await jobsApi.list({ driver_id: driverId, limit: 500 })
-          const allJobs = fallback.data || []
           console.log('[Home] Total jobs for driver:', allJobs.length)
           
           const filtered = allJobs.filter((job: any) => isSameLocalDate(job.scheduled_date, today))
@@ -160,11 +168,16 @@ export default function MobileHomePage() {
       
       const result = res.data || []
       console.log('[Home] Refreshed jobs:', result.length)
+
+      const allJobsRes = await jobsApi.list({ driver_id: driverId, limit: 500 })
+      const allJobs = allJobsRes.data || []
+      const active = allJobs.find((job: any) =>
+        ['ASSIGNED', 'ENROUTE_PICKUP', 'LOADED', 'ENROUTE_DROPOFF'].includes(job.status)
+      ) || null
+      setActiveJob(active)
       
       if (result.length === 0) {
         // Fallback: load all jobs and filter locally
-        const fallback = await jobsApi.list({ driver_id: driverId, limit: 500 })
-        const allJobs = fallback.data || []
         const filtered = allJobs.filter((job: any) => isSameLocalDate(job.scheduled_date, today))
         setJobs(filtered)
       } else {
@@ -198,6 +211,38 @@ export default function MobileHomePage() {
     const completed = jobs.filter(j => j.status === 'DELIVERED' || j.status === 'CLOSED').length
     return { active, completed }
   }, [jobs])
+
+  useEffect(() => {
+    if (!activeJob) return
+    if (typeof window === 'undefined') return
+    if (!('geolocation' in navigator)) return
+
+    const sendLocation = (lat: number, lng: number) => {
+      const now = Date.now()
+      if (now - lastLocationSentAt.current < 60_000) return
+      lastLocationSentAt.current = now
+      try {
+        localStorage.setItem('last_known_gps', JSON.stringify({ lat, lng, ts: now }))
+      } catch {}
+      jobsApi.updateLocation(activeJob.id, { lat, lng }).catch((error) => {
+        console.error('[Home] Failed to send location:', error)
+      })
+    }
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        sendLocation(position.coords.latitude, position.coords.longitude)
+      },
+      (error) => {
+        console.error('[Home] Location error:', error)
+      },
+      { enableHighAccuracy: true, maximumAge: 30_000, timeout: 10_000 }
+    )
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId)
+    }
+  }, [activeJob])
 
   if (loading) {
     return (

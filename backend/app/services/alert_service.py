@@ -450,3 +450,39 @@ class AlertService:
         logger.info(f"Auto-resolved {count} {alert_type.value} alerts for {entity_type} {entity_id}")
         
         return count
+
+    @staticmethod
+    def resolve_alerts_for_user_entity(
+        db: Session,
+        org_id: int,
+        alert_type: AlertType,
+        entity_type: str,
+        entity_id: int,
+        user_id: int
+    ) -> int:
+        """
+        Resolve alerts for a specific user and entity
+
+        Example: Job unassigned from driver, so resolve JOB_ASSIGNED_TO_DRIVER
+        for that driver and job
+        """
+        count = db.query(Alert).filter(
+            Alert.org_id == org_id,
+            Alert.alert_type == alert_type.value,
+            Alert.entity_type == entity_type,
+            Alert.entity_id == entity_id,
+            Alert.created_for_user_id == user_id,
+            Alert.status.in_([AlertStatus.UNREAD.value, AlertStatus.READ.value])
+        ).update({
+            "status": AlertStatus.RESOLVED.value,
+            "resolved_at": datetime.utcnow()
+        })
+
+        db.commit()
+
+        logger.info(
+            f"Resolved {count} {alert_type.value} alerts for user {user_id} "
+            f"on {entity_type} {entity_id}"
+        )
+
+        return count

@@ -14,6 +14,15 @@ export default function DashboardPage() {
   const { t } = useI18n()
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
+  const [pwaStatus, setPwaStatus] = useState({
+    supported: false,
+    installed: false,
+    swRegistered: false,
+    pushSupported: false,
+    pushSubscribed: false,
+    notificationPermission: 'default' as NotificationPermission,
+    online: true,
+  })
   
   // Reference data
   const [sites, setSites] = useState<any[]>([])
@@ -23,6 +32,7 @@ export default function DashboardPage() {
   useEffect(() => {
     loadReferenceData()
     loadTodayJobs()
+    checkPwaStatus()
     
     // Auto-refresh every 30 seconds
     const interval = setInterval(() => {
@@ -31,6 +41,42 @@ export default function DashboardPage() {
     
     return () => clearInterval(interval)
   }, [])
+
+  const checkPwaStatus = async () => {
+    if (typeof window === 'undefined') return
+
+    const online = navigator.onLine
+    const supported = 'serviceWorker' in navigator
+    const pushSupported = 'PushManager' in window
+    const installed = window.matchMedia('(display-mode: standalone)').matches
+    const notificationPermission = 'Notification' in window ? Notification.permission : 'default'
+
+    let swRegistered = false
+    let pushSubscribed = false
+
+    if (supported) {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration()
+        swRegistered = !!reg
+        if (reg && pushSupported) {
+          const sub = await reg.pushManager.getSubscription()
+          pushSubscribed = !!sub
+        }
+      } catch (error) {
+        console.error('Failed to check PWA status:', error)
+      }
+    }
+
+    setPwaStatus({
+      supported,
+      installed,
+      swRegistered,
+      pushSupported,
+      pushSubscribed,
+      notificationPermission,
+      online,
+    })
+  }
 
   const loadReferenceData = async () => {
     try {
@@ -242,6 +288,57 @@ export default function DashboardPage() {
                 </tbody>
               </table>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* PWA Status */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-gray-900">מצב PWA</h2>
+          <button
+            onClick={checkPwaStatus}
+            className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50"
+          >
+            רענן
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">Service Worker</span>
+            <span className={pwaStatus.swRegistered ? 'text-green-600 font-semibold' : 'text-gray-400'}>
+              {pwaStatus.swRegistered ? 'פעיל' : 'לא פעיל'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">Push</span>
+            <span className={pwaStatus.pushSubscribed ? 'text-green-600 font-semibold' : 'text-gray-400'}>
+              {pwaStatus.pushSubscribed ? 'מחובר' : 'לא מחובר'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">הרשאת התראות</span>
+            <span className={pwaStatus.notificationPermission === 'granted' ? 'text-green-600 font-semibold' : 'text-gray-400'}>
+              {pwaStatus.notificationPermission === 'granted' ? 'מאושר' : 'לא מאושר'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">התקנה</span>
+            <span className={pwaStatus.installed ? 'text-green-600 font-semibold' : 'text-gray-400'}>
+              {pwaStatus.installed ? 'מותקן' : 'לא מותקן'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">חיבור</span>
+            <span className={pwaStatus.online ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
+              {pwaStatus.online ? 'אונליין' : 'אופליין'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-600">תמיכה בדפדפן</span>
+            <span className={pwaStatus.supported ? 'text-green-600 font-semibold' : 'text-gray-400'}>
+              {pwaStatus.supported ? 'נתמך' : 'לא נתמך'}
+            </span>
           </div>
         </div>
       </div>

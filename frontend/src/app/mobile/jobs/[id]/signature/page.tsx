@@ -6,6 +6,28 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 import SignatureCapture from '@/components/SignatureCapture'
 import { jobsApi } from '@/lib/api'
 
+async function getLocation(): Promise<{ lat?: number; lng?: number }> {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) return {}
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {
+        try {
+          const cached = localStorage.getItem('last_known_gps')
+          if (cached) {
+            const parsed = JSON.parse(cached)
+            if (typeof parsed?.lat === 'number' && typeof parsed?.lng === 'number') {
+              return resolve({ lat: parsed.lat, lng: parsed.lng })
+            }
+          }
+        } catch {}
+        resolve({})
+      },
+      { enableHighAccuracy: true, timeout: 8000 }
+    )
+  })
+}
+
 export default function MobileSignaturePage() {
   const router = useRouter()
   const params = useParams()
@@ -39,9 +61,12 @@ export default function MobileSignaturePage() {
       const file = new File([blob], `signature_${Date.now()}.png`, { type: 'image/png' })
 
       // Upload signature
+      const location = await getLocation()
       await jobsApi.updateStatus(Number(jobId), {
         status: 'DELIVERED',
-        note: `תעודת משלוח - מקבל: ${receiverName}`
+        note: `תעודת משלוח - מקבל: ${receiverName}`,
+        lat: location.lat,
+        lng: location.lng,
       })
 
       // Navigate back with success

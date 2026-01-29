@@ -161,6 +161,12 @@ class JobStatusUpdate(BaseModel):
     lng: Optional[float] = None
 
 
+class JobLocationUpdate(BaseModel):
+    lat: float
+    lng: float
+    note: Optional[str] = None
+
+
 class JobEmailSendRequest(BaseModel):
     to_email: str
     subject: Optional[str] = None
@@ -384,6 +390,19 @@ async def update_job(
     
     db.commit()
     db.refresh(db_job)
+
+    # Resolve old driver assignment alerts if driver was removed or changed
+    if old_driver_id and job_update.driver_id != old_driver_id:
+        old_driver = db.query(Driver).filter(Driver.id == old_driver_id).first()
+        if old_driver and old_driver.user_id:
+            AlertService.resolve_alerts_for_user_entity(
+                db,
+                org_id,
+                AlertType.JOB_ASSIGNED_TO_DRIVER,
+                "job",
+                db_job.id,
+                old_driver.user_id,
+            )
     
     # Create real-time alert if driver was assigned
     if job_update.driver_id and job_update.driver_id != old_driver_id:
@@ -464,6 +483,50 @@ async def update_job_status(
     db.commit()
     db.refresh(db_job)
     return db_job
+
+
+@router.post("/{job_id}/location", response_model=dict)
+async def update_job_location(
+    job_id: int,
+    location_update: JobLocationUpdate,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Log GPS location for a job without changing status
+    """
+    org_id = get_current_org_id(request)
+    user_id = get_current_user_id(request)
+    user_role = get_org_role(request)
+
+    db_job_query = db.query(Job).filter(
+        Job.id == job_id,
+        Job.org_id == org_id
+    )
+
+    if str(user_role).lower() == "driver":
+        driver = db.query(Driver).filter(Driver.user_id == user_id).first()
+        if not driver:
+            raise HTTPException(status_code=404, detail="Driver not found")
+        db_job_query = db_job_query.filter(Job.driver_id == driver.id)
+
+    db_job = db_job_query.first()
+    if not db_job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    status_event = JobStatusEvent(
+        org_id=org_id,
+        job_id=job_id,
+        status=db_job.status,
+        user_id=user_id,
+        lat=location_update.lat,
+        lng=location_update.lng,
+        note=location_update.note
+    )
+    db.add(status_event)
+    db.commit()
+
+    return {"success": True}
 
 
 class JobStatusEventResponse(BaseModel):

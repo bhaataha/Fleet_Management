@@ -109,7 +109,9 @@ self.addEventListener('fetch', (event) => {
         .then(response => {
           if (response.ok) {
             const cache = caches.open(RUNTIME_CACHE);
-            cache.then(c => c.put(request, response.clone()));
+            if (!response.bodyUsed) {
+              cache.then(c => c.put(request, response.clone())).catch(() => {});
+            }
           }
           return response;
         })
@@ -129,7 +131,9 @@ async function cacheFirstStrategy(request, cacheName) {
   if (cached) return cached;
   try {
     const response = await fetch(request);
-    if (response.ok) cache.put(request, response.clone());
+    if (response.ok && !response.bodyUsed) {
+      cache.put(request, response.clone()).catch(() => {});
+    }
     return response;
   } catch (error) {
     if (request.destination === 'image') {
@@ -145,7 +149,7 @@ async function networkFirstStrategy(request, cacheName) {
   const cache = await caches.open(cacheName);
   try {
     const response = await fetch(request);
-    if (response.ok && request.method === 'GET') {
+    if (response.ok && request.method === 'GET' && !response.bodyUsed) {
       const clone = response.clone();
       await cache.put(request, clone);
     }

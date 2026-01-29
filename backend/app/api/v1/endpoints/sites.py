@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional, Union
 from decimal import Decimal
+import asyncio
+import httpx
 from app.core.database import get_db
 from app.models import Site
 from app.middleware.tenant import get_current_org_id
@@ -170,3 +172,70 @@ async def delete_site(
     db_site.is_active = False
     db.commit()
     return None
+
+
+@router.post("/geocode-missing", response_model=dict)
+async def geocode_missing_sites(
+    request: Request,
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db)
+):
+    """
+    Geocode sites missing lat/lng using Nominatim (OpenStreetMap).
+    Only sites with an address and missing coordinates are processed.
+    """
+    org_id = get_current_org_id(request)
+
+    sites = db.query(Site).filter(
+        Site.org_id == org_id,
+        Site.address.isnot(None),
+        (Site.lat.is_(None) | Site.lng.is_(None))
+    ).limit(limit).all()
+
+    updated_ids: List[int] = []
+
+    if not sites:
+        return {"processed": 0, "updated": 0, "updated_ids": []}
+
+    headers = {
+        "User-Agent": "TruckFlow/1.0 (support@truckflow.site)"
+    }
+
+    async with httpx.AsyncClient(headers=headers, timeout=10.0) as client:
+        for site in sites:
+            query = f"{site.name} {site.address}".strip()
+            try:
+                response = await client.get(
+                    "https://nominatim.openstreetmap.org/search",
+                    params={
+                        "format": "json",
+                        "limit": 1,
+                        "countrycodes": "il",
+                        "q": query
+                    }
+                )
+                if response.status_code != 200:
+                    continue
+                results = response.json() or []
+                if not results:
+                    continue
+
+                lat = Decimal(results[0].get("lat"))
+                lng = Decimal(results[0].get("lon"))
+                site.lat = lat
+                site.lng = lng
+                updated_ids.append(site.id)
+
+                # Be polite to Nominatim
+                await asyncio.sleep(1)
+            except Exception:
+                continue
+
+    if updated_ids:
+        db.commit()
+
+    return {
+        "processed": len(sites),
+        "updated": len(updated_ids),
+        "updated_ids": updated_ids
+    }

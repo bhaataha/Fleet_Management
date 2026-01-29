@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/lib/stores/auth';
 import api from '@/lib/api';
@@ -43,6 +43,9 @@ interface DriverLocation {
   job: Job | null;
   lastEvent: JobStatusEvent | null;
   site: Site | null;
+  displayLat: number | null;
+  displayLng: number | null;
+  locationSource: 'gps' | 'site' | null;
 }
 
 export default function FleetTrackingPage() {
@@ -51,6 +54,7 @@ export default function FleetTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [mapInitialized, setMapInitialized] = useState(false);
+  const geocodeAttempted = useRef(false);
 
   useEffect(() => {
     // Load Leaflet CSS and JS
@@ -97,6 +101,10 @@ export default function FleetTrackingPage() {
 
   function initializeMap() {
     try {
+      if ((window as any).fleetMap) {
+        setMapInitialized(true)
+        return
+      }
       console.log('Initializing map...');
       const mapElement = document.getElementById('fleet-map');
       console.log('Map element:', mapElement);
@@ -122,6 +130,7 @@ export default function FleetTrackingPage() {
 
       (window as any).fleetMap = map;
       console.log('✅ Map initialized successfully');
+      setMapInitialized(true);
       
       // Force map to invalidate size after a short delay
       setTimeout(() => {
@@ -137,28 +146,59 @@ export default function FleetTrackingPage() {
       console.log('🔄 Loading fleet locations...');
       setLoading(true);
       
+      const now = new Date();
+      const fromDate = new Date(now);
+      fromDate.setDate(now.getDate() - 2);
+      const toDate = new Date(now);
+      toDate.setDate(now.getDate() + 2);
+      const formatDate = (date: Date) => date.toISOString().slice(0, 10);
+
       const [driversRes, jobsRes, sitesRes] = await Promise.all([
         api.get('/drivers'),
-        api.get('/jobs'),
+        api.get('/jobs', {
+          params: {
+            limit: 1000,
+            from_date: formatDate(fromDate),
+            to_date: formatDate(toDate)
+          }
+        }),
         api.get('/sites')
       ]);
       
       const drivers: Driver[] = driversRes.data;
       const jobs: Job[] = jobsRes.data;
-      const sites: Site[] = sitesRes.data;
+      let sites: Site[] = sitesRes.data;
+
+      if (!geocodeAttempted.current) {
+        geocodeAttempted.current = true;
+        try {
+          const geocodeRes = await api.post('/sites/geocode-missing', null, { params: { limit: 10 } })
+          if (geocodeRes.data?.updated > 0) {
+            const refreshedSites = await api.get('/sites')
+            sites = refreshedSites.data || sites
+          }
+        } catch (error) {
+          console.warn('⚠️ Failed to geocode missing sites:', error)
+        }
+      }
       
       console.log(`📊 Loaded: ${drivers.length} drivers, ${jobs.length} jobs, ${sites.length} sites`);
       
       const driverLocations: DriverLocation[] = [];
       
       for (const driver of drivers) {
-        const activeJob = jobs.find(j => 
-          j.driver_id === driver.id && 
-          ['ASSIGNED', 'ENROUTE_PICKUP', 'LOADED', 'ENROUTE_DROPOFF'].includes(j.status)
-        );
+        const driverJobs = jobs
+          .filter(j => j.driver_id === driver.id)
+          .filter(j => ['ASSIGNED', 'ENROUTE_PICKUP', 'LOADED', 'ENROUTE_DROPOFF', 'DELIVERED'].includes(j.status))
+          .sort((a, b) => new Date(b.scheduled_date).getTime() - new Date(a.scheduled_date).getTime());
+
+        const activeJob = driverJobs[0];
         
         let lastEvent: JobStatusEvent | null = null;
         let site: Site | null = null;
+        let displayLat: number | null = null;
+        let displayLng: number | null = null;
+        let locationSource: 'gps' | 'site' | null = null;
         
         if (activeJob) {
           try {
@@ -177,9 +217,31 @@ export default function FleetTrackingPage() {
               console.log(`⚠️ Driver ${driver.name} has no GPS data`);
             }
             
-            site = sites.find(s => s.id === activeJob.to_site_id) || null;
-          } catch (err) {
-            console.error(`Failed to load events for job ${activeJob.id}:`, err);
+            const toSite = sites.find(s => s.id === activeJob.to_site_id) || null;
+            const fromSite = sites.find(s => s.id === activeJob.from_site_id) || null;
+            site = toSite || fromSite;
+
+            if (lastEvent?.lat !== null && lastEvent?.lng !== null) {
+              displayLat = lastEvent.lat;
+              displayLng = lastEvent.lng;
+              locationSource = 'gps';
+            } else if (toSite?.lat && toSite?.lng) {
+              displayLat = toSite.lat;
+              displayLng = toSite.lng;
+              locationSource = 'site';
+            } else if (fromSite?.lat && fromSite?.lng) {
+              displayLat = fromSite.lat;
+              displayLng = fromSite.lng;
+              locationSource = 'site';
+            }
+          } catch (err: any) {
+            const isAborted =
+              err?.code === 'ECONNABORTED' ||
+              err?.name === 'CanceledError' ||
+              (typeof err?.message === 'string' && err.message.toLowerCase().includes('aborted'))
+            if (!isAborted) {
+              console.error(`Failed to load events for job ${activeJob.id}:`, err)
+            }
           }
         }
         
@@ -187,13 +249,18 @@ export default function FleetTrackingPage() {
           driver,
           job: activeJob || null,
           lastEvent,
-          site
+          site,
+          displayLat,
+          displayLng,
+          locationSource
         });
       }
       
       console.log(`✅ Processed ${driverLocations.length} driver locations`);
-      const driversWithGPS = driverLocations.filter(loc => loc.lastEvent?.lat && loc.lastEvent?.lng);
+      const driversWithGPS = driverLocations.filter(loc => loc.locationSource === 'gps');
+      const driversWithSite = driverLocations.filter(loc => loc.locationSource === 'site');
       console.log(`📍 Drivers with GPS: ${driversWithGPS.length}/${driverLocations.length}`);
+      console.log(`📍 Drivers with site fallback: ${driversWithSite.length}/${driverLocations.length}`);
       
       setLocations(driverLocations);
       updateMapMarkers(driverLocations, sites);
@@ -203,6 +270,7 @@ export default function FleetTrackingPage() {
       setLoading(false);
     }
   }
+
 
   function updateMapMarkers(locations: DriverLocation[], sites: Site[]) {
     console.log('🗺️ Updating map markers...');
@@ -230,18 +298,20 @@ export default function FleetTrackingPage() {
     // Add driver markers
     let markersAdded = 0;
     locations.forEach(loc => {
-      if (loc.lastEvent?.lat && loc.lastEvent?.lng) {
-        console.log(`📍 Adding marker for ${loc.driver.name} at ${loc.lastEvent.lat}, ${loc.lastEvent.lng}`);
+      if (loc.displayLat !== null && loc.displayLng !== null) {
+        console.log(`📍 Adding marker for ${loc.driver.name} at ${loc.displayLat}, ${loc.displayLng} (${loc.locationSource})`);
+        const bgColor = loc.locationSource === 'gps' ? '#2563eb' : '#f59e0b';
         const icon = L.divIcon({
-          html: `<div style="background:${loc.job ? '#2563eb' : '#6b7280'};color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🚛</div>`,
+          html: `<div style="background:${bgColor};color:white;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">🚛</div>`,
           className: '',
           iconSize: [36, 36],
           iconAnchor: [18, 18]
         });
         
-        L.marker([loc.lastEvent.lat, loc.lastEvent.lng], { icon })
+        const sourceLabel = loc.locationSource === 'gps' ? 'GPS' : 'מיקום אתר';
+        L.marker([loc.displayLat, loc.displayLng], { icon })
           .addTo(map)
-          .bindPopup(`<b>${loc.driver.name}</b><br>${getStatusLabel(loc.job?.status || 'N/A')}<br>${loc.site?.name || ''}`);
+          .bindPopup(`<b>${loc.driver.name}</b><br>${getStatusLabel(loc.job?.status || 'N/A')}<br>${loc.site?.name || ''}<br>${sourceLabel}`);
         
         markersAdded++;
       }
@@ -269,6 +339,13 @@ export default function FleetTrackingPage() {
     });
     
     console.log(`✅ Added ${siteMarkersAdded} site markers`);
+
+    // Ensure map renders correctly after updates
+    setTimeout(() => {
+      try {
+        map.invalidateSize();
+      } catch {}
+    }, 100);
   }
 
   function getStatusLabel(status: string): string {
@@ -320,29 +397,31 @@ export default function FleetTrackingPage() {
           </div>
         </div>
 
-        {!mapInitialized ? (
-          <div className="text-center py-12">טוען מפה...</div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Map Section */}
-            <div className="lg:col-span-2">
-              <div className="bg-white rounded-lg shadow-md p-4">
-                <div 
-                  id="fleet-map" 
-                  className="w-full h-[600px] rounded-lg" 
-                  style={{ 
-                    height: '600px', 
-                    width: '100%', 
-                    minHeight: '600px',
-                    backgroundColor: '#f3f4f6',
-                    border: '2px solid #e5e7eb'
-                  }}
-                ></div>
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Map Section */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-lg shadow-md p-4 relative">
+              {!mapInitialized && (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-500 bg-white/70 z-10 rounded-lg">
+                  טוען מפה...
+                </div>
+              )}
+              <div 
+                id="fleet-map" 
+                className="w-full h-[600px] rounded-lg" 
+                style={{ 
+                  height: '600px', 
+                  width: '100%', 
+                  minHeight: '600px',
+                  backgroundColor: '#f3f4f6',
+                  border: '2px solid #e5e7eb'
+                }}
+              ></div>
             </div>
+          </div>
 
-            {/* Drivers List */}
-            <div className="space-y-3">
+          {/* Drivers List */}
+          <div className="space-y-3">
               <h2 className="font-semibold text-lg mb-4">נהגים פעילים ({locations.filter(l => l.job).length}/{locations.length})</h2>
               
               {loading && locations.length === 0 ? (
@@ -378,9 +457,9 @@ export default function FleetTrackingPage() {
                           </div>
                         )}
                         
-                        {loc.lastEvent?.lat && loc.lastEvent?.lng && (
+                        {loc.displayLat !== null && loc.displayLng !== null && (
                           <div className="text-xs text-gray-500 mt-2">
-                            GPS: {loc.lastEvent.lat.toFixed(4)}, {loc.lastEvent.lng.toFixed(4)}
+                            {loc.locationSource === 'gps' ? 'GPS' : 'אתר'}: {loc.displayLat.toFixed(4)}, {loc.displayLng.toFixed(4)}
                           </div>
                         )}
                       </>
@@ -390,9 +469,8 @@ export default function FleetTrackingPage() {
                   </div>
                 ))
               )}
-            </div>
           </div>
-        )}
+        </div>
       </div>
     </DashboardLayout>
   );

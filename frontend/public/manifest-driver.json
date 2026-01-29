@@ -1,6 +1,6 @@
 {
-  "name": "TruckFlow Driver",
-  "short_name": "Driver",
+  "name": "TruckFlow",
+  "short_name": "TruckFlow",
   "description": "אפליקציית נהג למשימות וסטטוסים בזמן אמת",
   "start_url": "/mobile/home",
   "scope": "/mobile/",
