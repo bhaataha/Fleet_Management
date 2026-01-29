@@ -9,6 +9,9 @@ import uuid
 # Import Alert models
 from app.models.alert import Alert, AlertType, AlertSeverity, AlertCategory, AlertStatus
 
+# Import Push models
+from app.models.push_subscription import PushSubscription
+
 # Import Permission models
 from app.models.permissions import UserPermission, PhoneOTP, PermissionModel
 

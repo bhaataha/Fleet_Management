@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { useAuth } from '@/components/auth/AuthProvider'
+import { useAuth } from '@/lib/stores/auth'
 
 export default function DynamicManifest() {
   const pathname = usePathname()

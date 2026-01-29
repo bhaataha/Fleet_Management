@@ -24,7 +24,7 @@ export default function NotificationBadge({
       )}
       title={`${count} התראות חדשות`}
     >
-      <Bell className="w-5 h-5 text-gray-600" />
+      <Bell className="w-5 h-5 text-current" />
       
       {!loading && count > 0 && (
         <span className="absolute -top-1 -right-1 flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-red-500 rounded-full animate-pulse">

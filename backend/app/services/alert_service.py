@@ -53,6 +53,32 @@ class AlertService:
         db.refresh(alert)
         
         logger.info(f"Created alert {alert.id}: {alert.alert_type} for org {alert.org_id}")
+
+        # Send push notification for user-targeted alerts
+        if alert.created_for_user_id:
+            try:
+                from app.models.push_subscription import PushSubscription
+                from app.services.push_service import send_push_to_subscriptions
+
+                subs = db.query(PushSubscription).filter(
+                    PushSubscription.org_id == alert.org_id,
+                    PushSubscription.user_id == alert.created_for_user_id,
+                    PushSubscription.is_active == True
+                ).all()
+
+                if subs:
+                    send_push_to_subscriptions(
+                        db,
+                        subs,
+                        {
+                            "title": alert.title,
+                            "body": alert.message,
+                            "tag": f"alert-{alert.id}",
+                            "url": alert.action_url or "/mobile/alerts",
+                        },
+                    )
+            except Exception as exc:
+                logger.warning(f"Push send failed for alert {alert.id}: {exc}")
         
         return alert
     

@@ -8,6 +8,7 @@ import { authApi, driversApi, jobsApi } from '@/lib/api'
 import { jobStatusLabels, jobStatusColors, billingUnitLabels, formatDate } from '@/lib/utils'
 import { usePWA } from '@/lib/hooks/usePWA'
 import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh'
+import NotificationBadge from '@/components/alerts/NotificationBadge'
 import type { Job } from '@/types'
 
 type MobileJob = Job & {
@@ -225,9 +226,17 @@ export default function MobileHomePage() {
       {/* Main content */}
       <div className="space-y-4" style={containerStyle}>
       {/* Welcome Card */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-6 text-white shadow-lg">
-        <h2 className="text-2xl font-bold mb-2">שלום, {userName}! 👋</h2>
-        <p className="text-blue-100">יש לך {jobs.length} משימות להיום</p>
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-4 text-white shadow-lg">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold mb-1">שלום, {userName}! 👋</h2>
+            <p className="text-blue-100 text-sm">יש לך {jobs.length} משימות להיום</p>
+          </div>
+          <NotificationBadge
+            onClick={() => router.push('/mobile/alerts')}
+            className="bg-white/10 hover:bg-white/20 text-white"
+          />
+        </div>
 
         {!isInstalled && (isInstallable || isIOS) && (
           <div className="mt-4 bg-white/15 rounded-xl p-3 text-sm flex items-center justify-between">
@@ -246,14 +255,14 @@ export default function MobileHomePage() {
           </div>
         )}
         
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
-            <div className="text-3xl font-bold">{counts.active}</div>
-            <div className="text-sm text-blue-100">פעילות</div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-2">
+            <div className="text-2xl font-bold">{counts.active}</div>
+            <div className="text-xs text-blue-100">פעילות</div>
           </div>
-          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
-            <div className="text-3xl font-bold">{counts.completed}</div>
-            <div className="text-sm text-blue-100">הושלמו</div>
+          <div className="bg-white/20 backdrop-blur-sm rounded-xl p-2">
+            <div className="text-2xl font-bold">{counts.completed}</div>
+            <div className="text-xs text-blue-100">הושלמו</div>
           </div>
         </div>
       </div>
@@ -363,8 +372,8 @@ export default function MobileHomePage() {
         )}
       </div>
     </div>
+  </div>
   )
-}
 }
 
 function getLocalDateString(date = new Date()) {

@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { MapPin, Clock, Navigation, Loader2, RefreshCw } from 'lucide-react'
-import { authApi, driversApi, jobsApi } from '@/lib/api'
+import { MapPin, Clock, Navigation, Loader2, RefreshCw, Camera, Image, Eye } from 'lucide-react'
+import { authApi, driversApi, jobsApi, filesApi } from '@/lib/api'
 import { jobStatusLabels, jobStatusColors, billingUnitLabels, formatDate } from '@/lib/utils'
 import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh'
+import JobFilesViewer from '@/components/JobFilesViewer'
 import type { Job, JobStatus } from '@/types'
 
 type MobileJob = Job & {
@@ -83,6 +84,10 @@ export default function MobileJobsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState<number | null>(null)
+  const [jobFiles, setJobFiles] = useState<Record<number, any[]>>({})
+  const [viewerOpen, setViewerOpen] = useState(false)
+  const [viewerJobId, setViewerJobId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
 
@@ -155,6 +160,29 @@ export default function MobileJobsPage() {
     }
   }
 
+  const flushQueue = async () => {
+    if (!navigator.onLine) return
+    const queue = getQueue()
+    if (queue.length === 0) return
+    setSyncing(true)
+    try {
+      for (const item of queue) {
+        await jobsApi.updateStatus(item.job_id, {
+          status: item.status,
+          note: item.note,
+          lat: item.lat,
+          lng: item.lng,
+        })
+      }
+      setQueue([])
+      await loadJobs()
+    } catch (error) {
+      console.error('Failed to sync queue:', error)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   const handleRefresh = useCallback(async () => {
     if (driverId === null || refreshing) return
     
@@ -183,29 +211,6 @@ export default function MobileJobsPage() {
     threshold: 80,
     resistance: 2.5
   })
-
-  const flushQueue = async () => {
-    if (!navigator.onLine) return
-    const queue = getQueue()
-    if (queue.length === 0) return
-    setSyncing(true)
-    try {
-      for (const item of queue) {
-        await jobsApi.updateStatus(item.job_id, {
-          status: item.status,
-          note: item.note,
-          lat: item.lat,
-          lng: item.lng,
-        })
-      }
-      setQueue([])
-      await loadJobs()
-    } catch (error) {
-      console.error('Failed to sync queue:', error)
-    } finally {
-      setSyncing(false)
-    }
-  }
 
   useEffect(() => {
     if (driverId !== null) {
@@ -286,6 +291,74 @@ export default function MobileJobsPage() {
     } catch (error) {
       console.error('Failed to update status:', error)
     }
+  }
+
+  const loadJobFiles = async (jobId: number) => {
+    try {
+      const response = await filesApi.listJobFiles(jobId)
+      setJobFiles(prev => ({
+        ...prev,
+        [jobId]: response.data.files || []
+      }))
+    } catch (error) {
+      console.error('Failed to load job files:', error)
+    }
+  }
+
+  const handleTakePhoto = async (jobId: number) => {
+    try {
+      setUploadingPhoto(jobId)
+      
+      // Create file input to capture photo
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      input.capture = 'environment' // Use back camera
+      
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) return
+        
+        try {
+          await filesApi.uploadJobFile(jobId, {
+            file,
+            file_type: 'PHOTO'
+          })
+          
+          // Reload files for this job
+          await loadJobFiles(jobId)
+          
+          console.log('Photo uploaded successfully')
+        } catch (error) {
+          console.error('Failed to upload photo:', error)
+          alert('שגיאה בהעלאת התמונה')
+        } finally {
+          setUploadingPhoto(null)
+        }
+      }
+      
+      input.click()
+    } catch (error) {
+      console.error('Failed to take photo:', error)
+      setUploadingPhoto(null)
+    }
+  }
+
+  const handleViewFiles = async (jobId: number) => {
+    // Load files if not loaded
+    if (!jobFiles[jobId]) {
+      await loadJobFiles(jobId)
+    }
+    
+    const files = jobFiles[jobId] || []
+    if (files.length === 0) {
+      alert('אין תמונות למשימה זו')
+      return
+    }
+    
+    // Open files viewer modal
+    setViewerJobId(jobId)
+    setViewerOpen(true)
   }
 
   if (loading) {
@@ -385,6 +458,14 @@ export default function MobileJobsPage() {
         {filteredJobs.map((job) => {
           const nextStatus = STATUS_FLOW[job.status]
           const highlight = highlightId === job.id
+          const files = jobFiles[job.id] || []
+          const hasFiles = files.length > 0
+          
+          // Load files on first render
+          if (!jobFiles[job.id] && job.id) {
+            loadJobFiles(job.id)
+          }
+          
           return (
             <div
               key={job.id}
@@ -394,12 +475,20 @@ export default function MobileJobsPage() {
                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${jobStatusColors[job.status] || 'bg-gray-100 text-gray-700'}`}>
                   {jobStatusLabels[job.status] || job.status}
                 </span>
-                <span className="text-sm text-gray-500 flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  {job.scheduled_date
-                    ? new Date(job.scheduled_date).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
-                    : '--:--'}
-                </span>
+                <div className="flex items-center gap-2">
+                  {hasFiles && (
+                    <div className="flex items-center gap-1 text-xs text-green-600">
+                      <Image className="w-3 h-3" />
+                      <span>{files.length}</span>
+                    </div>
+                  )}
+                  <span className="text-sm text-gray-500 flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    {job.scheduled_date
+                      ? new Date(job.scheduled_date).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
+                      : '--:--'}
+                  </span>
+                </div>
               </div>
 
               <div className="text-sm font-semibold text-gray-900 mb-1">
@@ -437,10 +526,29 @@ export default function MobileJobsPage() {
                 </button>
                 <button
                   onClick={() => handleNavigation(job)}
-                  className="px-4 py-2.5 rounded-lg border border-gray-200 text-gray-700 bg-white"
+                  className="px-3 py-2.5 rounded-lg border border-gray-200 text-gray-700 bg-white flex items-center justify-center"
                 >
-                  ניווט
+                  <Navigation className="w-4 h-4" />
                 </button>
+                <button
+                  onClick={() => handleTakePhoto(job.id)}
+                  disabled={uploadingPhoto === job.id}
+                  className="px-3 py-2.5 rounded-lg border border-gray-200 text-gray-700 bg-white flex items-center justify-center disabled:opacity-50"
+                >
+                  {uploadingPhoto === job.id ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4" />
+                  )}
+                </button>
+                {hasFiles && (
+                  <button
+                    onClick={() => handleViewFiles(job.id)}
+                    className="px-3 py-2.5 rounded-lg border border-green-200 text-green-700 bg-green-50 flex items-center justify-center"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
               {nextStatus && (
@@ -463,6 +571,19 @@ export default function MobileJobsPage() {
           </div>
         )}
       </div>
+
+      {/* Files Viewer Modal */}
+      {viewerOpen && viewerJobId && (
+        <JobFilesViewer
+          files={jobFiles[viewerJobId] || []}
+          isOpen={viewerOpen}
+          onClose={() => {
+            setViewerOpen(false)
+            setViewerJobId(null)
+          }}
+          jobId={viewerJobId}
+        />
+      )}
     </div>
   )
 }

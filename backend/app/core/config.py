@@ -39,6 +39,11 @@ class Settings(BaseSettings):
         "http://localhost",
         "http://127.0.0.1",
     ]
+
+    # Web Push (VAPID)
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_SUBJECT: str = "mailto:support@truckflow.site"
     
     # File Upload
     MAX_FILE_SIZE_MB: int = 10

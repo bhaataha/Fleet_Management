@@ -2,7 +2,7 @@
 
 import { Download, X } from 'lucide-react'
 import { usePWA } from '@/lib/hooks/usePWA'
-import { useAuth } from '@/components/auth/AuthProvider'
+import { useAuth } from '@/lib/stores/auth'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -12,11 +12,14 @@ export default function PWAInstallPrompt() {
   const pathname = usePathname()
   const [showPrompt, setShowPrompt] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+  const [showInstructions, setShowInstructions] = useState(false)
 
   // Determine if this is driver context
   const isMobilePath = pathname.startsWith('/mobile')
   const isDriverUser = user && (user.org_role === 'driver' || user.driver_id)
   const isDriverContext = isMobilePath || isDriverUser
+  const isAndroid = typeof navigator !== 'undefined' && /android/i.test(navigator.userAgent)
+  const isIOS = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent)
 
   // Dynamic content based on user context
   const appName = isDriverContext ? 'TruckFlow נהג' : 'TruckFlow'
@@ -50,19 +53,25 @@ export default function PWAInstallPrompt() {
       }
     }
 
-    // Show prompt after 30 seconds
-    if (isInstallable && !isInstalled && !dismissed) {
+    // Show prompt after 10 seconds
+    if (!isInstalled && !dismissed && (isInstallable || isAndroid || isIOS)) {
       const timer = setTimeout(() => {
         setShowPrompt(true)
-      }, 30000)
+      }, 10000)
 
       return () => clearTimeout(timer)
     }
-  }, [isInstallable, isInstalled, dismissed])
+  }, [isInstallable, isInstalled, dismissed, isAndroid, isIOS])
 
   const handleInstall = async () => {
-    await promptInstall()
-    setShowPrompt(false)
+    if (isInstallable) {
+      await promptInstall()
+      setShowPrompt(false)
+      return
+    }
+
+    // Fallback instructions for Android/iOS when native prompt isn't available
+    setShowInstructions(true)
   }
 
   const handleDismiss = () => {
@@ -107,6 +116,16 @@ export default function PWAInstallPrompt() {
               {appDescription}
             </p>
 
+            {showInstructions && (
+              <div className="mb-6 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                {isIOS ? (
+                  <div>ב‑iPhone: לחץ על כפתור השיתוף ואז "הוסף למסך הבית".</div>
+                ) : (
+                  <div>ב‑Android: פתח תפריט הדפדפן ובחר "הוסף למסך הבית".</div>
+                )}
+              </div>
+            )}
+
             {/* Benefits */}
             <ul className="space-y-3 mb-6 text-sm text-slate-600">
               {benefits.map((benefit, index) => (
@@ -124,7 +143,7 @@ export default function PWAInstallPrompt() {
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3.5 px-6 rounded-xl transition-colors flex items-center justify-center gap-2"
               >
                 <Download className="w-5 h-5" />
-                התקן עכשיו
+                {isInstallable ? 'התקן עכשיו' : 'איך מתקינים'}
               </button>
               <button
                 onClick={handleDismiss}
