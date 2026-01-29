@@ -94,6 +94,10 @@ export const phoneAuthApi = {
     
   loginWithPassword: (data: { phone: string; password: string; org_slug?: string }) =>
     api.post<LoginResponse>('/phone-auth/login-with-password', data),
+  
+  // Firebase OTP - NEW
+  verifyFirebaseToken: (data: { firebase_token: string; org_slug?: string }) =>
+    api.post<LoginResponse>('/phone-auth/verify-firebase-token', data),
 }
 
 // Customers API
