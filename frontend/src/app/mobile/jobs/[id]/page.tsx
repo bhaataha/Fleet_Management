@@ -13,9 +13,11 @@ import {
   Clock,
   PenLine,
   Camera,
-  Loader2
+  Loader2,
+  FileText,
+  ImageIcon
 } from 'lucide-react'
-import { jobsApi } from '@/lib/api'
+import { jobsApi, filesApi } from '@/lib/api'
 import type { Job } from '@/types'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -58,6 +60,7 @@ export default function MobileJobDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [jobFiles, setJobFiles] = useState<any[]>([])  // Add files state
 
   useEffect(() => {
     loadJob()
@@ -77,6 +80,16 @@ export default function MobileJobDetailPage() {
       setError(null)
       const res = await jobsApi.get(Number(jobId))
       setJob(res.data)
+      
+      // Load job files
+      try {
+        const filesRes = await filesApi.listJobFiles(Number(jobId))
+        console.log('📸 Files loaded:', filesRes.data)
+        setJobFiles(filesRes.data.files || [])
+      } catch (filesError) {
+        console.error('Failed to load files:', filesError)
+        setJobFiles([]) // Set empty array if files fail to load
+      }
     } catch (error: any) {
       console.error('Failed to load job:', error)
       if (error?.response?.status === 401) {
@@ -272,6 +285,63 @@ export default function MobileJobDetailPage() {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Files Section */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-200">
+          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <ImageIcon className="w-5 h-5 text-purple-600" />
+            קבצים וחומרות ({jobFiles.length})
+          </h3>
+          
+          {jobFiles.length > 0 ? (
+            <div className="space-y-3">
+              {jobFiles.map((file: any) => (
+                <div key={file.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                  {file.file_type === 'PHOTO' && (
+                    <div className="relative">
+                      <img 
+                        src={file.url}
+                        alt={file.filename}
+                        className="w-full h-48 object-cover cursor-pointer"
+                        onClick={() => window.open(file.url, '_blank')}
+                      />
+                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white p-2">
+                        <p className="text-sm font-medium truncate">{file.filename}</p>
+                        <p className="text-xs text-gray-300">
+                          {new Date(file.uploaded_at).toLocaleString('he-IL')} • {file.uploaded_by_name}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {file.file_type !== 'PHOTO' && (
+                    <a 
+                      href={file.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block p-3 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText className="w-6 h-6 text-blue-600" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{file.filename}</p>
+                          <p className="text-xs text-gray-500">
+                            {file.file_type} • {(file.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                      </div>
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-gray-400">
+              <ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">אין קבצים מצורפים</p>
+              <p className="text-xs mt-1">השתמש ב"צילום מסמכים" להוספת קבצים</p>
+            </div>
+          )}
         </div>
 
         {/* Status Timeline */}
