@@ -187,6 +187,7 @@ interface EditUserModalProps {
 function EditUserModal({ isOpen, onClose, user, onSuccess }: EditUserModalProps) {
   const [formData, setFormData] = useState<UpdateUserRequest>({
     name: '',
+    email: '',
     phone: '',
     org_role: 'driver'
   });
@@ -197,6 +198,7 @@ function EditUserModal({ isOpen, onClose, user, onSuccess }: EditUserModalProps)
     if (user) {
       setFormData({
         name: user.name,
+        email: user.email,
         phone: user.phone || '',
         org_role: user.org_role
       });
@@ -265,13 +267,13 @@ function EditUserModal({ isOpen, onClose, user, onSuccess }: EditUserModalProps)
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              אימייל (לא ניתן לשינוי)
+              אימייל
             </label>
             <input
               type="email"
-              value={user.email}
-              disabled
-              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-600"
+              value={formData.email || user.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               dir="ltr"
             />
           </div>

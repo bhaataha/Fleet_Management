@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>בדיקת עדכון פרופיל</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            direction: rtl;
+        }
+        .section {
+            background: #f5f5f5;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .result {
+            background: white;
+            padding: 15px;
+            margin-top: 10px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>🧪 בדיקת עדכון פרופיל משתמש</h1>
+
+    <div class="section">
+        <h2>1️⃣ התחברות</h2>
+        <input type="email" id="loginEmail" placeholder="אימייל" value="admin@demo.com">
+        <input type="password" id="loginPassword" placeholder="סיסמה" value="admin123">
+        <button onclick="login()">התחבר</button>
+        <div id="loginResult" class="result"></div>
+    </div>
+
+    <div class="section">
+        <h2>2️⃣ עדכון פרופיל</h2>
+        <input type="text" id="newName" placeholder="שם חדש" value="Admin Test Updated">
+        <input type="tel" id="newPhone" placeholder="טלפון חדש" value="050-9999999">
+        <button onclick="updateProfile()">עדכן פרופיל</button>
+        <div id="updateResult" class="result"></div>
+    </div>
+
+    <div class="section">
+        <h2>3️⃣ בדיקת שינוי</h2>
+        <button onclick="checkProfile()">בדוק נתונים נוכחיים</button>
+        <div id="checkResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_URL = 'https://app.truckflow.site/api';
+        let token = '';
+        let userId = null;
+
+        async function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const resultDiv = document.getElementById('loginResult');
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    token = data.access_token;
+                    userId = data.user?.id;
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ התחברות הצליחה!\nמשתמש: ${data.user?.name}\nID: ${userId}\nטוקן: ${token.substring(0, 50)}...`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ שגיאה: ${data.detail}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ שגיאת רשת: ${error.message}`;
+            }
+        }
+
+        async function updateProfile() {
+            if (!token || !userId) {
+                alert('קודם צריך להתחבר!');
+                return;
+            }
+
+            const name = document.getElementById('newName').value;
+            const phone = document.getElementById('newPhone').value;
+            const resultDiv = document.getElementById('updateResult');
+            
+            try {
+                const response = await fetch(`${API_URL}/users/${userId}`, {
+                    method: 'PATCH',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ name, phone })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ עדכון הצליח!\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ שגיאה: ${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ שגיאת רשת: ${error.message}`;
+            }
+        }
+
+        async function checkProfile() {
+            if (!token) {
+                alert('קודם צריך להתחבר!');
+                return;
+            }
+
+            const resultDiv = document.getElementById('checkResult');
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/me`, {
+                    headers: { 
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ נתונים נוכחיים:\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ שגיאה: ${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ שגיאת רשת: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

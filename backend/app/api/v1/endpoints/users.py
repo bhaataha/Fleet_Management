@@ -325,7 +325,7 @@ async def delete_user(
     db: Session = Depends(get_db)
 ):
     """
-    Delete user (soft delete - sets is_active=False)
+    Delete user (hard delete - permanently removes from database)
     
     Required: Admin/Owner role
     
@@ -352,10 +352,8 @@ async def delete_user(
             detail="User not found"
         )
     
-    # Soft delete
-    user.is_active = False
-    user.updated_at = datetime.utcnow()
-    
+    # Hard delete - permanently remove from database
+    db.delete(user)
     db.commit()
     
     return None
