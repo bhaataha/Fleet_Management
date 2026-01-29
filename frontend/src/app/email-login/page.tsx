@@ -7,7 +7,7 @@ export default function EmailLoginPage() {
   const router = useRouter()
 
   useEffect(() => {
-    router.replace('/login?method=email')
+    router.replace('/login')
   }, [router])
 
   return null

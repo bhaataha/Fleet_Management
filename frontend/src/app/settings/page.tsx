@@ -92,7 +92,28 @@ export default function SettingsPage() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      if (activeTab === 'organization' || activeTab === 'email') {
+      if (activeTab === 'profile') {
+        // Get current user from localStorage
+        const userStr = localStorage.getItem('user')
+        if (!userStr) {
+          alert('לא נמצא משתמש מחובר')
+          return
+        }
+        const currentUser = JSON.parse(userStr)
+        
+        // Update user profile via API
+        const response = await api.patch(`/users/${currentUser.id}`, {
+          name: profileData.name,
+          phone: profileData.phone,
+          // email: profileData.email // Email updates require admin permission
+        })
+        
+        // Update localStorage with new data
+        const updatedUser = { ...currentUser, ...response.data }
+        localStorage.setItem('user', JSON.stringify(updatedUser))
+        
+        alert('פרטי המשתמש נשמרו בהצלחה')
+      } else if (activeTab === 'organization' || activeTab === 'email') {
         await organizationApi.updateProfile({
           display_name: orgData.display_name,
           contact_name: orgData.contact_name,
@@ -121,6 +142,9 @@ export default function SettingsPage() {
         await new Promise(resolve => setTimeout(resolve, 600))
         alert('השינויים נשמרו בהצלחה')
       }
+    } catch (error) {
+      console.error('Failed to save:', error)
+      alert('שגיאה בשמירה. נסה שוב.')
     } finally {
       setSaving(false)
     }
@@ -165,7 +189,25 @@ export default function SettingsPage() {
       }
     }
 
+    const loadUserProfile = async () => {
+      try {
+        // Get current user from localStorage
+        const userStr = localStorage.getItem('user')
+        if (userStr) {
+          const currentUser = JSON.parse(userStr)
+          setProfileData({
+            name: currentUser.name || '',
+            email: currentUser.email || '',
+            phone: currentUser.phone || ''
+          })
+        }
+      } catch (error) {
+        console.error('Failed to load user profile:', error)
+      }
+    }
+
     loadOrg()
+    loadUserProfile()
   }, [])
 
   const handleLogoUpload = async (file?: File) => {

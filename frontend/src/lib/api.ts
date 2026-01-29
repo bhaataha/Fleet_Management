@@ -74,6 +74,9 @@ export const authApi = {
   me: () => 
     api.get<User>('/auth/me'),
   
+  updateProfile: (userId: number, data: Partial<{ name: string; phone: string; email: string }>) =>
+    api.patch<User>(`/users/${userId}`, data),
+  
   logout: () => 
     api.post('/auth/logout'),
 }

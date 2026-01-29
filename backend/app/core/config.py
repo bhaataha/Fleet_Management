@@ -34,6 +34,9 @@ class Settings(BaseSettings):
         "http://truckflow.site:3010",
         "http://64.176.173.36:3010",
         "http://truckflow.site",
+        "https://truckflow.site",
+        "http://app.truckflow.site",
+        "https://app.truckflow.site",
         "http://64.176.173.36",
         # Allow Flutter Web dev server (dynamic ports)
         "http://localhost",

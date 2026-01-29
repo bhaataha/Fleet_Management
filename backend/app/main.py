@@ -31,22 +31,24 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Add tenant middleware (auth context for API routes)
-app.add_middleware(BaseHTTPMiddleware, dispatch=tenant_middleware)
-
-# Add CORS for static files
-app.add_middleware(CORSStaticFilesMiddleware)
-
-# CORS middleware for API (outermost, so it wraps auth errors)
+# CORS middleware MUST be added LAST (so it executes FIRST in middleware chain)
+# This ensures OPTIONS preflight requests are handled before auth checks
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development (includes Flutter Web dynamic ports)
+    allow_origins=settings.BACKEND_CORS_ORIGINS + ["*"],  # Allow configured origins plus any for dev flexibility
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
     max_age=3600,  # Cache preflight for 1 hour
 )
+
+# Add CORS for static files
+app.add_middleware(CORSStaticFilesMiddleware)
+
+# Add tenant middleware (auth context for API routes)
+# This runs AFTER CORS, so OPTIONS requests are already handled
+app.add_middleware(BaseHTTPMiddleware, dispatch=tenant_middleware)
 
 # Mount static files for uploads (MVP: local storage)
 uploads_dir = Path("/app/uploads")
