@@ -381,7 +381,7 @@ async def delete_user(
     db: Session = Depends(get_db)
 ):
     """
-    Delete a user (soft delete - deactivate)
+    Delete a user (hard delete - permanently removes from database)
     """
     org_id = get_org_id(request)
     
@@ -403,11 +403,9 @@ async def delete_user(
             detail="Cannot delete your own account"
         )
     
-    # Soft delete - deactivate user
-    user.is_active = False
+    # Hard delete - permanently remove from database
+    db.delete(user)
     db.commit()
-    
-    return {"message": "User deactivated successfully"}
 
 @router.post("/{user_id}/permissions")
 async def update_user_permissions(
