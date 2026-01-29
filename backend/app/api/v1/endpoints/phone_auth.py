@@ -6,12 +6,16 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.middleware.tenant import get_current_org_id, get_current_user_id, is_super_admin
 from app.services.permission_service import PermissionService
+from app.services.firebase_service import firebase_service
 from app.models.permissions import Permission, UserPermission
 from app.models import User, Organization, Driver
 from app.core.security import create_access_token_for_user
 from app.core.config import settings
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/phone-auth", tags=["Phone Authentication"])
 permissions_router = APIRouter(prefix="/permissions", tags=["Permissions"])
@@ -30,6 +34,12 @@ class OTPRequest(BaseModel):
     otp_code: str = Field(..., description="קוד אימות", example="123456")
     org_slug: Optional[str] = Field(None, description="שם הארגון")
     password: Optional[str] = Field(None, description="סיסמה (במקום OTP - לפיתוח)")
+
+
+class FirebaseTokenRequest(BaseModel):
+    """בקשה לאימות Firebase ID Token"""
+    firebase_token: str = Field(..., description="Firebase ID Token from client")
+    org_slug: Optional[str] = Field(None, description="שם הארגון (אופציונלי)")
 
 
 class PhoneAuthResponse(BaseModel):
@@ -271,6 +281,139 @@ async def resend_otp(
     שליחה מחדש של קוד OTP
     """
     return await send_otp(request_data, request, db)
+
+
+@router.post("/verify-firebase-token", response_model=LoginResponse)
+async def verify_firebase_token_and_login(
+    request_data: FirebaseTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    אימות Firebase ID Token והתחברות למערכת
+    
+    Flow:
+    1. Client מקבל Firebase ID Token אחרי אימות OTP
+    2. Server מאמת את ה-Token עם Firebase Admin SDK
+    3. Server מחפש/יוצר משתמש לפי מספר טלפון
+    4. Server מחזיר JWT token למערכת
+    
+    Args:
+        request_data: FirebaseTokenRequest עם firebase_token + org_slug
+        
+    Returns:
+        LoginResponse עם access token והרשאות
+    """
+    try:
+        # Verify Firebase token
+        logger.info("🔐 Verifying Firebase ID token...")
+        verification_result = await firebase_service.verify_id_token(request_data.firebase_token)
+        
+        if not verification_result.get("verified"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid Firebase token"
+            )
+        
+        phone_number = verification_result.get("phone")
+        firebase_uid = verification_result.get("uid")
+        
+        if not phone_number:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Phone number not found in Firebase token"
+            )
+        
+        logger.info(f"✅ Firebase token verified for phone: {phone_number}")
+        
+        # Normalize phone to E.164 format
+        normalized_phone = firebase_service.normalize_phone_to_e164(phone_number)
+        
+        # Find organization
+        org = None
+        if request_data.org_slug:
+            org = db.query(Organization).filter(Organization.slug == request_data.org_slug).first()
+        else:
+            # If only one active org, use it
+            active_orgs = db.query(Organization).filter(Organization.status == "active")
+            if active_orgs.count() == 1:
+                org = active_orgs.first()
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Organization slug is required"
+                )
+        
+        if not org:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Organization not found"
+            )
+        
+        logger.info(f"🏢 Organization found: {org.name}")
+        
+        # Find user by phone in this organization
+        user = PermissionService.find_user_by_phone(
+            db=db,
+            phone=normalized_phone,
+            org_id=org.id
+        )
+        
+        if not user:
+            # User not found - this should not happen in production
+            # Users must be pre-registered by admin
+            logger.error(f"❌ User not found with phone: {normalized_phone} in org: {org.name}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not registered in this organization. Please contact your administrator."
+            )
+        
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is disabled"
+            )
+        
+        logger.info(f"👤 User found: {user.name} (ID: {user.id})")
+        
+        # Get user permissions
+        permissions = PermissionService.get_user_permissions(user)
+        
+        # Check if user is a driver
+        driver = db.query(Driver).filter(Driver.user_id == user.id).first()
+        driver_id = driver.id if driver else None
+        
+        # Create JWT access token
+        access_token = create_access_token_for_user(user)
+        
+        logger.info(f"✅ Login successful for {user.name}")
+        
+        return LoginResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user={
+                "id": user.id,
+                "name": user.name,
+                "phone": user.phone,
+                "email": user.email,
+                "org_id": user.org_id,
+                "org_name": org.name,
+                "org_slug": org.slug,
+                "org_role": user.org_role,
+                "is_super_admin": user.is_super_admin,
+                "driver_id": driver_id,
+                "firebase_uid": firebase_uid  # Link to Firebase user
+            },
+            permissions=permissions
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error verifying Firebase token: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error verifying Firebase token: {str(e)}"
+        )
 
 
 @router.post("/login-with-password", response_model=LoginResponse)
