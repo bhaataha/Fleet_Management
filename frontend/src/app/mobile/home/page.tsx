@@ -28,26 +28,55 @@ export default function MobileHomePage() {
     const bootstrap = async () => {
       const token = localStorage.getItem('access_token')
       if (!token) {
+        console.log('[Home] No token, redirecting to login')
         router.replace('/login')
         return
       }
 
       try {
         // Always fetch fresh user data from server
+        console.log('[Home] Fetching fresh user from /auth/me...')
         const me = await authApi.me()
         const user = me.data
         
-        // Clear old cache and save fresh data
-        localStorage.removeItem('user')
+        console.log('[Home] Fresh user from /auth/me:', {
+          id: user.id,
+          name: user.name,
+          driver_id: user.driver_id,
+          org_role: user.org_role,
+          roles: user.roles
+        })
+        
+        // Update local storage with fresh data
         localStorage.setItem('user', JSON.stringify(user))
         
-        console.log('[Home] Fresh user from /auth/me:', user)
-        
         setUserName(user.name || 'נהג')
-        setDriverId(user.driver_id || null)
         
-        if (!user.driver_id) {
-          console.warn('[Home] User has no driver_id')
+        // If user has driver_id, use it immediately
+        if (user.driver_id) {
+          console.log('[Home] User has driver_id:', user.driver_id)
+          setDriverId(user.driver_id)
+        } else {
+          // Try to find driver by user_id
+          console.log('[Home] No driver_id, searching via /drivers API...')
+          try {
+            const driversRes = await driversApi.list({ limit: 500 })
+            const match = (driversRes.data || []).find((d: any) => d.user_id === user.id)
+            
+            if (match?.id) {
+              console.log('[Home] Found driver via search:', match.id)
+              setDriverId(match.id)
+              // Update user object with driver_id
+              const updatedUser = { ...user, driver_id: match.id }
+              localStorage.setItem('user', JSON.stringify(updatedUser))
+            } else {
+              console.error('[Home] ❌ No driver profile found for user_id:', user.id)
+              setDriverId(null)
+            }
+          } catch (driverError) {
+            console.error('[Home] Failed to search for driver:', driverError)
+            setDriverId(null)
+          }
         }
       } catch (error) {
         console.error('[Home] Failed to refresh user from /auth/me:', error)
@@ -60,53 +89,55 @@ export default function MobileHomePage() {
 
   useEffect(() => {
     const load = async () => {
+      if (driverId === null) {
+        console.log('[Home] No driver_id yet, skipping jobs load')
+        setLoading(false)
+        return
+      }
+      
+      console.log('[Home] Loading jobs for driver_id:', driverId)
+      
       try {
         const today = getLocalDateString()
+        console.log('[Home] Today date:', today)
+        
+        // Load jobs for this driver filtered by date
         const res = await jobsApi.list({
           from_date: today,
           to_date: today,
-          driver_id: driverId || undefined,
+          driver_id: driverId,
           limit: 500
         })
+        
         const result = res.data || []
-        if (result.length === 0 && driverId) {
+        console.log('[Home] Loaded jobs:', result.length, result)
+        
+        if (result.length === 0) {
+          console.log('[Home] No jobs for today, checking all jobs for this driver...')
+          // Fallback: load all jobs and filter locally
           const fallback = await jobsApi.list({ driver_id: driverId, limit: 500 })
-          const filtered = (fallback.data || []).filter((job) => isSameLocalDate(job.scheduled_date, today))
+          const allJobs = fallback.data || []
+          console.log('[Home] Total jobs for driver:', allJobs.length)
+          
+          const filtered = allJobs.filter((job: any) => isSameLocalDate(job.scheduled_date, today))
+          console.log('[Home] Filtered jobs for today:', filtered.length)
           setJobs(filtered)
         } else {
           setJobs(result)
         }
       } catch (error) {
-        console.error('Failed to load driver jobs:', error)
+        console.error('[Home] Failed to load driver jobs:', error)
+        setJobs([])
       } finally {
         setLoading(false)
       }
     }
 
-    if (driverId !== null) {
-      load()
-    }
+    load()
   }, [driverId])
 
-  useEffect(() => {
-    const resolveDriver = async () => {
-      if (driverId !== null) return
-      try {
-        const user = JSON.parse(localStorage.getItem('user') || '{}')
-        if (!user?.id) return
-        const driversRes = await driversApi.list({ limit: 500 })
-        const match = (driversRes.data || []).find((d) => d.user_id === user.id)
-        if (match?.id) {
-          setDriverId(match.id)
-          localStorage.setItem('user', JSON.stringify({ ...user, driver_id: match.id }))
-        }
-      } catch (error) {
-        console.error('Failed to resolve driver id:', error)
-      }
-    }
-
-    resolveDriver()
-  }, [driverId])
+  // Remove the old useEffect that tried to resolve driver - it's now handled in bootstrap
+  // useEffect(() => { ... }, [driverId])
 
   const isIOS = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent)
 
