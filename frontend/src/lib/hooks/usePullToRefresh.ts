@@ -24,8 +24,12 @@ export function usePullToRefresh({
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     // Only start if we're at the top of the page
-    if (window.scrollY > 0) return
+    if (window.scrollY > 0) {
+      console.log('[PullToRefresh] Ignoring touch - not at top of page, scrollY:', window.scrollY)
+      return
+    }
     
+    console.log('[PullToRefresh] Touch start detected at:', e.touches[0].clientY)
     startY.current = e.touches[0].clientY
     isDragging.current = true
     setIsPulling(false)
@@ -45,15 +49,21 @@ export function usePullToRefresh({
       const distance = Math.min(deltaY / resistance, threshold * 1.5)
       setPullDistance(distance)
       setIsPulling(distance > 10)
+      
+      if (distance > 20) { // Only log when there's significant movement
+        console.log('[PullToRefresh] Pulling distance:', distance.toFixed(2), 'threshold:', threshold)
+      }
     }
   }, [threshold, resistance])
 
   const handleTouchEnd = useCallback(async () => {
     if (!isDragging.current) return
     
+    console.log('[PullToRefresh] Touch end - distance:', pullDistance, 'threshold:', threshold)
     isDragging.current = false
     
     if (pullDistance > threshold && !isRefreshing) {
+      console.log('[PullToRefresh] Triggering refresh...')
       setIsRefreshing(true)
       setIsPulling(false)
       

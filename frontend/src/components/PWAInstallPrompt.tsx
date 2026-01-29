@@ -2,12 +2,39 @@
 
 import { Download, X } from 'lucide-react'
 import { usePWA } from '@/lib/hooks/usePWA'
+import { useAuth } from '@/components/auth/AuthProvider'
+import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 export default function PWAInstallPrompt() {
   const { isInstallable, isInstalled, promptInstall, dismissPrompt } = usePWA()
+  const { user } = useAuth()
+  const pathname = usePathname()
   const [showPrompt, setShowPrompt] = useState(false)
   const [dismissed, setDismissed] = useState(false)
+
+  // Determine if this is driver context
+  const isMobilePath = pathname.startsWith('/mobile')
+  const isDriverUser = user && (user.org_role === 'driver' || user.driver_id)
+  const isDriverContext = isMobilePath || isDriverUser
+
+  // Dynamic content based on user context
+  const appName = isDriverContext ? 'TruckFlow נהג' : 'TruckFlow'
+  const appDescription = isDriverContext 
+    ? 'התקן את אפליקציית הנהג למסך הבית לגישה מהירה למשימות ועדכוני סטטוס'
+    : 'התקן את האפליקציה למסך הבית לגישה מהירה ופשוטה'
+
+  const benefits = isDriverContext ? [
+    'קבלת משימות חדשות בזמן אמת',
+    'עדכון סטטוס נסיעות במהירות',
+    'עבודה במצב offline',
+    'צילום מסמכים וחתימות',
+  ] : [
+    'פתיחה מהירה ישירות מהמסך הראשי',
+    'עבודה במצב offline',
+    'התראות בזמן אמת',
+    'גישה לכל תכונות המערכת',
+  ]
 
   useEffect(() => {
     // Check if user dismissed before
@@ -74,26 +101,20 @@ export default function PWAInstallPrompt() {
 
             {/* Content */}
             <h3 className="text-xl font-bold text-slate-900 text-center mb-2">
-              התקן את TruckFlow
+              התקן את {appName}
             </h3>
             <p className="text-slate-600 text-center mb-6">
-              התקן את האפליקציה למסך הבית לגישה מהירה ופשוטה
+              {appDescription}
             </p>
 
             {/* Benefits */}
             <ul className="space-y-3 mb-6 text-sm text-slate-600">
-              <li className="flex items-center gap-3">
-                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full flex-shrink-0" />
-                <span>פתיחה מהירה ישירות מהמסך הראשי</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full flex-shrink-0" />
-                <span>עבודה במצב offline</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <div className="w-1.5 h-1.5 bg-blue-600 rounded-full flex-shrink-0" />
-                <span>התראות בזמן אמת</span>
-              </li>
+              {benefits.map((benefit, index) => (
+                <li key={index} className="flex items-center gap-3">
+                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full flex-shrink-0" />
+                  <span>{benefit}</span>
+                </li>
+              ))}
             </ul>
 
             {/* Actions */}
@@ -128,10 +149,13 @@ export default function PWAInstallPrompt() {
             {/* Content */}
             <div className="flex-1 min-w-0">
               <h4 className="font-bold text-slate-900 mb-1">
-                התקן את TruckFlow
+                התקן את {appName}
               </h4>
               <p className="text-sm text-slate-600 mb-4">
-                התקן את האפליקציה למחשב לחוויה משופרת
+                {isDriverContext 
+                  ? 'התקן את אפליקציית הנהג למחשב לחוויה משופרת' 
+                  : 'התקן את האפליקציה למחשב לחוויה משופרת'
+                }
               </p>
 
               {/* Actions */}

@@ -7,6 +7,7 @@ import { AuthProvider } from '@/components/auth/AuthProvider'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 import PWAUpdatePrompt from '@/components/PWAUpdatePrompt'
 import OnlineStatus from '@/components/OnlineStatus'
+import DynamicManifest from '@/components/DynamicManifest'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -59,6 +60,7 @@ export default function RootLayout({
       </head>
       <body>
         <AuthProvider>
+          <DynamicManifest />
           {children}
           <OnlineStatus />
           <PWAInstallPrompt />
