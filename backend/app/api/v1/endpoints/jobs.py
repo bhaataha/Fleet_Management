@@ -6,7 +6,7 @@ from decimal import Decimal
 from app.core.database import get_db
 from app.models import Job, JobStatus, JobStatusEvent, BillingUnit, ShareUrl, Driver, Organization
 from app.models.alert import AlertType, AlertSeverity, AlertCategory
-from app.middleware.tenant import get_current_org_id, get_current_user_id
+from app.middleware.tenant import get_current_org_id, get_current_user_id, get_org_role
 from app.core.security import create_access_token
 from app.services.pdf_generator import DeliveryNotePDF
 from app.services.email_service import send_email_smtp
@@ -190,6 +190,13 @@ async def list_jobs(
     - If no dates provided: Returns last 50 jobs by default
     """
     org_id = get_current_org_id(request)
+    user_id = get_current_user_id(request)
+    user_role = get_org_role(request)
+    driver = None
+    if str(user_role).lower() == "driver":
+        driver = db.query(Driver).filter(Driver.user_id == user_id).first()
+        if not driver:
+            return []
     
     query = db.query(Job).options(
         joinedload(Job.status_events),
@@ -223,6 +230,9 @@ async def list_jobs(
         query = query.filter(Job.customer_id == customer_id)
     if driver_id:
         query = query.filter(Job.driver_id == driver_id)
+
+    if driver:
+        query = query.filter(Job.driver_id == driver.id)
     
     return query.offset(skip).limit(limit).all()
 
@@ -237,13 +247,23 @@ async def get_job(
     Get job by ID (filtered by org_id from JWT)
     """
     org_id = get_current_org_id(request)
+    user_id = get_current_user_id(request)
+    user_role = get_org_role(request)
+    driver = None
+    if str(user_role).lower() == "driver":
+        driver = db.query(Driver).filter(Driver.user_id == user_id).first()
     
-    job = db.query(Job).options(
+    job_query = db.query(Job).options(
         joinedload(Job.status_events)
     ).filter(
         Job.id == job_id,
         Job.org_id == org_id
-    ).first()
+    )
+
+    if driver:
+        job_query = job_query.filter(Job.driver_id == driver.id)
+
+    job = job_query.first()
     
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -406,11 +426,20 @@ async def update_job_status(
     """
     org_id = get_current_org_id(request)
     user_id = get_current_user_id(request)
+    user_role = get_org_role(request)
+    driver = None
+    if str(user_role).lower() == "driver":
+        driver = db.query(Driver).filter(Driver.user_id == user_id).first()
     
-    db_job = db.query(Job).filter(
+    db_job_query = db.query(Job).filter(
         Job.id == job_id,
         Job.org_id == org_id
-    ).first()
+    )
+
+    if driver:
+        db_job_query = db_job_query.filter(Job.driver_id == driver.id)
+
+    db_job = db_job_query.first()
     
     if not db_job:
         raise HTTPException(status_code=404, detail="Job not found")
