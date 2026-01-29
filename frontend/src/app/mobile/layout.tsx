@@ -7,6 +7,25 @@ export const metadata: Metadata = {
   description: 'אפליקציית נהג - משימות וסטטוסים בזמן אמת',
   manifest: '/manifest-driver.json',
   applicationName: 'TruckFlow Driver',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'TruckFlow Driver',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
+  },
+  themeColor: '#2563eb',
+  icons: {
+    icon: '/icon-192.svg',
+    apple: '/icon-192.svg',
+  },
 }
 
 export default function MobileLayout({ children }: { children: ReactNode }) {

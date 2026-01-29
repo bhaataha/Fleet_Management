@@ -23,13 +23,17 @@ export function usePWA(): UsePWAReturn {
   const [isOnline, setIsOnline] = useState(true)
 
   useEffect(() => {
+    console.log('[PWA] usePWA hook initializing...')
+    
     // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches) {
+      console.log('[PWA] Already installed (standalone mode detected)')
       setIsInstalled(true)
     }
 
     // Listen for beforeinstallprompt event
     const handleBeforeInstallPrompt = (e: Event) => {
+      console.log('[PWA] beforeinstallprompt event fired!', e)
       e.preventDefault()
       const promptEvent = e as BeforeInstallPromptEvent
       setDeferredPrompt(promptEvent)
@@ -81,13 +85,16 @@ export function usePWA(): UsePWAReturn {
 
     // Register service worker
     if ('serviceWorker' in navigator) {
+      console.log('[PWA] ServiceWorker supported, disablePWA:', disablePWA)
       if (disablePWA) {
+        console.log('[PWA] PWA disabled, cleaning up service workers')
         cleanupServiceWorkers()
       } else {
+        console.log('[PWA] Registering service worker...')
         navigator.serviceWorker
           .register(`/sw.js?v=${swVersion}`)
           .then((registration) => {
-            console.log('[PWA] Service Worker registered:', registration)
+            console.log('[PWA] Service Worker registered successfully:', registration)
 
             // Check for updates every hour
             setInterval(() => {

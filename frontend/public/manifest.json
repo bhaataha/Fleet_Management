@@ -67,7 +67,7 @@
       "name": "אפליקציית נהג",
       "short_name": "נהג",
       "description": "מסך נהג מהיר",
-      "url": "/driver.html",
+      "url": "/mobile/home",
       "icons": [{ "src": "/icon-192.svg", "sizes": "192x192" }]
     }
   ],
