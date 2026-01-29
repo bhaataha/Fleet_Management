@@ -64,6 +64,10 @@ async def tenant_middleware(request: Request, call_next):
     if request.url.path.startswith("/api/share/") or request.url.path.startswith("/share/"):
         return await call_next(request)
     
+    # Allow access to uploaded files (static files served by FastAPI)
+    if request.url.path.startswith("/uploads/"):
+        return await call_next(request)
+    
     if request.url.path in public_paths or request.url.path.startswith("/static"):
         return await call_next(request)
     
