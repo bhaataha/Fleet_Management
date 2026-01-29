@@ -105,7 +105,7 @@ export default function SettingsPage() {
         const response = await api.patch(`/users/${currentUser.id}`, {
           name: profileData.name,
           phone: profileData.phone,
-          // email: profileData.email // Email updates require admin permission
+          email: profileData.email  // Admins can update email
         })
         
         // Update localStorage with new data
