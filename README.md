@@ -404,8 +404,21 @@ Built with ❤️ by TruckFlow Team
 ---
 
 **Version**: 1.0.0  
-**Last Updated**: 27 ינואר 2026  
+**Last Updated**: 29 ינואר 2026  
 **Status**: ✅ Production Ready
+
+---
+
+## 🔧 Troubleshooting
+
+### בעיות נפוצות ופתרונות
+
+| בעיה | מדריך |
+|------|-------|
+| נהג לא מועבר לאפליקציית נהג | [📖 DRIVER_LOGIN_REDIRECT_FIX.md](docs/troubleshooting/DRIVER_LOGIN_REDIRECT_FIX.md) |
+| בדיקת התחברות נהגים | [🧪 TESTING_DRIVER_LOGIN.md](docs/troubleshooting/TESTING_DRIVER_LOGIN.md) |
+
+**תיעוד מלא**: [docs/troubleshooting/](docs/troubleshooting/)
 
 ---
 
