@@ -62,3 +62,7 @@ fleet-setup.log
 # Uploads
 uploads/
 temp/
+
+# Firebase (SENSITIVE - DO NOT COMMIT!)
+firebase-service-account.json
+*firebase*adminsdk*.json
