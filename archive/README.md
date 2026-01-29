@@ -1,24 +1,55 @@
 # 📁 ארכיון - קבצים ישנים
 
-**תאריך יצירה:** 27/01/2026
+**תאריך יצירה:** 27/01/2026  
+**עדכון אחרון:** 29/01/2026 - ארגון מחדש ועדכון מבנה
 
 תיקייה זו מכילה קבצים ישנים שהועברו לארכיון במסגרת ארגון הפרויקט.
 
 ---
 
-## 📂 מבנה הארכיון
+## 📂 מבנה הארכיון המעודכן
 
 ```
 archive/
-├── old-docs/              ← קבצי תיעוד ישנים (MD)
-├── old-tests/             ← קבצי בדיקה ישנים (HTML, PS1)
-├── old-deployment/        ← קבצי deployment ישנים
-└── Fleet_Management.zip   ← גיבוי ZIP ישן
+├── old-docs/                      ← קבצי תיעוד ישנים
+│   ├── guides/                   ← מדריכים ישנים שהועברו מהשורש
+│   ├── README_OLD.md            ← README ישן (הוחלף ב-README_NEW)
+│   └── DEPLOYMENT_*.md          ← דוחות deployment היסטוריים
+├── old-tests/                     ← קבצי בדיקה ישנים
+│   └── root-tests/               ← בדיקות שהיו בשורש (test_*.py, test_*.html)
+├── old-deployment/                ← קבצי deployment ישנים
+├── old-sql-scripts/               ← סקריפטי SQL ומיגרציה ישנים
+│   ├── fix_uuid_to_int.py
+│   ├── demo_seed.py
+│   └── reset_alembic.sql
+└── Fleet_Management.zip           ← גיבוי ZIP ישן
 ```
 
 ---
 
 ## 📄 קבצי תיעוד ישנים (old-docs/)
+
+### מדריכים שהועברו מהשורש (guides/)
+| קובץ | תיאור |
+|------|-------|
+| `EMAIL_LOGIN_GUIDE.md` | מדריך התחברות באימייל |
+| `PHONE_AUTH_DEV_MODE.md` | מצב פיתוח לאימות טלפוני |
+| `PHONE_LOGIN_GUIDE.md` | מדריך התחברות בטלפון |
+| `SUB_NAVIGATION_FEATURE.md` | תיעוד ניווט משני |
+| `VEHICLE_TYPES_GUIDE.md` | מדריך סוגי רכבים |
+| `VEHICLE_TYPES_SUMMARY.md` | סיכום סוגי רכבים |
+| `UNIFIED_SYSTEM_PROPOSAL.md` | הצעה למערכת מאוחדת |
+| `SYSTEM_ANALYSIS_REPORT.md` | דוח ניתוח מערכת |
+
+### קבצי מצב deployment
+| קובץ | תיאור |
+|------|-------|
+| `DEPLOYMENT_STATUS.md` | סטטוס deployment |
+| `DEPLOYMENT_SUCCESS.md` | דוח הצלחת deployment |
+| `DEPLOYMENT_SUMMARY.md` | סיכום deployment |
+| `README_OLD.md` | README קודם (הוחלף ב-README_NEW) |
+
+### תיעוד ישן נוסף (ללא שינוי)
 
 | קובץ | תיאור | תאריך |
 |------|-------|-------|
@@ -35,6 +66,25 @@ archive/
 
 ## 🧪 קבצי בדיקה ישנים (old-tests/)
 
+### בדיקות שהועברו מהשורש (root-tests/)
+| קובץ | תיאור | סוג |
+|------|-------|-----|
+| `test_alerts_api.html` | בדיקת API התראות | HTML |
+| `test_cors_fix.html` | בדיקת תיקון CORS | HTML |
+| `test_full_otp_flow.py` | בדיקת זרימת OTP מלאה | Python |
+| `test_login_api.py` | בדיקת API login | Python |
+| `test_login_correct.py` | בדיקת login נכון | Python |
+| `test_login_fixed.html` | בדיקת login מתוקן | HTML |
+| `test_otp_final.py` | בדיקת OTP סופית | Python |
+| `test_otp_verify.py` | בדיקת אימות OTP | Python |
+| `test_phone_auth.html` | בדיקת אימות טלפוני | HTML |
+| `test_phone_login.html` | בדיקת login טלפוני | HTML |
+| `test_super_admin_alerts.py` | בדיקת התראות super admin | Python |
+| `test_vehicle_types.html` | בדיקת סוגי רכבים | HTML |
+| `login_test.json` | נתוני בדיקה ל-login | JSON |
+
+### בדיקות ישנות נוספות (ללא שינוי)
+
 | קובץ | תיאור | סוג |
 |------|-------|-----|
 | `test_api_connection.html` | בדיקת חיבור API | HTML |
@@ -44,7 +94,21 @@ archive/
 
 ---
 
-## 🚀 קבצי Deployment ישנים (old-deployment/)
+## �️ סקריפטי SQL ומיגרציה ישנים (old-sql-scripts/)
+
+| קובץ | תיאור |
+|------|-------|
+| `fix_uuid_to_int.py` | סקריפט המרה מ-UUID ל-Integer (org_id) |
+| `demo_seed.py` | סקריפט seed נתוני דמו (מהשורש) |
+| `reset_alembic.sql` | איפוס Alembic migrations |
+
+**הערה:** סקריפטי SQL ומיגרציה פעילים נמצאים ב:
+- `/backend/alembic/versions/` - מיגרציות פעילות
+- `/backend/scripts/` - סקריפטי עזר פעילים
+
+---
+
+## �🚀 קבצי Deployment ישנים (old-deployment/)
 
 | קובץ | תיאור | הערות |
 |------|-------|-------|
@@ -90,13 +154,16 @@ archive/
 
 ---
 
-## 🗑️ קבצים שנמחקו לגמרי
+## � מיקומים פעילים חדשים
 
-| קובץ | סיבה |
-|------|------|
-| `added')` | קובץ זבל (typo) |
-| `leep 2` | קובץ זבל (typo) |
+לאחר ארגון מחדש (29/01/2026), הקבצים הפעילים נמצאים ב:
+
+- **סקריפטים** → `/scripts/` - סקריפטי deployment ועזר
+- **בדיקות** → הועברו לארכיון (לא בשימוש פעיל)
+- **תיעוד** → `/docs/` - כל התיעוד הפעיל
+- **Backend Scripts** → `/backend/scripts/` - סקריפטי Python לניהול המערכת
 
 ---
 
-**עדכון אחרון:** 27/01/2026
+**תאריך יצירה:** 27/01/2026  
+**עדכון אחרון:** 29/01/2026 - ארגון מחדש של הפרויקט

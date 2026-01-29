@@ -1,12 +1,12 @@
 import React from 'react'
 import './globals.css'
 import '../styles/pwa.css'
+import '../styles/signature.css'
 import type { Metadata, Viewport } from 'next'
 import { AuthProvider } from '@/components/auth/AuthProvider'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 import PWAUpdatePrompt from '@/components/PWAUpdatePrompt'
 import OnlineStatus from '@/components/OnlineStatus'
-import { Toaster } from 'sonner'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -60,7 +60,6 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           {children}
-          <Toaster position="top-center" dir="rtl" />
           <OnlineStatus />
           <PWAInstallPrompt />
           <PWAUpdatePrompt />
