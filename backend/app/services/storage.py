@@ -110,8 +110,8 @@ class StorageService:
                 ExpiresIn=expiration
             )
         else:
-            # Return local URL path (served by FastAPI static mount)
-            return f"/uploads/{storage_key}"
+            # Return local URL path (served by FastAPI static mount with /api prefix)
+            return f"/api/uploads/{storage_key}"
     
     def delete_file(self, storage_key: str) -> bool:
         """Delete a file from storage."""
