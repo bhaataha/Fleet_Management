@@ -4,7 +4,7 @@
 
 ```powershell
 # מהמחשב המקומי - PowerShell
-scp d:\workspace-project\Fleet_Management\firebase-service-account.json root@64.176.173.36:/opt/Fleet_Management/backend/
+scp d:\workspace-project\Fleet_Management\backend\firebase-service-account.json root@64.176.173.36:/opt/Fleet_Management/backend/
 ```
 
 ## שלב 2: SSH לשרת
