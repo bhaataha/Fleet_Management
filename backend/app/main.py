@@ -52,6 +52,8 @@ app.add_middleware(
 uploads_dir = Path("/app/uploads")
 uploads_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+# Also mount on /api/uploads for Traefik routing compatibility
+app.mount("/api/uploads", StaticFiles(directory=str(uploads_dir)), name="api_uploads")
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
