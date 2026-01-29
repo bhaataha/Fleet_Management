@@ -293,7 +293,15 @@ class PermissionService:
         db.commit()
         db.refresh(otp)
         
-        # TODO: Send SMS here (integration with SMS provider)
+        # ========================== SMS SENDING ==========================
+        # TODO: Implement free SMS provider integration
+        # Options:
+        # 1. Email-to-SMS gateway (free via SMTP)
+        # 2. Twilio free tier (limited)
+        # 3. Other free SMS API services
+        # 
+        # For now: Print to console for development/testing
+        # ================================================================
         logger.info(f"Generated OTP for phone {normalized_phone} (original: {phone})")
         if settings.ENVIRONMENT != "production":
             print(f"🔐 OTP for {phone}: {otp_code} (expires in 5 minutes)")

@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 class DriverBase(BaseModel):
     name: str
     phone: str  # Required - drivers must have phone for login
+    email: Optional[str] = None  # Optional - drivers can login with phone only
     license_type: Optional[str] = None
     license_expiry: Optional[datetime] = None
     is_active: Optional[bool] = True
@@ -29,6 +30,7 @@ class DriverCreate(DriverBase):
 class DriverUpdate(BaseModel):
     name: Optional[str] = None
     phone: Optional[str] = None
+    email: Optional[str] = None  # Optional - can update email
     password: Optional[str] = None  # Optional - only if changing
     license_type: Optional[str] = None
     license_expiry: Optional[datetime] = None
@@ -102,7 +104,7 @@ async def create_driver(
     user = User(
         name=driver.name,
         phone=driver.phone or "",
-        email=None,  # Drivers login with phone, not email
+        email=driver.email if driver.email else None,  # Optional email for drivers
         password_hash=hashed_password,
         org_id=org_id,
         org_role="driver",
@@ -142,6 +144,19 @@ async def update_driver(
         for field, value in update_data.items():
             setattr(db_driver, field, value)
         
+        # Sync name, phone, email to User table if user exists
+        if db_driver.user_id:
+            user = db.query(User).filter(User.id == db_driver.user_id).first()
+            if user:
+                if driver.name:
+                    user.name = driver.name
+                if driver.phone:
+                    user.phone = driver.phone
+                if driver.email is not None:  # Allow setting to empty string
+                    user.email = driver.email if driver.email else None
+                if driver.is_active is not None:
+                    user.is_active = driver.is_active
+        
         # If password provided, update user password
         if driver.password:
             # Bcrypt has a 72 byte limit - truncate by bytes, not characters
@@ -160,7 +175,7 @@ async def update_driver(
                 user = User(
                     name=db_driver.name,
                     phone=db_driver.phone or "",
-                    email=None,
+                    email=driver.email if driver.email else None,
                     password_hash=hashed_password,
                     org_id=org_id,
                     org_role="driver",

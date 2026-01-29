@@ -152,6 +152,7 @@ export interface Driver {
   user_id: number
   name: string
   phone?: string
+  email?: string
   license_type?: string
   license_expiry?: string
   is_active: boolean

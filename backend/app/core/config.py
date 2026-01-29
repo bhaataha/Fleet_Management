@@ -48,12 +48,6 @@ class Settings(BaseSettings):
     VAPID_PRIVATE_KEY: str = ""
     VAPID_SUBJECT: str = "mailto:support@truckflow.site"
     
-    # Firebase Authentication
-    FIREBASE_SERVICE_ACCOUNT_PATH: str = ""  # Path to firebase-service-account.json
-    FIREBASE_API_KEY: str = ""
-    FIREBASE_AUTH_DOMAIN: str = ""
-    FIREBASE_PROJECT_ID: str = ""
-    
     # File Upload
     MAX_FILE_SIZE_MB: int = 10
     ALLOWED_FILE_TYPES: str = "image/jpeg,image/png,image/gif,application/pdf"
