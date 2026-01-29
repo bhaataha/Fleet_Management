@@ -20,6 +20,7 @@ export default function EditDriverPage() {
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
+    email: '',
     password: '',
     license_type: 'C',
     is_active: true
@@ -36,6 +37,7 @@ export default function EditDriverPage() {
       setFormData({
         name: driver.name || '',
         phone: driver.phone || '',
+        email: driver.email || '',
         password: '', // Don't populate existing password for security
         license_type: driver.license_type || 'C',
         is_active: driver.is_active !== false
@@ -57,6 +59,7 @@ export default function EditDriverPage() {
       const updateData: any = {
         name: formData.name,
         phone: formData.phone,
+        email: formData.email,
         license_type: formData.license_type,
         is_active: formData.is_active
       }
@@ -154,6 +157,23 @@ export default function EditDriverPage() {
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="050-1234567"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              אימייל (אופציונלי)
+            </label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="driver@example.com"
+              dir="ltr"
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              אופציונלי - נהגים יכולים להתחבר עם טלפון בלבד
+            </p>
           </div>
 
           <div>

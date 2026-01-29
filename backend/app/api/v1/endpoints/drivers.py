@@ -203,6 +203,10 @@ async def delete_driver(
     request: Request,
     db: Session = Depends(get_db)
 ):
+    """
+    Delete driver completely (hard delete)
+    Also deletes associated User account
+    """
     org_id = get_current_org_id(request)
     driver = db.query(Driver).filter(
         Driver.id == driver_id,
@@ -211,6 +215,20 @@ async def delete_driver(
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
     
+    # Get user_id before deleting driver
+    user_id = driver.user_id
+    
+    # Delete driver first (due to foreign key)
     db.delete(driver)
+    
+    # Delete associated user if exists and is only a driver
+    if user_id:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user and user.org_role == "driver":
+            # User is only a driver, safe to delete
+            db.delete(user)
+            logger.info(f"Deleted user {user_id} associated with driver {driver_id}")
+    
     db.commit()
+    logger.info(f"Permanently deleted driver {driver_id}")
     return None
