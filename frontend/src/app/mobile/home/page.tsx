@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Truck, MapPin, Clock, AlertCircle, ChevronLeft, Download } from 'lucide-react'
+import { Truck, MapPin, Clock, AlertCircle, ChevronLeft, Download, RefreshCw } from 'lucide-react'
 import { authApi, driversApi, jobsApi } from '@/lib/api'
 import { jobStatusLabels, jobStatusColors, billingUnitLabels, formatDate } from '@/lib/utils'
 import { usePWA } from '@/lib/hooks/usePWA'
+import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh'
 import type { Job } from '@/types'
 
 type MobileJob = Job & {
@@ -23,6 +24,7 @@ export default function MobileHomePage() {
   const [loading, setLoading] = useState(true)
   const [userName, setUserName] = useState('נהג')
   const [driverId, setDriverId] = useState<number | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -136,6 +138,55 @@ export default function MobileHomePage() {
     load()
   }, [driverId])
 
+  // Refresh function for pull-to-refresh
+  const handleRefresh = useCallback(async () => {
+    if (driverId === null || refreshing) return
+    
+    console.log('[Home] Pull-to-refresh triggered')
+    setRefreshing(true)
+    
+    try {
+      const today = getLocalDateString()
+      console.log('[Home] Refreshing jobs for date:', today)
+      
+      // Load fresh jobs
+      const res = await jobsApi.list({
+        from_date: today,
+        to_date: today,
+        driver_id: driverId,
+        limit: 500
+      })
+      
+      const result = res.data || []
+      console.log('[Home] Refreshed jobs:', result.length)
+      
+      if (result.length === 0) {
+        // Fallback: load all jobs and filter locally
+        const fallback = await jobsApi.list({ driver_id: driverId, limit: 500 })
+        const allJobs = fallback.data || []
+        const filtered = allJobs.filter((job: any) => isSameLocalDate(job.scheduled_date, today))
+        setJobs(filtered)
+      } else {
+        setJobs(result)
+      }
+      
+      console.log('[Home] ✅ Refresh completed successfully')
+    } catch (error) {
+      console.error('[Home] ❌ Refresh failed:', error)
+    } finally {
+      setRefreshing(false)
+    }
+  }, [driverId, refreshing])
+
+  // Pull-to-refresh hook
+  const {
+    containerRef,
+    isRefreshing: isPullRefreshing,
+    shouldShowIndicator,
+    refreshIndicatorStyle,
+    containerStyle
+  } = usePullToRefresh({ onRefresh: handleRefresh })
+
   // Remove the old useEffect that tried to resolve driver - it's now handled in bootstrap
   // useEffect(() => { ... }, [driverId])
 
@@ -156,7 +207,23 @@ export default function MobileHomePage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div ref={containerRef} className="relative">
+      {/* Pull-to-refresh indicator */}
+      {shouldShowIndicator && (
+        <div 
+          className="absolute top-0 left-0 right-0 flex justify-center items-center h-16 z-10"
+          style={refreshIndicatorStyle}
+        >
+          <div className="bg-white rounded-full p-3 shadow-lg border">
+            <RefreshCw 
+              className={`w-5 h-5 text-blue-600 ${(isPullRefreshing || refreshing) ? 'animate-spin' : ''}`} 
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Main content */}
+      <div className="space-y-4" style={containerStyle}>
       {/* Welcome Card */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl p-6 text-white shadow-lg">
         <h2 className="text-2xl font-bold mb-2">שלום, {userName}! 👋</h2>
@@ -297,6 +364,7 @@ export default function MobileHomePage() {
       </div>
     </div>
   )
+}
 }
 
 function getLocalDateString(date = new Date()) {

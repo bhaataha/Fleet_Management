@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { MapPin, Clock, Navigation, Loader2, RefreshCw } from 'lucide-react'
 import { authApi, driversApi, jobsApi } from '@/lib/api'
 import { jobStatusLabels, jobStatusColors, billingUnitLabels, formatDate } from '@/lib/utils'
+import { usePullToRefresh } from '@/lib/hooks/usePullToRefresh'
 import type { Job, JobStatus } from '@/types'
 
 type MobileJob = Job & {
@@ -81,6 +82,7 @@ export default function MobileJobsPage() {
   const [range, setRange] = useState<'today' | 'tomorrow' | 'week' | 'all'>('today')
   const [searchTerm, setSearchTerm] = useState('')
   const [syncing, setSyncing] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<string | null>(null)
 
@@ -152,6 +154,35 @@ export default function MobileJobsPage() {
       setLoading(false)
     }
   }
+
+  const handleRefresh = useCallback(async () => {
+    if (driverId === null || refreshing) return
+    
+    setRefreshing(true)
+    try {
+      // First flush queue to sync any pending status updates
+      if (navigator.onLine) {
+        await flushQueue()
+      }
+      // Then reload all jobs
+      await loadJobs()
+    } catch (error) {
+      console.error('Failed to refresh jobs:', error)
+    } finally {
+      setRefreshing(false)
+    }
+  }, [driverId, refreshing, loadJobs, flushQueue])
+
+  const {
+    containerRef,
+    isRefreshing,
+    refreshIndicatorStyle,
+    containerStyle,
+  } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    threshold: 80,
+    resistance: 2.5
+  })
 
   const flushQueue = async () => {
     if (!navigator.onLine) return
@@ -266,7 +297,15 @@ export default function MobileJobsPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div ref={containerRef} style={containerStyle} className="space-y-4">
+      {/* Pull-to-refresh indicator */}
+      {isRefreshing && (
+        <div style={refreshIndicatorStyle} className="flex items-center justify-center py-4">
+          <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
+          <span className="ml-2 text-sm text-blue-600">מרענן...</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">הנסיעות שלי</h1>
         <button
@@ -276,7 +315,7 @@ export default function MobileJobsPage() {
           }}
           className="p-2 rounded-lg border border-gray-200 bg-white text-gray-600"
         >
-          {syncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+          {syncing || refreshing ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
         </button>
       </div>
 
