@@ -32,20 +32,41 @@ export default function LoginPage() {
   useEffect(() => {
     setMounted(true)
     
-    // If already authenticated, redirect to dashboard
-    if (isAuthenticated) {
-      router.push(getPostLoginRoute(user))
+    // If already authenticated, redirect to correct dashboard
+    if (isAuthenticated && user) {
+      const route = getPostLoginRoute(user)
+      console.log('🔄 Already authenticated, redirecting to:', route, { user })
+      router.push(route)
     }
   }, [isAuthenticated, router, user])
 
   const getPostLoginRoute = (user: any) => {
     if (!user) return '/dashboard'
+    
+    // Super Admin -> Super Admin panel
     if (user.is_super_admin) return '/super-admin'
-    const isDriverRole = user.org_role === 'driver' || user.org_role === 'DRIVER'
-    const hasDriverRole = Array.isArray(user.roles) && user.roles.includes('DRIVER')
-    if (isDriverRole || hasDriverRole || user.driver_id) {
+    
+    // Driver Detection - Check multiple conditions:
+    // 1. org_role is "driver" or "DRIVER"
+    // 2. roles array includes "DRIVER"
+    // 3. driver_id exists (most reliable - means user has driver profile)
+    const isDriverRole = user.org_role?.toLowerCase() === 'driver'
+    const hasDriverRole = Array.isArray(user.roles) && user.roles.some((role: string) => role.toUpperCase() === 'DRIVER')
+    const hasDriverProfile = user.driver_id !== null && user.driver_id !== undefined
+    
+    // If ANY driver indicator exists -> Mobile App
+    if (isDriverRole || hasDriverRole || hasDriverProfile) {
+      console.log('🚚 Driver detected, redirecting to mobile app:', {
+        isDriverRole,
+        hasDriverRole,
+        hasDriverProfile,
+        driver_id: user.driver_id,
+        org_role: user.org_role
+      })
       return '/mobile/home'
     }
+    
+    // Default -> Admin Dashboard
     return '/dashboard'
   }
 
@@ -87,8 +108,17 @@ export default function LoginPage() {
           throw new Error('Invalid response from server')
         }
         
+        console.log('✅ Password login successful:', {
+          name: user.name,
+          org_role: user.org_role,
+          driver_id: user.driver_id,
+          roles: user.roles
+        })
+        
         setAuth(user, access_token)
-        router.push(getPostLoginRoute(user))
+        const route = getPostLoginRoute(user)
+        console.log('🚀 Redirecting to:', route)
+        router.push(route)
       } else {
         // OTP mode
         await phoneAuthApi.sendOTP({ phone, org_slug: orgSlug })
@@ -136,8 +166,17 @@ export default function LoginPage() {
         throw new Error('Invalid response from server')
       }
       
+      console.log('✅ OTP verification successful:', {
+        name: user.name,
+        org_role: user.org_role,
+        driver_id: user.driver_id,
+        roles: user.roles
+      })
+      
       setAuth(user, access_token)
-      router.push(getPostLoginRoute(user))
+      const route = getPostLoginRoute(user)
+      console.log('🚀 Redirecting to:', route)
+      router.push(route)
     } catch (err: any) {
       console.error('OTP verification error:', err.response?.status, err.response?.data)
       const detail = err.response?.data?.detail
