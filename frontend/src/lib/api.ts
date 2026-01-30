@@ -81,21 +81,6 @@ export const authApi = {
     api.post('/auth/logout'),
 }
 
-// Phone Auth API
-export const phoneAuthApi = {
-  sendOTP: (data: { phone: string; org_slug?: string }) =>
-    api.post<import('@/types').PhoneAuthResponse>('/phone-auth/send-otp', data),
-    
-  verifyOTP: (data: { phone: string; otp_code: string; org_slug?: string }) =>
-    api.post<import('@/types').PhoneAuthResponse>('/phone-auth/verify-otp', data),
-    
-  resendOTP: (data: { phone: string; org_slug?: string }) =>
-    api.post<import('@/types').PhoneAuthResponse>('/phone-auth/resend-otp', data),
-    
-  loginWithPassword: (data: { phone: string; password: string; org_slug?: string }) =>
-    api.post<LoginResponse>('/phone-auth/login-with-password', data),
-}
-
 // Customers API
 export const customersApi = {
   getAll: () => api.get<Customer[]>('/customers'),

@@ -17,7 +17,6 @@ from app.api.v1.endpoints import (
     expenses,
     vehicle_types,
     alerts,
-    phone_auth,
     admin_users,
     organization,
     reports,
@@ -44,8 +43,6 @@ api_router.include_router(users.router, tags=["users"])
 api_router.include_router(expenses.router, tags=["expenses"])
 api_router.include_router(vehicle_types.router, tags=["fleet"])
 api_router.include_router(alerts.router, tags=["alerts"])
-api_router.include_router(phone_auth.router, tags=["phone-auth"])
-api_router.include_router(phone_auth.permissions_router, tags=["permissions"])
 api_router.include_router(admin_users.router, tags=["admin"])
 api_router.include_router(organization.router, tags=["organization"])
 api_router.include_router(reports.router, tags=["reports"])

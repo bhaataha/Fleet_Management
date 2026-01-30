@@ -1,14 +1,11 @@
 """
-User Permissions and Phone Authentication Models
+User Permissions Models
 """
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
 import enum
-from datetime import datetime, timedelta
-import random
-import string
 
 
 class UserPermission(Base):
@@ -43,52 +40,6 @@ class UserPermission(Base):
         if self.expires_at and self.expires_at < func.now():
             return False
         return True
-
-
-class PhoneOTP(Base):
-    """Phone OTP for authentication"""
-    __tablename__ = "phone_otps"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    phone = Column(String(20), nullable=False, index=True)
-    org_id = Column(Integer, ForeignKey("organizations.id"), nullable=False)
-    otp_code = Column(String(6), nullable=False)
-    attempts = Column(Integer, default=0)
-    used = Column(Boolean, default=False)
-    expires_at = Column(DateTime(timezone=True), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    used_at = Column(DateTime(timezone=True), nullable=True)
-    user_agent = Column(String(500), nullable=True)
-    ip_address = Column(String(45), nullable=True)
-    
-    @classmethod
-    def generate_otp(cls) -> str:
-        """Generate 6-digit OTP"""
-        return ''.join(random.choices(string.digits, k=6))
-    
-    @property
-    def is_valid(self) -> bool:
-        """Check if OTP is still valid"""
-        from sqlalchemy import text
-        from datetime import timezone
-        
-        # Handle timezone comparison
-        now = datetime.utcnow()
-        expires = self.expires_at
-        if expires.tzinfo:
-            # Convert timezone-aware to naive UTC
-            expires = expires.replace(tzinfo=None)
-            
-        return (
-            not self.used and 
-            self.attempts < 3 and 
-            now < expires
-        )
-    
-    def use(self):
-        """Mark OTP as used"""
-        self.used = True
-        self.used_at = func.now()
 
 
 class PermissionModel(Base):

@@ -13,7 +13,7 @@ from app.models.alert import Alert, AlertType, AlertSeverity, AlertCategory, Ale
 from app.models.push_subscription import PushSubscription
 
 # Import Permission models
-from app.models.permissions import UserPermission, PhoneOTP, PermissionModel
+from app.models.permissions import UserPermission, PermissionModel
 
 
 class UserRole(str, enum.Enum):
