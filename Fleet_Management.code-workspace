@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../TruckFlowWEbSite"
+		},
+		{
+			"path": "../Flutter_truckflow"
 		}
 	],
 	"settings": {

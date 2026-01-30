@@ -292,12 +292,12 @@ async def login_with_password(
         LoginResponse עם access token והרשאות
     """
     try:
-        # Block dev password login in production
-        if settings.ENVIRONMENT == "production":
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Password login is disabled"
-            )
+        # Block dev password login in production (DISABLED for now)
+        # if settings.ENVIRONMENT == "production":
+        #     raise HTTPException(
+        #         status_code=status.HTTP_403_FORBIDDEN,
+        #         detail="Password login is disabled"
+        #     )
 
         # Validate password provided
         if not request_data.password:
@@ -306,34 +306,42 @@ async def login_with_password(
                 detail="Password is required"
             )
         
-        # Find organization (require org_slug if multiple active orgs)
+        # Find user by phone first (search in all organizations)
+        user = None
         org = None
+        
         if request_data.org_slug:
+            # If org_slug provided, search in specific organization
             org = db.query(Organization).filter(Organization.slug == request_data.org_slug).first()
-        else:
-            active_orgs = db.query(Organization).filter(Organization.status == "active")
-            if active_orgs.count() == 1:
-                org = active_orgs.first()
-            else:
+            if not org:
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Organization slug is required"
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Organization not found"
                 )
-        
-        if not org:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Organization not found"
+            user = PermissionService.find_user_by_phone(
+                db=db,
+                phone=request_data.phone,
+                org_id=org.id
             )
+        else:
+            # Auto-detect organization from phone number
+            # Find user in any active organization
+            potential_users = db.query(User).filter(
+                User.phone == request_data.phone
+            ).all()
+            
+            # Filter by active organization
+            for potential_user in potential_users:
+                potential_org = db.query(Organization).filter(
+                    Organization.id == potential_user.org_id,
+                    Organization.status == "active"
+                ).first()
+                if potential_org:
+                    user = potential_user
+                    org = potential_org
+                    break
         
-        # Find user by phone
-        user = PermissionService.find_user_by_phone(
-            db=db,
-            phone=request_data.phone,
-            org_id=org.id
-        )
-        
-        if not user:
+        if not user or not org:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found with this phone number"
@@ -384,6 +392,7 @@ async def login_with_password(
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Login with password error: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error logging in: {str(e)}"
